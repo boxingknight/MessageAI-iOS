@@ -20,8 +20,15 @@ struct messAIApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(authViewModel)
+            if authViewModel.isAuthenticated {
+                // Main app (placeholder for now)
+                ContentView()
+                    .environmentObject(authViewModel)
+            } else {
+                // Auth flow
+                AuthenticationView()
+                    .environmentObject(authViewModel)
+            }
         }
     }
 }

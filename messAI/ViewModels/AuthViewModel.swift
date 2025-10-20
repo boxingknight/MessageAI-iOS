@@ -28,9 +28,11 @@ class AuthViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(authService: AuthService = AuthService()) {
+    nonisolated init(authService: AuthService = AuthService()) {
         self.authService = authService
-        setupAuthStateListener()
+        Task { @MainActor in
+            self.setupAuthStateListener()
+        }
     }
     
     deinit {
