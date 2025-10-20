@@ -39,82 +39,155 @@ struct ContentView: View {
                 Divider()
                     .padding(.vertical)
                 
-                Button("Test Models") {
-                    testModels()
+                VStack(spacing: 12) {
+                    Text("Test Core Models")
+                        .font(.headline)
+                    
+                    Button("Run Model Tests") {
+                        testModels()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Text("Check console output (⌘K to clear, ⌘⇧Y to show)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
             }
             .navigationTitle("MessageAI")
         }
     }
     
-    // MARK: - Test Function (Temporary)
+    // MARK: - Model Testing
     
     func testModels() {
-        print("=== TESTING ALL MODELS ===\n")
+        print("\n" + String(repeating: "=", count: 60))
+        print("🧪 TESTING ALL MODELS - PR #4")
+        print(String(repeating: "=", count: 60) + "\n")
         
-        // 1. MessageStatus
-        print("1. MessageStatus")
-        print("  ✅ sending: \(MessageStatus.sending.displayText)")
-        print("  ✅ read icon: \(MessageStatus.read.iconName)")
-        print("  ✅ All cases: \(MessageStatus.allCases.count) cases")
+        // Test 1: MessageStatus
+        print("1️⃣ MessageStatus Enum")
+        print(String(repeating: "-", count: 40))
+        MessageStatus.allCases.forEach { status in
+            print("  \(status.iconName) \(status.displayText) [\(status.rawValue)]")
+        }
+        print("  ✅ All \(MessageStatus.allCases.count) cases working\n")
         
-        // 2. Message
-        print("\n2. Message")
-        let msg = Message(conversationId: "c1", senderId: "u1", text: "Test message")
-        print("  ✅ Created with ID: \(msg.id.prefix(8))...")
-        print("  ✅ Status: \(msg.status.displayText)")
+        // Test 2: Message Model
+        print("2️⃣ Message Model")
+        print(String(repeating: "-", count: 40))
+        
+        // Create a message
+        let testMessage = Message(
+            conversationId: "test-conv-123",
+            senderId: authViewModel.currentUser?.id ?? "test-user",
+            text: "Hello! This is a test message 👋",
+            senderName: authViewModel.currentUser?.displayName,
+            senderPhotoURL: authViewModel.currentUser?.photoURL
+        )
+        
+        print("  📝 Created Message:")
+        print("     ID: \(testMessage.id)")
+        print("     Text: \(testMessage.text)")
+        print("     Status: \(testMessage.status.displayText)")
+        print("     Time: \(testMessage.timeAgo)")
         
         // Test Firestore conversion
-        let msgDict = msg.toDictionary()
-        print("  ✅ Dictionary keys: \(msgDict.keys.count)")
+        let messageDict = testMessage.toDictionary()
+        print("\n  🔄 Firestore Conversion:")
+        print("     Dictionary keys: \(messageDict.keys.count)")
+        print("     Keys: \(messageDict.keys.sorted().joined(separator: ", "))")
         
-        if let recoveredMsg = Message(dictionary: msgDict) {
-            print("  ✅ Firestore round-trip: SUCCESS")
-            print("  ✅ Text matches: \(recoveredMsg.text == msg.text)")
+        if let recovered = Message(dictionary: messageDict) {
+            let matches = recovered.id == testMessage.id &&
+                         recovered.text == testMessage.text &&
+                         recovered.status == testMessage.status
+            print("     Round-trip: \(matches ? "✅ SUCCESS" : "❌ FAILED")")
         } else {
-            print("  ❌ Firestore conversion FAILED")
+            print("     Round-trip: ❌ FAILED (nil)")
         }
+        print("")
         
-        // 3. Conversation
-        print("\n3. Conversation")
-        let conv = Conversation(participant1: "u1", participant2: "u2", createdBy: "u1")
-        print("  ✅ Created 1-on-1: \(conv.id.prefix(8))...")
-        print("  ✅ Is group: \(conv.isGroup)")
-        print("  ✅ Other participant: \(conv.otherParticipant(currentUserId: "u1") ?? "none")")
+        // Test 3: Conversation Model
+        print("3️⃣ Conversation Model")
+        print(String(repeating: "-", count: 40))
         
-        // Test group
-        let group = Conversation(participants: ["u1", "u2", "u3"], groupName: "Test Group", createdBy: "u1")
-        print("  ✅ Group name: \(group.groupName ?? "none")")
-        print("  ✅ Is admin (u1): \(group.isAdmin(userId: "u1"))")
+        // Test 1-on-1 conversation
+        let oneOnOne = Conversation(
+            participant1: authViewModel.currentUser?.id ?? "user1",
+            participant2: "other-user-456",
+            createdBy: authViewModel.currentUser?.id ?? "user1"
+        )
+        
+        print("  💬 1-on-1 Conversation:")
+        print("     ID: \(oneOnOne.id)")
+        print("     Participants: \(oneOnOne.participants.count)")
+        print("     Is Group: \(oneOnOne.isGroup)")
+        print("     Other participant: \(oneOnOne.otherParticipant(currentUserId: authViewModel.currentUser?.id ?? "user1") ?? "none")")
+        
+        // Test group conversation
+        let group = Conversation(
+            participants: [
+                authViewModel.currentUser?.id ?? "user1",
+                "user2",
+                "user3",
+                "user4"
+            ],
+            groupName: "Team Chat 🚀",
+            createdBy: authViewModel.currentUser?.id ?? "user1"
+        )
+        
+        print("\n  👥 Group Conversation:")
+        print("     ID: \(group.id)")
+        print("     Name: \(group.groupName ?? "none")")
+        print("     Participants: \(group.participants.count)")
+        print("     Creator is admin: \(group.isAdmin(userId: authViewModel.currentUser?.id ?? "user1"))")
         
         // Test Firestore conversion
-        let convDict = conv.toDictionary()
-        if let recoveredConv = Conversation(dictionary: convDict) {
-            print("  ✅ Firestore round-trip: SUCCESS")
+        let convDict = group.toDictionary()
+        if let recovered = Conversation(dictionary: convDict) {
+            let matches = recovered.id == group.id &&
+                         recovered.groupName == group.groupName &&
+                         recovered.participants.count == group.participants.count
+            print("     Round-trip: \(matches ? "✅ SUCCESS" : "❌ FAILED")")
         } else {
-            print("  ❌ Firestore conversion FAILED")
+            print("     Round-trip: ❌ FAILED (nil)")
         }
+        print("")
         
-        // 4. TypingStatus
-        print("\n4. TypingStatus")
-        let typing = TypingStatus(userId: "u1", conversationId: "c1")
-        print("  ✅ Created: \(typing.id)")
-        print("  ✅ Is typing: \(typing.isTyping)")
-        print("  ✅ Is stale: \(typing.isStale)")
+        // Test 4: TypingStatus Model
+        print("4️⃣ TypingStatus Model")
+        print(String(repeating: "-", count: 40))
+        
+        let typing = TypingStatus(
+            userId: authViewModel.currentUser?.id ?? "user1",
+            conversationId: "test-conv-123"
+        )
+        
+        print("  ⌨️  Typing Status:")
+        print("     User: \(typing.id)")
+        print("     Conversation: \(typing.conversationId)")
+        print("     Is Typing: \(typing.isTyping)")
+        print("     Is Stale: \(typing.isStale) (age: \(String(format: "%.1f", Date().timeIntervalSince(typing.startedAt)))s)")
         
         // Test Firestore conversion
         let typingDict = typing.toDictionary()
-        if let recoveredTyping = TypingStatus(dictionary: typingDict) {
-            print("  ✅ Firestore round-trip: SUCCESS")
+        if let recovered = TypingStatus(dictionary: typingDict) {
+            print("     Round-trip: ✅ SUCCESS")
         } else {
-            print("  ❌ Firestore conversion FAILED")
+            print("     Round-trip: ❌ FAILED (nil)")
         }
         
-        print("\n=== ALL TESTS COMPLETE ===")
-        print("✅ All 4 models created successfully")
-        print("✅ All Firestore conversions working")
-        print("✅ Ready for PR #5 (Chat Service)\n")
+        // Summary
+        print("\n" + String(repeating: "=", count: 60))
+        print("✅ ALL TESTS COMPLETE!")
+        print(String(repeating: "=", count: 60))
+        print("📊 Summary:")
+        print("   • MessageStatus: 5 cases defined")
+        print("   • Message: Full model with Firestore conversion")
+        print("   • Conversation: 1-on-1 and group support")
+        print("   • TypingStatus: Real-time typing indicators")
+        print("\n🚀 Ready for PR #5: Chat Service Integration")
+        print(String(repeating: "=", count: 60) + "\n")
     }
 }
 
