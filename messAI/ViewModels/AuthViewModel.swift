@@ -28,8 +28,8 @@ class AuthViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    nonisolated init(authService: AuthService = AuthService()) {
-        self.authService = authService
+    init(authService: AuthService? = nil) {
+        self.authService = authService ?? AuthService()
         Task { @MainActor in
             self.setupAuthStateListener()
         }
@@ -47,7 +47,7 @@ class AuthViewModel: ObservableObject {
     private func setupAuthStateListener() {
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
-                if let user = user {
+                if user != nil {
                     // User is signed in - fetch their profile
                     await self?.fetchCurrentUser()
                 } else {
@@ -143,7 +143,7 @@ class AuthViewModel: ObservableObject {
     
     /// Fetch current user's profile from Firestore
     private func fetchCurrentUser() async {
-        guard let userId = authService.currentUserId else {
+        guard authService.currentUserId != nil else {
             currentUser = nil
             isAuthenticated = false
             return

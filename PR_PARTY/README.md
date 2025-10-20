@@ -167,6 +167,52 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #5: Chat Service & Firestore Integration
+**Status**: 📋 PLANNED (documentation complete)  
+**Branch**: `feature/chat-service` (will create)  
+**Timeline**: 3-4 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR05_CHAT_SERVICE.md` (~7,000 words)
+- Implementation Checklist: `PR05_IMPLEMENTATION_CHECKLIST.md` (~4,500 words)
+- Quick Start: `PR05_README.md` (~3,500 words)
+- Planning Summary: `PR05_PLANNING_SUMMARY.md` (~2,000 words)
+- Testing Guide: `PR05_TESTING_GUIDE.md` (~4,000 words)
+
+**Summary**: Build ChatService - the core messaging service that bridges Swift models to Firebase Firestore. Handles conversation creation, message sending with optimistic UI, real-time listeners, status tracking (sent/delivered/read), message queueing for offline, and retry logic. This is the heart of the messaging system.
+
+**Key Decisions**:
+- Service pattern (all logic in one class) for MVP speed
+- Firestore snapshot listeners for real-time sync (<2 second latency)
+- Client-generated UUID for message IDs (enables optimistic UI)
+- In-memory queue for PR #5, persistent queue in PR #6
+- Batch status updates for read receipts (efficient)
+
+**Files to Create**:
+- `Services/ChatService.swift` (~400 lines) - Complete messaging service
+- `firebase/firestore.rules` (~100 lines) - Security rules
+- **Total**: ~500 lines of code
+
+**What Will Be Built**:
+- Conversation Management: create, fetch with real-time updates
+- Message Operations: send with optimistic UI, fetch with listeners
+- Status Management: update status (sent/delivered/read), batch mark as read
+- Queue Management: retry pending messages, get pending by conversation
+- Error Handling: comprehensive ChatError with user-friendly messages
+- Listener Cleanup: proper detachment to prevent memory leaks
+
+**What Will Be Tested**:
+- ✅ All 39 test cases (8 categories)
+- ✅ Performance: send <500ms, delivery <2s
+- ✅ Security: rules deployed and tested
+- ✅ Offline: queue and retry works
+- ✅ Real-time: listeners fire within 2 seconds
+- ✅ No memory leaks (verified with Instruments)
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -204,7 +250,7 @@ MessageAI - A production-quality iOS messaging application with:
 
 ### Planned
 - 📋 PR #4: Core Models & Data Structure (documentation ready!)
-- 📋 PR #5: Chat Service & Firestore Integration
+- 📋 PR #5: Chat Service & Firestore Integration (documentation ready!)
 - 📋 PR #6: Local Persistence with SwiftData
 - 📋 PR #7: Chat List View
 - 📋 PR #8: Contact Selection & New Chat
@@ -285,10 +331,10 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **4 PRs documented** (PR #1, #2, #3, #4)
-- **~91,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4)
-- **20 planning documents** (5 per PR)
-- **~7 hours** spent on planning total
+- **5 PRs documented** (PR #1, #2, #3, #4, #5)
+- **~112,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5)
+- **25 planning documents** (5 per PR)
+- **~9 hours** spent on planning total
 - **~1,093 lines** of code written (PR #2: 574 lines, PR #3: 519 lines)
 - **100% test success rate** (all tests passing)
 
@@ -303,7 +349,7 @@ Each PR follows this documentation standard:
 - ✅ Implementation: 100% complete (all PRs deployed)
 
 **Core Messaging Phase (PRs #4-11)**:
-- 🚧 Planning: 13% complete (PR #4 documented, 7 remaining)
+- 🚧 Planning: 25% complete (PR #4, #5 documented, 6 remaining)
 - ⏳ Implementation: 0% complete (ready to start PR #4)
 
 ---
@@ -453,6 +499,12 @@ docs/documentation-update     (Docs only)
 ## Quick Reference
 
 ### Current Focus
+**PR #5: Chat Service & Firestore Integration**
+- Branch: Will create `feature/chat-service`
+- Status: Planning complete, ready to implement (after PR #4)
+- Time: 3-4 hours estimated
+- Complexity: HIGH (async/await, real-time listeners, Firestore integration)
+
 **PR #4: Core Models & Data Structure**
 - Branch: Will create `feature/core-models`
 - Status: Planning complete, ready to implement
@@ -460,12 +512,20 @@ docs/documentation-update     (Docs only)
 - Complexity: LOW-MEDIUM (straightforward structs with Firestore conversion)
 
 ### Next Actions
-1. Create feature branch: `git checkout -b feature/core-models`
-2. Read planning documents (45 min)
-3. Follow `PR04_IMPLEMENTATION_CHECKLIST.md` step-by-step
-4. Create 4 model files: MessageStatus, Message, Conversation, TypingStatus
-5. Test Firestore conversion for each model
-6. Commit and push
+1. **Complete PR #4 first** (models are required for PR #5)
+   - Create feature branch: `git checkout -b feature/core-models`
+   - Follow `PR04_IMPLEMENTATION_CHECKLIST.md`
+   - Create 4 model files: MessageStatus, Message, Conversation, TypingStatus
+   - Test Firestore conversion
+   - Commit and merge
+
+2. **Then start PR #5**
+   - Create feature branch: `git checkout -b feature/chat-service`
+   - Read `PR05_CHAT_SERVICE.md` (45 min)
+   - Follow `PR05_IMPLEMENTATION_CHECKLIST.md` step-by-step
+   - Create ChatService (~400 lines)
+   - Write and deploy Firestore rules
+   - Test thoroughly (39 test cases)
 
 ---
 

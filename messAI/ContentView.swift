@@ -171,7 +171,7 @@ struct ContentView: View {
         
         // Test Firestore conversion
         let typingDict = typing.toDictionary()
-        if let recovered = TypingStatus(dictionary: typingDict) {
+        if TypingStatus(dictionary: typingDict) != nil {
             print("     Round-trip: ✅ SUCCESS")
         } else {
             print("     Round-trip: ❌ FAILED (nil)")

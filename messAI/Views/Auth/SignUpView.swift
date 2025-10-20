@@ -209,7 +209,7 @@ struct SignUpView: View {
                 }
             }
         }
-        .onChange(of: focusedField) { newValue in
+        .onChange(of: focusedField) { _, newValue in
             if newValue != .displayName && !displayName.isEmpty {
                 displayNameTouched = true
             }

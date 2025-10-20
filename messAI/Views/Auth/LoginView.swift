@@ -158,7 +158,7 @@ struct LoginView: View {
                 }
             }
         }
-        .onChange(of: focusedField) { newValue in
+        .onChange(of: focusedField) { _, newValue in
             if newValue != .email && !email.isEmpty {
                 emailTouched = true
             }
