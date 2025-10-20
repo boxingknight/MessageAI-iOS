@@ -1,29 +1,81 @@
 # MessageAI - Active Context
 
 **Last Updated**: October 20, 2025  
-**Current Status**: ✅ PR #1 COMPLETE - FIREBASE INTEGRATED
+**Current Status**: ✅ PR #2 COMPLETE - AUTHENTICATION SERVICES IMPLEMENTED
 
 ---
 
 ## What We're Working On Right Now
 
-### 🎯 Current Phase: Foundation Complete - Moving to Authentication
+### 🎯 Current Phase: Authentication Complete - Ready for UI (PR #3)
 
-**Status**: PR #1 complete, preparing PR #2  
-**Current Branch**: `feature/project-setup`  
-**Next PR**: PR #2 - Authentication Models & Services  
-**Estimated Time**: 2-3 hours  
-**Next Branch**: Will create `feature/auth-services`
+**Status**: PR #2 complete, ready to merge  
+**Current Branch**: `feature/auth-services`  
+**Next PR**: PR #3 - Authentication UI Views  
+**Estimated Time**: 1.5-2 hours  
+**Next Branch**: Will create `feature/auth-ui`
 
 ---
 
 ## Immediate Context (What Just Happened)
 
-### ✅ Just Completed: PR #1 - Project Setup & Firebase Configuration
+### ✅ Just Completed: PR #2 - Authentication Services
+
+**Completion Date**: October 20, 2025  
+**Time Taken**: ~2.5 hours (estimated 2-3 hours) ✅  
+**Branch**: `feature/auth-services`  
+**Status**: COMPLETE - Ready to merge
+
+**What Was Built**:
+1. **User Model** (`Models/User.swift` - 120 lines)
+   - Struct with Codable, Identifiable, Equatable conformance
+   - Properties: id, email, displayName, photoURL, fcmToken, isOnline, lastSeen, createdAt
+   - Firestore conversion methods (toDictionary, init from dictionary)
+   - Thread-safe value type for SwiftUI
+
+2. **FirebaseService** (`Services/FirebaseService.swift` - 60 lines)
+   - Base service class for Firestore operations
+   - Collection references (users, conversations)
+   - Helper methods (generateDocumentId, serverTimestamp, dateFromTimestamp)
+   - Reusable across all services
+
+3. **AuthService** (`Services/AuthService.swift` - 220 lines)
+   - signUp: Creates Firebase Auth user + Firestore document
+   - signIn: Authenticates and fetches user data
+   - signOut: Updates online status and signs out
+   - resetPassword: Sends password reset email
+   - Error mapping from Firebase errors to AuthError enum
+   - Cleanup on failures (deletes Auth user if Firestore fails)
+
+4. **AuthViewModel** (`ViewModels/AuthViewModel.swift` - 174 lines)
+   - @Published properties: currentUser, isAuthenticated, errorMessage, isLoading
+   - Firebase auth state listener (automatic login on app restart)
+   - Async methods: signUp, signIn, signOut, resetPassword
+   - Input validation: isValidEmail, isValidPassword, isValidDisplayName
+   - @MainActor for UI thread safety
+
+5. **Integration**
+   - AuthViewModel added to messAIApp.swift as @StateObject
+   - Test UI added to ContentView.swift (temporary, will replace in PR #3)
+   - All tests passing ✅
+
+**Tests Passed**:
+- ✅ Sign up new user (creates Firebase Auth + Firestore document)
+- ✅ Sign out (updates isOnline: false)
+- ✅ Sign in (updates isOnline: true)
+- ✅ Auth persistence (stays logged in on app restart)
+- ✅ Error handling (duplicate email shows "This email is already registered")
+- ✅ User-friendly error messages (Firebase error mapping working)
+
+**Total Code**: ~574 lines of production code
+
+---
+
+### ✅ Previously Completed: PR #1 - Project Setup & Firebase Configuration
 
 **Completion Date**: October 20, 2025  
 **Time Taken**: ~1.5 hours (estimated 1-2 hours) ✅  
-**Branch**: `feature/project-setup`  
+**Branch**: `feature/project-setup` (merged to main)  
 **Status**: COMPLETE
 
 **What Was Built**:
@@ -67,50 +119,71 @@
 ```
 messAI/
 ├── messAI/
-│   ├── messAIApp.swift         (Basic app entry, 17 lines)
-│   ├── ContentView.swift       (Placeholder view, 25 lines)
-│   └── Assets.xcassets/        (Default assets)
-├── messAI.xcodeproj/           (Xcode project configuration)
-├── messageai_prd.md            (PRD - 811 lines)
-├── messageai_task_list.md      (Task breakdown - 1601 lines)
-└── memory-bank/                (Memory bank - being created)
-    ├── projectbrief.md         ✅ CREATED
-    ├── productContext.md       ✅ CREATED
-    └── activeContext.md        ✅ IN PROGRESS
+│   ├── messAIApp.swift           (Firebase + AuthViewModel init, ~28 lines)
+│   ├── ContentView.swift         (Test UI, ~98 lines - temp)
+│   ├── GoogleService-Info.plist  (Firebase config)
+│   ├── Models/
+│   │   └── User.swift            (User model, ~120 lines) ✅
+│   ├── Services/
+│   │   ├── FirebaseService.swift (Base service, ~60 lines) ✅
+│   │   └── AuthService.swift     (Auth logic, ~220 lines) ✅
+│   ├── ViewModels/
+│   │   └── AuthViewModel.swift   (State management, ~174 lines) ✅
+│   ├── Views/ (empty - PR #3)
+│   ├── Persistence/ (empty - PR #6)
+│   ├── Utilities/
+│   │   └── Constants.swift       (App config, ~20 lines)
+│   └── Assets.xcassets/          (Default assets)
+├── messAI.xcodeproj/             (Xcode project)
+├── messageai_prd.md              (PRD - 811 lines)
+├── messageai_task_list.md        (Task breakdown - 1601 lines)
+├── README.md                     (Project documentation, ~350 lines)
+├── PR_PARTY/                     (Comprehensive planning docs)
+│   ├── README.md                 (PR hub)
+│   ├── PR01_*.md                 (5 files, ~25,000 words)
+│   └── PR02_*.md                 (5 files, ~25,000 words)
+└── memory-bank/                  (Context tracking)
+    ├── projectbrief.md           ✅
+    ├── productContext.md         ✅
+    ├── activeContext.md          ✅
+    ├── systemPatterns.md         ✅
+    ├── techContext.md            ✅
+    └── progress.md               ✅
 ```
 
-**Lines of Production Code**: 42 (placeholder only)  
-**Firebase Integration**: NOT STARTED  
-**Authentication**: NOT IMPLEMENTED  
-**Messaging**: NOT IMPLEMENTED
+**Lines of Production Code**: ~620 lines  
+**Firebase Integration**: ✅ COMPLETE  
+**Authentication**: ✅ LOGIC COMPLETE (UI in PR #3)  
+**Messaging**: NOT STARTED (PR #4-15)
 
 ---
 
 ## What's Next (Immediate Actions)
 
-### Next 30 Minutes: Complete Memory Bank Setup
-1. ✅ Finish activeContext.md (this file)
-2. ⏳ Create systemPatterns.md (architecture overview)
-3. ⏳ Create techContext.md (tech stack details)
-4. ⏳ Create progress.md (task tracking)
-5. ⏳ Review all memory bank files for consistency
+### Next 10 Minutes: Finalize PR #2
+1. ✅ Update PR_PARTY/README.md with PR #2 completion
+2. ✅ Update memory-bank/activeContext.md (this file)
+3. ⏳ Update memory-bank/progress.md with PR #2 tasks
+4. ⏳ Commit all documentation updates
+5. ⏳ Merge `feature/auth-services` to main
+6. ⏳ Push to GitHub
 
-### Next 2 Hours: PR #1 - Project Setup & Firebase Configuration
-**Branch**: `feature/project-setup`
+### Next 1.5-2 Hours: PR #3 - Authentication UI Views
+**Branch**: `feature/auth-ui` (will create)
+
+**Goal**: Build beautiful login/signup UI screens
 
 **Tasks**:
-1. Create Firebase project at console.firebase.google.com
-2. Enable Firebase Authentication (Email/Password)
-3. Create Firestore database (test mode)
-4. Enable Firebase Storage
-5. Download `GoogleService-Info.plist`
-6. Add Firebase SDK via Swift Package Manager
-7. Configure Firebase in `messAIApp.swift`
-8. Create basic folder structure (Models, ViewModels, Views, Services, etc.)
-9. Create Constants.swift
-10. Create README.md with setup instructions
+1. Create LoginView with email/password fields
+2. Create SignUpView with email/password/display name fields
+3. Create WelcomeView (entry point)
+4. Wire up views to AuthViewModel
+5. Add navigation between screens
+6. Add loading states and error displays
+7. Test complete auth flow with UI
+8. Remove test UI from ContentView
 
-**Expected Outcome**: Firebase integrated, app launches with Firebase configured
+**Expected Outcome**: Complete auth UI with real login/signup screens
 
 ---
 
