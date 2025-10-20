@@ -30,28 +30,32 @@ class AuthService {
         password: String,
         displayName: String
     ) async throws -> User {
-        // 1. Create Firebase Auth user
-        let authResult = try await auth.createUser(withEmail: email, password: password)
-        let userId = authResult.user.uid
-        
-        // 2. Create User object
-        let user = User(
-            id: userId,
-            email: email,
-            displayName: displayName,
-            isOnline: true,
-            lastSeen: Date(),
-            createdAt: Date()
-        )
-        
-        // 3. Create Firestore document
         do {
-            try await createUserDocument(user: user)
-            return user
+            // 1. Create Firebase Auth user
+            let authResult = try await auth.createUser(withEmail: email, password: password)
+            let userId = authResult.user.uid
+            
+            // 2. Create User object
+            let user = User(
+                id: userId,
+                email: email,
+                displayName: displayName,
+                isOnline: true,
+                lastSeen: Date(),
+                createdAt: Date()
+            )
+            
+            // 3. Create Firestore document
+            do {
+                try await createUserDocument(user: user)
+                return user
+            } catch {
+                // Cleanup: Delete auth user if Firestore creation fails
+                try? await authResult.user.delete()
+                throw mapFirebaseError(error)
+            }
         } catch {
-            // Cleanup: Delete auth user if Firestore creation fails
-            try? await authResult.user.delete()
-            throw error
+            throw mapFirebaseError(error)
         }
     }
     
@@ -62,17 +66,21 @@ class AuthService {
     /// - Returns: User object from Firestore
     /// - Throws: AuthError if sign in fails
     func signIn(email: String, password: String) async throws -> User {
-        // 1. Sign in with Firebase Auth
-        let authResult = try await auth.signIn(withEmail: email, password: password)
-        let userId = authResult.user.uid
-        
-        // 2. Fetch user document from Firestore
-        let user = try await fetchUserDocument(userId: userId)
-        
-        // 3. Update online status
-        try await updateUserOnlineStatus(userId: userId, isOnline: true)
-        
-        return user
+        do {
+            // 1. Sign in with Firebase Auth
+            let authResult = try await auth.signIn(withEmail: email, password: password)
+            let userId = authResult.user.uid
+            
+            // 2. Fetch user document from Firestore
+            let user = try await fetchUserDocument(userId: userId)
+            
+            // 3. Update online status
+            try await updateUserOnlineStatus(userId: userId, isOnline: true)
+            
+            return user
+        } catch {
+            throw mapFirebaseError(error)
+        }
     }
     
     /// Sign out current user
@@ -137,6 +145,45 @@ class AuthService {
                 "isOnline": isOnline,
                 "lastSeen": Timestamp(date: Date())
             ])
+    }
+    
+    /// Map Firebase errors to custom AuthError
+    private func mapFirebaseError(_ error: Error) -> AuthError {
+        // Check if it's already our custom error
+        if let authError = error as? AuthError {
+            return authError
+        }
+        
+        // Map Firebase Auth errors
+        let nsError = error as NSError
+        
+        // Firebase Auth error codes
+        if nsError.domain == "FIRAuthErrorDomain" {
+            switch nsError.code {
+            case 17007: // Email already in use
+                return .emailAlreadyInUse
+            case 17008, 17009, 17011: // Invalid email, wrong password, user not found
+                return .invalidCredentials
+            case 17026: // Weak password
+                return .weakPassword
+            case 17020: // Network error
+                return .networkError
+            default:
+                return .unknown(error)
+            }
+        }
+        
+        // Check error description for common patterns
+        let errorDescription = error.localizedDescription.lowercased()
+        if errorDescription.contains("email") && errorDescription.contains("already") {
+            return .emailAlreadyInUse
+        } else if errorDescription.contains("password") && errorDescription.contains("weak") {
+            return .weakPassword
+        } else if errorDescription.contains("network") {
+            return .networkError
+        }
+        
+        return .unknown(error)
     }
 }
 
