@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import FirebaseFirestore
 
 @MainActor
 class ChatListViewModel: ObservableObject {
@@ -160,16 +161,29 @@ class ChatListViewModel: ObservableObject {
             
             print("   ✅ New message detected!")
             
-            // Check if we have sender ID
-            guard let senderId = newConv.lastMessageSenderId else {
-                print("   ❌ No sender ID in conversation")
+            // Check if we have sender ID (with fallback for old conversations)
+            var senderId: String? = newConv.lastMessageSenderId
+            
+            if senderId == nil {
+                print("   ⚠️  No sender ID in conversation (old data), fetching from last message...")
+                // Fallback: Fetch last message from messages subcollection
+                senderId = await fetchLastMessageSenderId(conversationId: newConv.id)
+                
+                if senderId == nil {
+                    print("   ❌ Could not determine sender ID even with fallback")
+                    continue
+                }
+                print("   ✅ Fetched sender ID from last message: \(senderId!)")
+            }
+            
+            guard let finalSenderId = senderId else {
                 continue
             }
             
-            print("   👤 Sender ID: \(senderId), Current user: \(currentUserId)")
+            print("   👤 Sender ID: \(finalSenderId), Current user: \(currentUserId)")
             
             // Don't show toast for our own messages
-            guard senderId != currentUserId else {
+            guard finalSenderId != currentUserId else {
                 print("   ⏭️  Skipping our own message")
                 continue
             }
@@ -187,13 +201,40 @@ class ChatListViewModel: ObservableObject {
             // Show toast for this new message
             await showToastForMessage(
                 messageText: newConv.lastMessage,
-                senderId: senderId,
+                senderId: finalSenderId,
                 conversationId: newConv.id,
                 timestamp: newConv.lastMessageAt
             )
         }
         
         print("🔍 [Toast Debug] Check complete\n")
+    }
+    
+    /// Fallback: Fetch sender ID from the last message in the subcollection
+    /// Used when conversation.lastMessageSenderId is nil (old data)
+    private func fetchLastMessageSenderId(conversationId: String) async -> String? {
+        do {
+            let db = Firestore.firestore()
+            
+            // Query the last message in this conversation
+            let snapshot = try await db
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .order(by: "sentAt", descending: true)
+                .limit(to: 1)
+                .getDocuments()
+            
+            guard let messageDoc = snapshot.documents.first,
+                  let senderId = messageDoc.data()["senderId"] as? String else {
+                return nil
+            }
+            
+            return senderId
+        } catch {
+            print("   ⚠️  Error fetching last message sender: \(error)")
+            return nil
+        }
     }
     
     /// Show toast notification for a message
