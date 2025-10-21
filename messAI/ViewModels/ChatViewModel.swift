@@ -72,6 +72,9 @@ class ChatViewModel: ObservableObject {
             // Start Firestore real-time listener (PR #10)
             startRealtimeSync()
             
+            // Mark conversation as viewed (PR #11)
+            await markConversationAsViewed()
+            
         } catch {
             print("❌ Error loading messages: \(error)")
             errorMessage = "Failed to load messages: \(error.localizedDescription)"
@@ -250,6 +253,31 @@ class ChatViewModel: ObservableObject {
         
         // Clean up mapping
         messageIdMap.removeValue(forKey: tempId)
+    }
+    
+    // MARK: - Status Tracking (PR #11)
+    
+    /// Mark conversation as viewed (marks messages as delivered and read)
+    func markConversationAsViewed() async {
+        do {
+            // Step 1: Mark messages as delivered (user opened app)
+            try await chatService.markMessagesAsDelivered(
+                conversationId: conversationId,
+                userId: currentUserId
+            )
+            
+            // Step 2: Mark messages as read (user viewing conversation)
+            try await chatService.markAllMessagesAsRead(
+                conversationId: conversationId,
+                userId: currentUserId
+            )
+            
+            print("✅ Conversation marked as viewed")
+            
+        } catch {
+            print("⚠️ Failed to mark conversation as viewed: \(error)")
+            // Don't show error to user (non-critical operation)
+        }
     }
 }
 
