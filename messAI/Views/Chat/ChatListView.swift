@@ -10,6 +10,8 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject var viewModel: ChatListViewModel
     @State private var showingNewChat = false
+    @State private var showingNewGroup = false
+    @State private var showActionSheet = false
     
     var body: some View {
         NavigationStack {
@@ -26,12 +28,21 @@ struct ChatListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        showingNewChat = true
+                        showActionSheet = true
                     } label: {
                         Image(systemName: "square.and.pencil")
                             .font(.title3)
                     }
                 }
+            }
+            .confirmationDialog("New Conversation", isPresented: $showActionSheet) {
+                Button("New Chat") {
+                    showingNewChat = true
+                }
+                Button("New Group") {
+                    showingNewGroup = true
+                }
+                Button("Cancel", role: .cancel) { }
             }
             .sheet(isPresented: $showingNewChat) {
                 ContactsListView(
@@ -40,6 +51,9 @@ struct ChatListView: View {
                 ) { selectedUser in
                     handleContactSelected(selectedUser)
                 }
+            }
+            .sheet(isPresented: $showingNewGroup) {
+                ParticipantSelectionView(currentUserId: viewModel.currentUserId)
             }
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK") {

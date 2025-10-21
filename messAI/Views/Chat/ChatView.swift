@@ -13,6 +13,7 @@ struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
+    @State private var showGroupInfo = false
     
     let conversation: Conversation
     
@@ -110,7 +111,8 @@ struct ChatView: View {
                                 isFromCurrentUser: message.senderId == viewModel.currentUserId,
                                 isFirstInGroup: isFirst,
                                 isLastInGroup: isLast,
-                                conversation: nil // PR #11: Group aggregation deferred to future enhancement
+                                conversation: conversation, // PR #13: Pass conversation for group support
+                                users: viewModel.userCache // PR #13: Pass users for sender names
                             )
                             .id(message.id)
                         }
@@ -182,22 +184,39 @@ struct ChatView: View {
             }
             
             ToolbarItem(placement: .navigationBarTrailing) {
-                // Placeholder for future features (PR #11+)
-                Menu {
+                if conversation.isGroup {
+                    // Group chat: Show group info button
                     Button(action: {
-                        print("View info tapped")
+                        showGroupInfo = true
                     }) {
-                        Label("Chat Info", systemImage: "info.circle")
+                        Image(systemName: "info.circle")
                     }
-                    
-                    Button(action: {
-                        print("Mute tapped")
-                    }) {
-                        Label("Mute", systemImage: "bell.slash")
+                } else {
+                    // 1-on-1 chat: Show menu
+                    Menu {
+                        Button(action: {
+                            print("View info tapped")
+                        }) {
+                            Label("Chat Info", systemImage: "info.circle")
+                        }
+                        
+                        Button(action: {
+                            print("Mute tapped")
+                        }) {
+                            Label("Mute", systemImage: "bell.slash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
+            }
+        }
+        .sheet(isPresented: $showGroupInfo) {
+            if conversation.isGroup {
+                GroupInfoView(
+                    conversation: conversation,
+                    users: viewModel.userCache
+                )
             }
         }
         .task {

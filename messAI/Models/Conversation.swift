@@ -139,6 +139,38 @@ extension Conversation {
     func isAdmin(userId: String) -> Bool {
         admins?.contains(userId) ?? false
     }
+    
+    /// Check if user is the creator (original admin)
+    func isCreator(userId: String) -> Bool {
+        createdBy == userId
+    }
+    
+    /// Get formatted group name with auto-generation for unnamed groups
+    func formattedGroupName(users: [String: User], currentUserId: String) -> String {
+        // If group has a custom name, use it
+        if let groupName = groupName, !groupName.isEmpty {
+            return groupName
+        }
+        
+        // Auto-generate name from participants
+        let otherUsers = participants.filter { $0 != currentUserId }
+        let names = otherUsers.compactMap { users[$0]?.displayName }
+        
+        if names.isEmpty {
+            return "Group Chat"
+        } else if names.count <= 2 {
+            return names.joined(separator: ", ")
+        } else {
+            let first = names.prefix(2).joined(separator: ", ")
+            let remaining = names.count - 2
+            return "\(first), and \(remaining) other\(remaining > 1 ? "s" : "")"
+        }
+    }
+    
+    /// Get participant count
+    var participantCount: Int {
+        participants.count
+    }
 }
 
 // MARK: - Firestore Conversion

@@ -190,6 +190,22 @@ extension Message {
         case .failed: return "Failed to send"
         }
     }
+    
+    // MARK: - Group Chat Helpers (PR #13)
+    
+    /// Should show sender name (for group chats from other users)
+    func shouldShowSenderName(in conversation: Conversation) -> Bool {
+        guard conversation.isGroup else { return false }
+        return !isFromCurrentUser
+    }
+    
+    /// Get display name for sender in group context
+    func senderDisplayName(users: [String: User]) -> String {
+        if let senderName = senderName {
+            return senderName
+        }
+        return users[senderId]?.displayName ?? "Unknown"
+    }
 }
 
 // MARK: - Firestore Conversion

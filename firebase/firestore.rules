@@ -13,6 +13,14 @@ service cloud.firestore {
              request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
     
+    // Helper function: Check if user is admin in group conversation (PR #13)
+    function isAdmin(conversationData) {
+      return isAuthenticated() && 
+             conversationData.isGroup == true &&
+             ('admins' in conversationData) &&
+             request.auth.uid in conversationData.admins;
+    }
+    
     // Users collection
     match /users/{userId} {
       // Anyone authenticated can read user profiles
@@ -29,14 +37,24 @@ service cloud.firestore {
                      request.auth.uid in resource.data.participants;
       
       // Can create if you include yourself as participant
+      // PR #13: Allow groups with 3-50 participants
       allow create: if isAuthenticated() && 
                        request.auth.uid in request.resource.data.participants &&
                        request.resource.data.participants is list &&
-                       request.resource.data.participants.size() >= 2;
+                       request.resource.data.participants.size() >= 2 &&
+                       request.resource.data.participants.size() <= 50;
       
       // Can update if you're a participant (for lastMessage, etc.)
-      allow update: if isAuthenticated() && 
-                       request.auth.uid in resource.data.participants;
+      // PR #13: Allow admins to update group settings
+      allow update: if isAuthenticated() && (
+                       // Participant can update lastMessage fields
+                       (request.auth.uid in resource.data.participants &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'lastMessageSenderId', 'unreadCount']))
+                       ||
+                       // Admin can manage group (participants, admins, name, photo)
+                       (isAdmin(resource.data) &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'admins', 'groupName', 'groupPhotoURL']))
+                     );
       
       // Can delete if you created it
       allow delete: if isAuthenticated() && 
