@@ -424,6 +424,69 @@ class ChatService {
         return pendingMessages
     }
     
+    // MARK: - User & Conversation Discovery (PR #8)
+    
+    /// Find existing conversation between two users
+    /// Returns nil if no conversation exists
+    /// - Parameter participants: Array of user IDs to search for
+    /// - Returns: Existing Conversation or nil
+    func findExistingConversation(
+        participants: [String]
+    ) async throws -> Conversation? {
+        // Sort participants for consistent querying
+        let sortedParticipants = participants.sorted()
+        
+        do {
+            // Query conversations with exactly these participants
+            let snapshot = try await db.collection("conversations")
+                .whereField("participants", isEqualTo: sortedParticipants)
+                .whereField("isGroup", isEqualTo: false)
+                .limit(to: 1)
+                .getDocuments()
+            
+            // Return nil if no conversation found
+            guard let document = snapshot.documents.first else {
+                print("[ChatService] No existing conversation found for participants: \(participants)")
+                return nil
+            }
+            
+            // Convert Firestore document to Conversation
+            let conversation = Conversation(dictionary: document.data())
+            print("[ChatService] Found existing conversation: \(conversation?.id ?? "nil")")
+            return conversation
+            
+        } catch {
+            print("[ChatService] Error finding existing conversation: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
+    /// Fetch all registered users except specified user
+    /// Returns users sorted alphabetically by display name
+    /// - Parameter excludingUserId: User ID to exclude from results (typically current user)
+    /// - Returns: Array of User objects
+    func fetchAllUsers(excludingUserId: String) async throws -> [User] {
+        do {
+            let snapshot = try await db.collection("users")
+                .order(by: "displayName")
+                .getDocuments()
+            
+            // Convert documents to User objects and filter out specified user
+            let users = snapshot.documents
+                .compactMap { document -> User? in
+                    User(from: document.data())
+                }
+                .filter { $0.id != excludingUserId }
+            
+            print("[ChatService] Fetched \(users.count) users (excluding \(excludingUserId))")
+            return users
+            
+        } catch {
+            print("[ChatService] Error fetching users: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Cleanup
     
     /// Removes all active listeners
