@@ -2,7 +2,7 @@
 
 Welcome to the PR_PARTY! This directory contains comprehensive documentation for every major PR in the MessageAI project.
 
-**Last Updated**: October 20, 2025  
+**Last Updated**: October 21, 2025  
 **Project**: MessageAI - iOS Messaging App with Firebase Backend
 
 ---
@@ -809,6 +809,68 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #17.1: In-App Toast Notifications (MVP Bridge)
+**Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **MVP-READY ALTERNATIVE!**  
+**Branch**: `feature/pr17-push-notifications` (same branch as PR#17)  
+**Timeline**: 2-3 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR17.1_IN_APP_NOTIFICATIONS.md` (~20,000 words)
+- Implementation Checklist: `PR17.1_IMPLEMENTATION_CHECKLIST.md` (~8,000 words)
+- Quick Start: `PR17.1_README.md` (~6,000 words)
+- Planning Summary: `PR17.1_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR17.1_TESTING_GUIDE.md` (~4,000 words)
+
+**Summary**: In-app toast notifications that slide from the top when users receive messages in conversations they're not currently viewing. This is a **practical MVP alternative to PR#17** that works WITHOUT Apple Developer account, physical device, or APNs setup. Perfect bridge solution while waiting for credentials—provides notification experience users can see TODAY in simulator!
+
+**Key Decisions**:
+- Toast at top (iOS standard, non-intrusive, 4-second duration)
+- Show only for different conversations (no spam for active chat)
+- Queue management (sequential display, max 5 toasts)
+- Blur effect background (.ultraThinMaterial for iOS-native feel)
+- Tap to navigate, swipe up to dismiss
+- ✅ Works in iOS Simulator (no physical device needed!)
+
+**Files to Create**:
+- `Models/ToastMessage.swift` (~80 lines) - Toast data model with truncation
+- `Services/ToastNotificationManager.swift` (~200 lines) - Queue management, display logic
+- `Views/Components/ToastNotificationView.swift` (~250 lines) - SwiftUI toast with animations
+- **Total**: 3 new files (~530 lines)
+
+**Files to Modify**:
+- `messAI/messAIApp.swift` (+20 lines) - Add overlay for toast display
+- `ViewModels/ChatListViewModel.swift` (+30 lines) - Trigger toasts on new messages
+- `ViewModels/ChatViewModel.swift` (+15 lines) - Track active conversation
+- `Views/Chat/ChatView.swift` (+10 lines) - Set active conversation ID
+- `Views/Chat/ChatListView.swift` (+20 lines) - Handle toast tap navigation
+- **Total**: ~95 lines across 5 modified files
+
+**What Will Be Tested**:
+- ✅ 19 comprehensive test scenarios (unit, integration, UI/UX, edge cases)
+- 🔴 **Critical:** Toast appears for different conversation (must pass)
+- 🔴 **Critical:** NO toast for active conversation (must pass)
+- 🔴 **Critical:** Auto-dismiss after 4 seconds (must pass)
+- 🔴 **Critical:** Tap navigation works (must pass)
+- 🔴 **Critical:** Queue handles multiple toasts (must pass)
+- ✅ Performance: Toast appearance <500ms, animation smooth, navigation <100ms
+- ✅ Works in iOS Simulator (testable immediately!)
+- ✅ Visual polish: blur effect, animations, profile pictures
+
+**Why Build This Instead of PR#17**:
+- ✅ No Apple Developer account needed (unblocked!)
+- ✅ No physical device needed (test in simulator!)
+- ✅ No APNs/FCM setup (works immediately!)
+- ✅ 2-3 hours vs 3-4 hours (faster!)
+- ✅ Provides real notification experience
+- ✅ Foundation reusable for PR#17 later
+- ⚠️ Only works when app is open (expected trade-off)
+
+**Upgrade Path**: When Apple Developer account becomes available, implement PR#17 (Push Notifications). The toast UI and logic from PR#17.1 are reusable—just add APNs/FCM layer. Best of both worlds: in-app toasts when open, push notifications when closed!
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -861,6 +923,7 @@ MessageAI - A production-quality iOS messaging application with:
 - 📋 PR #15: Offline Support & Network Monitoring
 - 📋 PR #16: Profile Management
 - 📋 PR #17: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
+- 📋 PR #17.1: In-App Toast Notifications (documentation complete!) 🎉 **MVP-READY ALTERNATIVE**
 - 📋 PR #18: App Lifecycle & Background Handling
 - 📋 PR #19: Error Handling & Loading States
 - 📋 PR #20: UI Polish & Animations
@@ -941,8 +1004,9 @@ Each PR follows this documentation standard:
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~48K (planning complete) 🎉
   - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
-- **82 planning documents** (5-6 per PR)
-- **~31 hours** spent on planning total
+  - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
+- **87 planning documents** (5-6 per PR)
+- **~32 hours** spent on planning total
 - **~4,636+ lines** of production code written (12 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
