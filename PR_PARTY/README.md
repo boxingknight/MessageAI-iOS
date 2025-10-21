@@ -748,6 +748,67 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #17: Push Notifications - Firebase Cloud Messaging
+**Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **FINAL MVP REQUIREMENT!**  
+**Branch**: `feature/pr17-push-notifications` (will create)  
+**Timeline**: 3-4 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR17_PUSH_NOTIFICATIONS_FCM.md` (~15,000 words)
+- Implementation Checklist: `PR17_IMPLEMENTATION_CHECKLIST.md` (~12,000 words)
+- Quick Start: `PR17_README.md` (~8,000 words)
+- Planning Summary: `PR17_PLANNING_SUMMARY.md` (~5,000 words)
+- Testing Guide: `PR17_TESTING_GUIDE.md` (~10,000 words)
+
+**Summary**: Push notifications that alert users when they receive messages while app is backgrounded or closed. Implements Firebase Cloud Messaging (FCM) with APNs integration, FCM token management (save/remove/refresh), NotificationService with permission handling and deep linking, Cloud Functions for automatic notification sending, badge count management, and comprehensive testing on physical devices. This is the **FINAL MVP REQUIREMENT** (#10 of 10) - after this, all MVP requirements are complete!
+
+**Key Decisions**:
+- Firebase Cloud Messaging (FCM) over direct APNs (simpler, reliable, free tier generous)
+- Cloud Functions triggered by Firestore writes (secure, automatic, industry standard)
+- Full message preview in notifications (matches WhatsApp/iMessage UX)
+- Badge count = unread conversations (not total messages, more actionable)
+- APNs Auth Key method (simpler than certificates, never expires)
+
+**Files to Create**:
+- `Services/NotificationService.swift` (~300 lines) - Core notification logic
+- `Utilities/AppDelegate.swift` (~150 lines) - APNs & FCM handling
+- `Models/NotificationPayload.swift` (~80 lines) - Notification data structure
+- `functions/src/index.ts` (~200 lines) - Cloud Function (sendMessageNotification)
+- **Total**: 4 new files (~730 lines) + Cloud Function
+
+**Files to Modify**:
+- `Models/User.swift` (+15 lines) - Add FCM token fields (fcmToken, notificationsEnabled, lastTokenUpdate)
+- `messAI/messAIApp.swift` (+50 lines) - Integrate AppDelegate, handle deep links
+- `Services/AuthService.swift` (+20 lines) - Save token on login, remove on sign out
+- `Services/ChatService.swift` (+60 lines) - Add getUnreadConversationCount() for badge
+- `Views/Chat/ChatView.swift` (+10 lines) - Track active conversation
+- `Views/Chat/ChatListView.swift` (+20 lines) - Handle deep link navigation
+- `Info.plist` (+15 lines) - APNs configuration keys
+- **Total**: ~190 lines across 7 modified files
+
+**What Will Be Tested**:
+- ✅ 28 comprehensive test scenarios (unit, integration, edge cases, performance, acceptance)
+- 🔴 **Critical:** Foreground notification (app open) (must pass)
+- 🔴 **Critical:** Background notification (app backgrounded) (must pass)
+- 🔴 **Critical:** Closed app notification (app terminated) (must pass)
+- 🔴 **Critical:** Deep linking to conversation from tap (must pass)
+- 🔴 **Critical:** Badge count accurate (must pass)
+- ✅ Performance: Notification latency <3s (1-on-1), <5s (group with 10 users)
+- ✅ Cloud Function execution <2s
+- ✅ Works on physical device (simulator cannot test push)
+- ⚠️ **Physical device required** - iOS simulator cannot receive push notifications
+
+**Prerequisites**:
+- Physical iOS device (iPhone/iPad) - REQUIRED
+- Apple Developer account (for APNs Auth Key)
+- Firebase Blaze plan (pay-as-you-go for Cloud Functions, free tier: 2M invocations/month)
+- Firebase CLI installed: `npm install -g firebase-tools`
+- Node.js 18+ (for Cloud Functions)
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -799,7 +860,7 @@ MessageAI - A production-quality iOS messaging application with:
 - 📋 PR #14.5: Image Sharing - UI Components
 - 📋 PR #15: Offline Support & Network Monitoring
 - 📋 PR #16: Profile Management
-- 📋 PR #17: Push Notifications - FCM
+- 📋 PR #17: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
 - 📋 PR #18: App Lifecycle & Background Handling
 - 📋 PR #19: Error Handling & Loading States
 - 📋 PR #20: UI Polish & Animations
@@ -868,8 +929,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **14 PRs documented** (PR #1-14) 🎉 **PR #12 & #13 COMPLETE!**
-- **~537,000 words** of planning and documentation
+- **15 PRs documented** (PR #1-14, PR #17) 🎉 **PR #17: FINAL MVP REQUIREMENT!**
+- **~587,000 words** of planning and documentation
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -879,8 +940,9 @@ Each PR follows this documentation standard:
   - PR #12: ~54.5K (with complete summary) ✅
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~48K (planning complete) 🎉
-- **77 planning documents** (5-6 per PR)
-- **~29 hours** spent on planning total
+  - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
+- **82 planning documents** (5-6 per PR)
+- **~31 hours** spent on planning total
 - **~4,636+ lines** of production code written (12 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
