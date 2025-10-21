@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24299" systemVersion="24G84" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
-    <entity name="ConverstationEntity" representedClassName="ConverstationEntity" syncable="YES">
+    <entity name="ConversationEntity" representedClassName="ConversationEntity" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="createdBy" attributeType="String"/>
         <attribute name="groupName" optional="YES" attributeType="String"/>
@@ -26,6 +26,6 @@
         <attribute name="status" attributeType="String"/>
         <attribute name="syncAttempts" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="text" attributeType="String"/>
-        <relationship name="conversation" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ConverstationEntity" inverseName="messages" inverseEntity="ConverstationEntity"/>
+        <relationship name="conversation" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ConversationEntity" inverseName="messages" inverseEntity="ConversationEntity"/>
     </entity>
 </model>
