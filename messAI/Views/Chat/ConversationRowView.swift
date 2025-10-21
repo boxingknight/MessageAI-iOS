@@ -128,10 +128,14 @@ struct ConversationRowView_Previews: PreviewProvider {
                     participants: ["user1", "user2"],
                     isGroup: false,
                     groupName: nil,
+                    groupPhotoURL: nil,
                     lastMessage: "Hey! How are you doing today?",
                     lastMessageAt: Date().addingTimeInterval(-300), // 5 min ago
+                    lastMessageSenderId: "user2",
                     createdBy: "user1",
-                    createdAt: Date()
+                    createdAt: Date(),
+                    unreadCount: [:],
+                    admins: nil
                 ),
                 conversationName: "Jane Doe",
                 photoURL: nil,
@@ -149,10 +153,14 @@ struct ConversationRowView_Previews: PreviewProvider {
                     participants: ["user1", "user2", "user3"],
                     isGroup: true,
                     groupName: "Weekend Plans",
+                    groupPhotoURL: nil,
                     lastMessage: "John: Sounds good!",
                     lastMessageAt: Date().addingTimeInterval(-3600), // 1 hour ago
+                    lastMessageSenderId: "user2",
                     createdBy: "user1",
-                    createdAt: Date()
+                    createdAt: Date(),
+                    unreadCount: [:],
+                    admins: ["user1"]
                 ),
                 conversationName: "Weekend Plans",
                 photoURL: nil,

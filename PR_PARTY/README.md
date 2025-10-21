@@ -313,6 +313,54 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #8: Contact Selection & New Chat
+**Status:** 📋 PLANNED (documentation complete, ready to implement)  
+**Branch**: `feature/pr08-contact-selection` (will create)  
+**Timeline**: 2-3 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR08_CONTACT_SELECTION.md` (~10,000 words)
+- Implementation Checklist: `PR08_IMPLEMENTATION_CHECKLIST.md` (~7,500 words)
+- Quick Start: `PR08_README.md` (~5,500 words)
+- Planning Summary: `PR08_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR08_TESTING_GUIDE.md` (~5,000 words)
+
+**Summary**: Build contact selection interface that enables users to start new one-on-one conversations. Users tap "+" from chat list, see all registered users (excluding self), search/filter contacts, and tap any user to create or reopen conversation. Implements check-then-create pattern to prevent duplicates, client-side search for instant results, and sheet presentation for native iOS feel.
+
+**Key Decisions**:
+- Fetch all users from Firestore (simple, works for MVP scale <100 users)
+- Check-then-create pattern (prevents duplicate conversations)
+- Client-side search with computed property (instant, <100ms response)
+- Sheet presentation over ChatListView (iOS native, clear modal context)
+- Current user excluded from list (can't message yourself)
+
+**Files to Create**:
+- `Services/ChatService.swift` (+40 lines) - Add findExistingConversation, fetchAllUsers
+- `ViewModels/ContactsViewModel.swift` (~200 lines) - Search + conversation logic
+- `Views/Contacts/ContactRowView.swift` (~80 lines) - Contact row component
+- `Views/Contacts/ContactsListView.swift` (~180 lines) - Main picker view
+- `Views/Chat/ChatListView.swift` (+30 lines) - Add button + sheet
+- **Total**: ~530 lines
+
+**What Will Be Built**:
+- ChatService Extensions: Find existing conversations, fetch all users
+- ContactsViewModel: Load users, client-side search, conversation creation
+- ContactRowView: Profile picture, name, email, online status
+- ContactsListView: Search bar, scrollable list, empty state, loading state
+- ChatListView Integration: "+" button in toolbar, sheet presentation
+
+**What Will Be Tested**:
+- ✅ All 26 test cases (8 unit, 5 integration, 5 edge cases, 3 performance, 5 acceptance)
+- ✅ Performance: <2s load, <100ms search, <50MB memory, 60fps scroll
+- ✅ No duplicate conversations (check-then-create working)
+- ✅ Current user excluded from list
+- ✅ Cross-device sync (same conversation on both devices)
+- ✅ Empty state when no users
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -353,7 +401,7 @@ MessageAI - A production-quality iOS messaging application with:
 - 📋 PR #5: Chat Service & Firestore Integration (documentation ready!)
 - 📋 PR #6: Local Persistence with Core Data (documentation ready!)  
 - 📋 PR #7: Chat List View (documentation ready!)
-- 📋 PR #8: Contact Selection & New Chat
+- 📋 PR #8: Contact Selection & New Chat (documentation ready!)
 - 📋 PR #9: Chat View - UI Components
 - 📋 PR #10: Real-Time Messaging & Optimistic UI
 - 📋 PR #11: Message Status Indicators
@@ -431,10 +479,10 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **7 PRs documented** (PR #1, #2, #3, #4, #5, #6, #7)
-- **~172,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5, ~29K for PR #6, ~31K for PR #7)
-- **35 planning documents** (5 per PR)
-- **~13 hours** spent on planning total
+- **8 PRs documented** (PR #1, #2, #3, #4, #5, #6, #7, #8)
+- **~203,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5, ~29K for PR #6, ~31K for PR #7, ~31K for PR #8)
+- **40 planning documents** (5 per PR)
+- **~15 hours** spent on planning total
 - **~1,093 lines** of code written (PR #2: 574 lines, PR #3: 519 lines)
 - **100% test success rate** (all tests passing)
 
@@ -449,7 +497,7 @@ Each PR follows this documentation standard:
 - ✅ Implementation: 100% complete (all PRs deployed)
 
 **Core Messaging Phase (PRs #4-11)**:
-- 🚧 Planning: 50% complete (PR #4, #5, #6, #7 documented, 4 remaining)
+- 🚧 Planning: 62% complete (PR #4, #5, #6, #7, #8 documented, 3 remaining)
 - ⏳ Implementation: 0% complete (ready to start PR #4)
 
 ---
@@ -611,16 +659,17 @@ docs/documentation-update     (Docs only)
 
 **PR #7: Chat List View** 👈 NEXT TO IMPLEMENT
 - Branch: Will create `feature/chat-list-view`
-- Status: Planning needed (will create documentation)
+- Status: Planning complete (documentation ready!)
 - Time: 2-3 hours estimated
 - Complexity: MEDIUM (real-time listeners, local-first architecture)
 - Depends on: PR #4 ✅, PR #5 ✅, PR #6 ✅ (all complete!)
 
-**PR #8: Contact Selection & New Chat**
-- Branch: Will create after PR #7
-- Status: Planning needed
-- Time: 2 hours estimated
-- Complexity: LOW-MEDIUM (contact list, new chat flow)
+**PR #8: Contact Selection & New Chat** 📋 PLANNED!
+- Branch: Will create `feature/pr08-contact-selection`
+- Status: ✅ Planning complete (documentation ready!)
+- Time: 2-3 hours estimated
+- Complexity: MEDIUM (service extensions, ViewModel, search, sheet)
+- Depends on: PR #4 ✅, PR #5 ✅, PR #7 (in progress)
 
 ### Next Actions
 1. **Merge PR #6** (Local Persistence - COMPLETE!)

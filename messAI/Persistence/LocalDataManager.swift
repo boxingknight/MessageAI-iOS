@@ -15,6 +15,10 @@ class LocalDataManager {
     
     private let context: NSManagedObjectContext
     
+    // MARK: - Singleton
+    
+    static let shared = LocalDataManager()
+    
     // MARK: - Initialization
     
     init(context: NSManagedObjectContext = PersistenceController.shared.container.viewContext) {

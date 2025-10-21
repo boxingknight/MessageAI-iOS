@@ -87,10 +87,14 @@ class ChatListViewModel: ObservableObject {
                     participants: entity.participantsArray,
                     isGroup: entity.isGroup,
                     groupName: entity.groupName,
+                    groupPhotoURL: entity.groupPhotoURL,
                     lastMessage: entity.lastMessage ?? "",
                     lastMessageAt: entity.lastMessageAt ?? Date(),
+                    lastMessageSenderId: entity.lastMessageSenderId,
                     createdBy: entity.createdBy ?? "",
-                    createdAt: entity.createdAt ?? Date()
+                    createdAt: entity.createdAt ?? Date(),
+                    unreadCount: [:], // TODO: Parse from Core Data
+                    admins: entity.adminsArray
                 )
             }
             
