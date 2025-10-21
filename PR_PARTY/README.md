@@ -618,10 +618,10 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 ---
 
 ### PR #13: Group Chat Functionality
-**Status:** 📋 PLANNED (documentation complete, ready to implement) 🎉 **NEW!**  
+**Status:** 🚧 IN PROGRESS (per user request)  
 **Branch**: `feature/pr13-group-chat` (will create)  
 **Timeline**: 5-6 hours estimated (adjusted after detailed planning)  
-**Started**: Not started  
+**Started**: October 21, 2025  
 **Completed**: N/A
 
 **Documents**:
@@ -673,6 +673,60 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #14: Image Sharing - Storage Integration
+**Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **NEW!**  
+**Branch**: `feature/pr14-image-sharing` (will create)  
+**Timeline**: 2-3 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR14_IMAGE_SHARING.md` (~15,000 words)
+- Implementation Checklist: `PR14_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
+- Quick Start: `PR14_README.md` (~8,000 words)
+- Planning Summary: `PR14_PLANNING_SUMMARY.md` (~5,000 words)
+- Testing Guide: `PR14_TESTING_GUIDE.md` (~10,000 words)
+
+**Summary**: Image sharing for visual communication—select from photo library or camera, compress automatically to <2MB, upload to Firebase Storage with progress tracking, display thumbnails in chat bubbles, tap for full-screen with pinch-zoom. Implements client-side image compression (2-second max), Firebase Storage service with secure rules, thumbnail generation (200x200), optimistic UI with upload progress, full-screen image viewer with zoom (1x-5x), and offline image queue. Essential feature: 55% of WhatsApp messages contain images—visual communication is table stakes.
+
+**Key Decisions**:
+- Firebase Storage backend (integrated, scalable, secure, CDN)
+- Client-side compression (fast, free, instant feedback, works offline)
+- Conversation-based storage structure: `/chat_images/{conversationId}/{messageId}.jpg`
+- UIKit ImagePicker wrapped for SwiftUI (reliable, camera support, iOS 16+)
+- Progress bar for uploads (essential UX for slow networks)
+
+**Files to Create**:
+- `Utilities/ImageCompressor.swift` (~150 lines) - Compress, resize, thumbnail generation
+- `Utilities/ImagePicker.swift` (~80 lines) - UIKit picker wrapper for SwiftUI
+- `Services/StorageService.swift` (~200 lines) - Firebase Storage upload/download
+- `Views/Chat/FullScreenImageView.swift` (~100 lines) - Image viewer with pinch-zoom
+- **Total**: 4 new files (~530 lines)
+
+**Files to Modify**:
+- `Models/Message.swift` (+80 lines) - Add imageURL, thumbnailURL, dimensions, aspectRatio
+- `Services/ChatService.swift` (+50 lines) - Image message support
+- `ViewModels/ChatViewModel.swift` (+100 lines) - sendImageMessage(), upload progress
+- `Views/Chat/MessageBubbleView.swift` (+80 lines) - Display thumbnails, tap for full-screen
+- `Views/Chat/MessageInputView.swift` (+60 lines) - Image button, action sheet, picker
+- `Views/Chat/ChatView.swift` (+20 lines) - Image callback integration
+- `firebase/storage.rules` (NEW) - Security rules for image access
+- **Total**: ~390 lines across 6 modified files + 1 new rules file
+
+**What Will Be Tested**:
+- ✅ 35+ comprehensive test scenarios (unit, integration, edge, performance, acceptance)
+- 🔴 **Critical:** Image selection works (library + camera) (must pass)
+- 🔴 **Critical:** Compression to <2MB in <2 seconds (must pass)
+- 🔴 **Critical:** Upload with progress 0-100% (must pass)
+- 🔴 **Critical:** Thumbnails display in chat (must pass)
+- 🔴 **Critical:** Full-screen viewer with zoom works (must pass)
+- ✅ Performance: Compression <2s, upload <10s WiFi, thumbnail gen <500ms
+- ✅ Cross-device image sharing works
+- ✅ Images work in groups and 1-on-1
+- ✅ Offline queue and sync
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -718,9 +772,9 @@ MessageAI - A production-quality iOS messaging application with:
 - None currently
 
 ### Planned
-- 📋 PR #12: Presence & Typing Indicators (documentation ready! 🚧 IN PROGRESS per user)
-- 📋 PR #13: Group Chat Functionality (documentation complete, ready to implement!) 🎉 **NEW!**
-- 📋 PR #14: Image Sharing
+- 📋 PR #12: Presence & Typing Indicators (documentation complete)
+- 🚧 PR #13: Group Chat Functionality (IN PROGRESS per user)
+- 📋 PR #14: Image Sharing - Storage Integration (documentation complete!) 🎉 **NEW!**
 - 📋 PR #15: Offline Support & Network Monitoring
 - 📋 PR #16: Profile Management
 - 📋 PR #17: Push Notifications - FCM
@@ -792,18 +846,19 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **13 PRs documented** (PR #1-13) 🎉 **PR #11 COMPLETE! PR #12 & #13 PLANNED!**
-- **~489,000 words** of planning and documentation
+- **14 PRs documented** (PR #1-14) 🎉 **PR #13 IN PROGRESS, PR #14 PLANNED!**
+- **~537,000 words** of planning and documentation
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
   - PR #9: ~50K (with complete summary) ✅
   - PR #10: ~43K (with complete summary) ✅
   - PR #11: ~38.5K (with complete summary) ✅
-  - PR #12: ~54.5K (planning complete) 🎉
-  - PR #13: ~65K (planning complete) 🎉 **NEW!**
-- **72 planning documents** (5-6 per PR)
-- **~27 hours** spent on planning total
+  - PR #12: ~54.5K (planning complete) ✅
+  - PR #13: ~65K (in progress per user) 🚧
+  - PR #14: ~48K (planning complete) 🎉 **NEW!**
+- **77 planning documents** (5-6 per PR)
+- **~29 hours** spent on planning total
 - **~3,139+ lines** of production code written (8 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
