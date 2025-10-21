@@ -22,6 +22,9 @@ class ChatViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showError: Bool = false
     
+    // Read Receipt State (PR #11 Fix): Track if chat is visible for real-time read receipts
+    @Published var isChatVisible: Bool = false
+    
     // MARK: - Dependencies
     private let chatService: ChatService
     private let localDataManager: LocalDataManager
@@ -264,6 +267,9 @@ class ChatViewModel: ObservableObject {
     /// Handle new messages from Firestore (deduplication logic)
     private func handleFirestoreMessages(_ firebaseMessages: [Message]) async {
         print("🔄 [ChatViewModel] handleFirestoreMessages called with \(firebaseMessages.count) messages")
+        print("   isChatVisible: \(isChatVisible)")
+        
+        var messagesToMarkAsRead: [String] = []
         
         for firebaseMessage in firebaseMessages {
             print("   Processing message: \(firebaseMessage.id)")
@@ -307,12 +313,25 @@ class ChatViewModel: ObservableObject {
                 } catch {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
+                
+                // PR #11 Fix: If this is a new message from someone else AND chat is visible
+                // Mark it as delivered + read immediately (like WhatsApp)
+                if firebaseMessage.senderId != currentUserId && isChatVisible {
+                    print("   🔔 Chat is visible! Will mark message as delivered + read")
+                    messagesToMarkAsRead.append(firebaseMessage.id)
+                }
             }
         }
         
         // Always sort by timestamp (Firestore doesn't guarantee order)
         messages.sort { $0.sentAt < $1.sentAt }
         print("✅ [ChatViewModel] Finished processing, total messages: \(messages.count)")
+        
+        // PR #11 Fix: Mark new messages as read if chat was visible
+        if !messagesToMarkAsRead.isEmpty && isChatVisible {
+            print("📖 [ChatViewModel] Marking \(messagesToMarkAsRead.count) new messages as delivered + read")
+            await markNewMessagesAsRead(messageIds: messagesToMarkAsRead)
+        }
     }
     
     /// Update optimistic message with server data
@@ -345,6 +364,7 @@ class ChatViewModel: ObservableObject {
     // MARK: - Status Tracking (PR #11)
     
     /// Mark conversation as viewed (marks messages as delivered and read)
+    /// Called when chat first loads or user returns to it
     func markConversationAsViewed() async {
         do {
             // Step 1: Mark messages as delivered (user opened app)
@@ -363,6 +383,27 @@ class ChatViewModel: ObservableObject {
             
         } catch {
             print("⚠️ Failed to mark conversation as viewed: \(error)")
+            // Don't show error to user (non-critical operation)
+        }
+    }
+    
+    /// Mark specific new messages as delivered + read (real-time, like WhatsApp)
+    /// Called when messages arrive while chat is visible
+    private func markNewMessagesAsRead(messageIds: [String]) async {
+        do {
+            print("🔔 [ChatViewModel] markNewMessagesAsRead called for \(messageIds.count) messages")
+            
+            // Mark as delivered + read for this user
+            try await chatService.markSpecificMessagesAsRead(
+                conversationId: conversationId,
+                messageIds: messageIds,
+                userId: currentUserId
+            )
+            
+            print("✅ [ChatViewModel] Marked \(messageIds.count) messages as delivered + read")
+            
+        } catch {
+            print("⚠️ [ChatViewModel] Failed to mark messages as read: \(error)")
             // Don't show error to user (non-critical operation)
         }
     }

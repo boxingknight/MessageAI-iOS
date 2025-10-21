@@ -577,6 +577,73 @@ class ChatService {
         }
     }
     
+    /// Mark specific messages as delivered + read (PR #11 Fix)
+    /// Used for real-time read receipts when chat is visible
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - messageIds: Array of specific message IDs to mark
+    ///   - userId: The user ID marking messages as read
+    func markSpecificMessagesAsRead(
+        conversationId: String,
+        messageIds: [String],
+        userId: String
+    ) async throws {
+        do {
+            print("🔔 [ChatService] markSpecificMessagesAsRead called for \(messageIds.count) messages")
+            
+            let batch = db.batch()
+            var updatedCount = 0
+            
+            for messageId in messageIds {
+                let messageRef = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
+                
+                // Fetch current data to check if already marked
+                let document = try await messageRef.getDocument()
+                guard document.exists else {
+                    print("   ⚠️ Message \(messageId) not found")
+                    continue
+                }
+                
+                let data = document.data() ?? [:]
+                let deliveredTo = data["deliveredTo"] as? [String] ?? []
+                let readBy = data["readBy"] as? [String] ?? []
+                
+                var needsUpdate = false
+                var updates: [String: Any] = [:]
+                
+                // Add to deliveredTo if not already there
+                if !deliveredTo.contains(userId) {
+                    print("   ➕ Adding \(userId) to deliveredTo for message \(messageId)")
+                    updates["deliveredTo"] = FieldValue.arrayUnion([userId])
+                    needsUpdate = true
+                }
+                
+                // Add to readBy if not already there
+                if !readBy.contains(userId) {
+                    print("   ➕ Adding \(userId) to readBy for message \(messageId)")
+                    updates["readBy"] = FieldValue.arrayUnion([userId])
+                    updates["readAt"] = FieldValue.serverTimestamp()
+                    needsUpdate = true
+                }
+                
+                if needsUpdate {
+                    batch.updateData(updates, forDocument: messageRef)
+                    updatedCount += 1
+                }
+            }
+            
+            try await batch.commit()
+            print("[ChatService] ✅ Marked \(updatedCount)/\(messageIds.count) messages as delivered + read")
+            
+        } catch {
+            print("[ChatService] ❌ Error marking specific messages: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     /// Mark messages as delivered when conversation opened (background operation)
     /// - Parameters:
     ///   - conversationId: The conversation ID

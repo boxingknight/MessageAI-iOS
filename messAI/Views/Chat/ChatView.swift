@@ -246,11 +246,19 @@ struct ChatView: View {
             // PR#17.1: Track active conversation for toast notifications
             ToastNotificationManager.shared.activeConversationId = conversation.id
             print("📍 Set active conversation: \(conversation.id)")
+            
+            // PR#11 Fix: Track chat visibility for real-time read receipts
+            viewModel.isChatVisible = true
+            print("👁️ Chat is now VISIBLE - read receipts will be instant")
         }
         .onDisappear {
             // PR#17.1: Clear active conversation when leaving chat
             ToastNotificationManager.shared.activeConversationId = nil
             print("📍 Cleared active conversation")
+            
+            // PR#11 Fix: Clear chat visibility
+            viewModel.isChatVisible = false
+            print("👁️ Chat is now HIDDEN - read receipts paused")
         }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {
