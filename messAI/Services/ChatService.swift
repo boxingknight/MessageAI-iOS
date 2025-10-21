@@ -520,20 +520,17 @@ class ChatService {
     /// - Parameters:
     ///   - conversationId: The conversation ID
     ///   - userId: The user ID marking messages as read
-    ///   - upToDate: Mark messages up to this date (default: now)
     func markAllMessagesAsRead(
         conversationId: String,
-        userId: String,
-        upToDate: Date = Date()
+        userId: String
     ) async throws {
         do {
             print("📖 [ChatService] markAllMessagesAsRead called for user: \(userId)")
             
-            // Query messages not sent by current user, up to the specified date
+            // Query messages not sent by current user (simplified to match markMessagesAsDelivered)
             let messagesQuery = db.collection("conversations")
                 .document(conversationId)
                 .collection("messages")
-                .whereField("sentAt", isLessThanOrEqualTo: Timestamp(date: upToDate))
                 .whereField("senderId", isNotEqualTo: userId)
             
             let snapshot = try await messagesQuery.getDocuments()
@@ -554,22 +551,37 @@ class ChatService {
                 
                 // Only update if not already read by this user
                 let readBy = document.data()["readBy"] as? [String] ?? []
-                print("   Message \(messageId): readBy = \(readBy)")
+                let deliveredTo = document.data()["deliveredTo"] as? [String] ?? []
+                print("   Message \(messageId): deliveredTo=\(deliveredTo), readBy=\(readBy)")
                 
+                var needsUpdate = false
+                var updates: [String: Any] = [:]
+                
+                // Add to deliveredTo if not already there
+                if !deliveredTo.contains(userId) {
+                    print("   ➕ Adding \(userId) to deliveredTo")
+                    updates["deliveredTo"] = FieldValue.arrayUnion([userId])
+                    needsUpdate = true
+                }
+                
+                // Add to readBy if not already there
                 if !readBy.contains(userId) {
-                    print("   ➕ Adding \(userId) to readBy array")
-                    batch.updateData([
-                        "readBy": FieldValue.arrayUnion([userId]),
-                        "readAt": FieldValue.serverTimestamp()
-                    ], forDocument: messageRef)
+                    print("   ➕ Adding \(userId) to readBy")
+                    updates["readBy"] = FieldValue.arrayUnion([userId])
+                    updates["readAt"] = FieldValue.serverTimestamp()
+                    needsUpdate = true
+                }
+                
+                if needsUpdate {
+                    batch.updateData(updates, forDocument: messageRef)
                     updatedCount += 1
                 } else {
-                    print("   ✅ Already read by \(userId)")
+                    print("   ✅ Already delivered + read by \(userId)")
                 }
             }
             
             try await batch.commit()
-            print("[ChatService] ✅ Marked \(updatedCount)/\(snapshot.documents.count) messages as read for \(userId)")
+            print("[ChatService] ✅ Marked \(updatedCount)/\(snapshot.documents.count) messages as delivered + read for \(userId)")
             
         } catch {
             print("[ChatService] ❌ Error marking messages as read: \(error)")

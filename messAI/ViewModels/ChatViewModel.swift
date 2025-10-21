@@ -367,19 +367,14 @@ class ChatViewModel: ObservableObject {
     /// Called when chat first loads or user returns to it
     func markConversationAsViewed() async {
         do {
-            // Step 1: Mark messages as delivered (user opened app)
-            try await chatService.markMessagesAsDelivered(
-                conversationId: conversationId,
-                userId: currentUserId
-            )
-            
-            // Step 2: Mark messages as read (user viewing conversation)
+            // PR #11 Fix: Simplified to single call that marks both delivered + read
+            // (markMessagesAsDelivered is now redundant as markAllMessagesAsRead does both)
             try await chatService.markAllMessagesAsRead(
                 conversationId: conversationId,
                 userId: currentUserId
             )
             
-            print("✅ Conversation marked as viewed")
+            print("✅ Conversation marked as viewed (delivered + read)")
             
         } catch {
             print("⚠️ Failed to mark conversation as viewed: \(error)")
