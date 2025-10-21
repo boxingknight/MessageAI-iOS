@@ -56,10 +56,11 @@ service cloud.firestore {
                          request.resource.data.text is string &&
                          request.resource.data.sentAt is timestamp;
         
-        // Can update message if you're the sender OR updating status fields
+        // Can update message if you're the sender OR updating status/tracking fields
+        // PR #11: Added deliveredTo and readBy for recipient tracking
         allow update: if isParticipant(conversationId) &&
                          (request.auth.uid == resource.data.senderId || 
-                          request.resource.data.keys().hasOnly(['status', 'deliveredAt', 'readAt']));
+                          request.resource.data.keys().hasOnly(['status', 'deliveredAt', 'readAt', 'deliveredTo', 'readBy']));
         
         // Can delete if you're the sender
         allow delete: if isParticipant(conversationId) &&
