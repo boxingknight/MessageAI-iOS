@@ -16,6 +16,9 @@ struct MessageBubbleView: View {
     let isFirstInGroup: Bool
     let isLastInGroup: Bool
     
+    // PR #11: Conversation for group status aggregation
+    let conversation: Conversation?
+    
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isFromCurrentUser {
@@ -156,17 +159,30 @@ struct MessageBubbleView: View {
         }
     }
     
+    // PR #11: Enhanced status icon with group aggregation
     private var statusIcon: some View {
         Group {
-            switch message.status {
+            // Determine status (with group aggregation if conversation provided)
+            let displayStatus: MessageStatus = {
+                if let conversation = conversation {
+                    return message.statusForSender(in: conversation)
+                } else {
+                    return message.status
+                }
+            }()
+            
+            // Display appropriate icon based on status
+            switch displayStatus {
             case .sending:
                 Image(systemName: "clock.fill")
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .accessibilityLabel(message.statusText())
             case .sent:
                 Image(systemName: "checkmark")
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    .accessibilityLabel(message.statusText())
             case .delivered:
                 HStack(spacing: -2) {
                     Image(systemName: "checkmark")
@@ -174,6 +190,7 @@ struct MessageBubbleView: View {
                 }
                 .font(.caption2)
                 .foregroundColor(.secondary)
+                .accessibilityLabel(message.statusText())
             case .read:
                 HStack(spacing: -2) {
                     Image(systemName: "checkmark")
@@ -181,10 +198,12 @@ struct MessageBubbleView: View {
                 }
                 .font(.caption2)
                 .foregroundColor(.blue)
+                .accessibilityLabel(message.statusText())
             case .failed:
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.caption2)
                     .foregroundColor(.red)
+                    .accessibilityLabel(message.statusText())
             }
         }
     }
@@ -213,7 +232,8 @@ struct MessageBubbleView: View {
                 ),
                 isFromCurrentUser: false,
                 isFirstInGroup: true,
-                isLastInGroup: true
+                isLastInGroup: true,
+                conversation: nil
             )
             
             // Grouped messages from same sender
@@ -228,7 +248,8 @@ struct MessageBubbleView: View {
                 ),
                 isFromCurrentUser: true,
                 isFirstInGroup: true,
-                isLastInGroup: false
+                isLastInGroup: false,
+                conversation: nil
             )
             
             MessageBubbleView(
@@ -242,7 +263,8 @@ struct MessageBubbleView: View {
                 ),
                 isFromCurrentUser: true,
                 isFirstInGroup: false,
-                isLastInGroup: false
+                isLastInGroup: false,
+                conversation: nil
             )
             
             MessageBubbleView(
@@ -256,7 +278,8 @@ struct MessageBubbleView: View {
                 ),
                 isFromCurrentUser: true,
                 isFirstInGroup: false,
-                isLastInGroup: true
+                isLastInGroup: true,
+                conversation: nil
             )
             
             // Another standalone
@@ -271,7 +294,8 @@ struct MessageBubbleView: View {
                 ),
                 isFromCurrentUser: false,
                 isFirstInGroup: true,
-                isLastInGroup: true
+                isLastInGroup: true,
+                conversation: nil
             )
         }
         .padding()

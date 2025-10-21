@@ -103,7 +103,8 @@ struct ChatView: View {
                                 message: message,
                                 isFromCurrentUser: message.senderId == viewModel.currentUserId,
                                 isFirstInGroup: isFirst,
-                                isLastInGroup: isLast
+                                isLastInGroup: isLast,
+                                conversation: nil // PR #11: Group aggregation deferred to future enhancement
                             )
                             .id(message.id)
                         }
