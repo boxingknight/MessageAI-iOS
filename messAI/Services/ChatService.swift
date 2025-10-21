@@ -204,7 +204,16 @@ class ChatService {
         do {
             try await uploadMessageToFirestore(message)
             
-            // Success! Update status and remove from queue
+            // Success! Update status to .sent in Firestore
+            try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(message.id)
+                .updateData([
+                    "status": MessageStatus.sent.rawValue
+                ])
+            
+            // Update local status and remove from queue
             var updatedMessage = message
             updatedMessage.status = MessageStatus.sent
             pendingMessages.removeAll { $0.id == message.id }
@@ -216,7 +225,7 @@ class ChatService {
                 senderId: currentUserId
             )
             
-            print("[ChatService] Sent message successfully: \(updatedMessage.id)")
+            print("[ChatService] Sent message successfully: \(updatedMessage.id) with status: sent")
             return updatedMessage
             
         } catch {
