@@ -212,7 +212,8 @@ class ChatService {
             // Update conversation's lastMessage
             try await updateConversationLastMessage(
                 conversationId: conversationId,
-                lastMessage: text
+                lastMessage: text,
+                senderId: currentUserId
             )
             
             print("[ChatService] Sent message successfully: \(updatedMessage.id)")
@@ -242,16 +243,18 @@ class ChatService {
     /// Updates conversation's last message preview
     private func updateConversationLastMessage(
         conversationId: String,
-        lastMessage: String
+        lastMessage: String,
+        senderId: String
     ) async throws {
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
                 "lastMessage": lastMessage,
-                "lastMessageAt": FieldValue.serverTimestamp()
+                "lastMessageAt": FieldValue.serverTimestamp(),
+                "lastMessageSenderId": senderId  // PR#17.1: Required for toast notifications
             ])
         
-        print("[ChatService] Updated last message for conversation: \(conversationId)")
+        print("[ChatService] Updated last message for conversation: \(conversationId) (sender: \(senderId))")
     }
     
     /// Fetch messages in real-time using Firestore snapshot listener (PR #10)
@@ -614,7 +617,8 @@ class ChatService {
                 // Update conversation
                 try await updateConversationLastMessage(
                     conversationId: message.conversationId,
-                    lastMessage: message.text
+                    lastMessage: message.text,
+                    senderId: message.senderId
                 )
                 
                 print("[ChatService] Successfully retried message: \(message.id)")
