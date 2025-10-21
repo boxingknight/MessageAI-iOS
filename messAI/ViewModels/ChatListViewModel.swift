@@ -17,6 +17,7 @@ class ChatListViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var showError: Bool = false
+    @Published var userPresence: [String: Presence] = [:]
     
     // MARK: - Private Properties
     
@@ -24,6 +25,7 @@ class ChatListViewModel: ObservableObject {
     private let localDataManager: LocalDataManager
     let currentUserId: String  // Internal access for ContactsListView integration (PR #8)
     private var firestoreTask: Task<Void, Never>?
+    private let presenceService = PresenceService.shared
     
     // MARK: - Computed Properties
     
@@ -61,7 +63,8 @@ class ChatListViewModel: ObservableObject {
     func stopListening() {
         firestoreTask?.cancel()
         firestoreTask = nil
-        print("🛑 Stopped Firestore listener")
+        presenceService.stopAllListeners()
+        print("🛑 Stopped Firestore listener and presence observers")
     }
     
     /// Refresh conversations manually
@@ -109,6 +112,9 @@ class ChatListViewModel: ObservableObject {
                         print("✅ Updated \(firestoreConversations.count) conversations from Firestore")
                     }
                     
+                    // Observe presence for all participants
+                    await observePresenceForConversations(firestoreConversations)
+                    
                     // Save to local storage in background
                     Task.detached { [weak self] in
                         guard let self = self else { return }
@@ -132,6 +138,29 @@ class ChatListViewModel: ObservableObject {
             try localDataManager.saveConversation(conversation)
         }
         print("💾 Saved \(conversations.count) conversations to local storage")
+    }
+    
+    /// Observe presence for all conversation participants
+    private func observePresenceForConversations(_ conversations: [Conversation]) async {
+        // Get all unique participant IDs (excluding current user)
+        let allParticipants = Set(
+            conversations.flatMap { $0.participants }
+                .filter { $0 != currentUserId }
+        )
+        
+        // Start observing presence for each unique participant
+        for userId in allParticipants {
+            presenceService.observePresence(userId)
+        }
+        
+        // Subscribe to presence updates
+        Task { @MainActor in
+            // Mirror PresenceService.userPresence to our local copy
+            // This allows the UI to update reactively
+            self.userPresence = presenceService.userPresence
+        }
+        
+        print("👀 Observing presence for \(allParticipants.count) users")
     }
     
     // MARK: - Helper Methods
@@ -163,6 +192,18 @@ class ChatListViewModel: ObservableObject {
     func getUnreadCount(_ conversation: Conversation) -> Int {
         // TODO: Implement unread count from message status (PR #11)
         return 0
+    }
+    
+    /// Get presence for conversation (1-on-1 chats only)
+    func getPresence(_ conversation: Conversation) -> Presence? {
+        guard !conversation.isGroup else { return nil }
+        
+        // Find other participant
+        guard let otherUserId = conversation.participants.first(where: { $0 != currentUserId }) else {
+            return nil
+        }
+        
+        return userPresence[otherUserId]
     }
     
     // MARK: - Conversation Creation (PR #8)

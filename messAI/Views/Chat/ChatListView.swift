@@ -80,7 +80,7 @@ struct ChatListView: View {
                             conversationName: viewModel.getConversationName(conversation),
                             photoURL: viewModel.getConversationPhotoURL(conversation),
                             unreadCount: viewModel.getUnreadCount(conversation),
-                            isOnline: false // TODO: PresenceService (PR #12)
+                            isOnline: viewModel.getPresence(conversation)?.isOnline ?? false
                         )
                         .padding(.horizontal)
                     }
