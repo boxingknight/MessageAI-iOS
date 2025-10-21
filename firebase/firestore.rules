@@ -68,6 +68,30 @@ service cloud.firestore {
       }
     }
     
+    // Presence collection (PR #12)
+    match /presence/{userId} {
+      // Anyone authenticated can read presence
+      allow read: if isAuthenticated();
+      
+      // Users can only write their own presence
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Typing indicators collection (PR #12)
+    match /typing/{typingId} {
+      // Anyone authenticated can read typing status
+      // typingId format: {conversationId}_{userId}
+      allow read: if isAuthenticated();
+      
+      // Users can only write their own typing status
+      // Must include userId, conversationId, isTyping, startedAt
+      allow write: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.conversationId is string &&
+                      request.resource.data.isTyping is bool &&
+                      request.resource.data.startedAt is timestamp;
+    }
+    
     // Deny everything else
     match /{document=**} {
       allow read, write: if false;
