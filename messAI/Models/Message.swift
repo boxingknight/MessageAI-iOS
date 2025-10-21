@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
@@ -28,6 +29,10 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
     // MARK: - State
     var status: MessageStatus
     
+    // MARK: - Recipient Tracking (PR #11)
+    var deliveredTo: [String] = []  // Array of user IDs who received message
+    var readBy: [String] = []       // Array of user IDs who read message
+    
     // MARK: - Metadata (cached for convenience)
     let senderName: String?
     let senderPhotoURL: String?
@@ -45,6 +50,8 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
         deliveredAt: Date? = nil,
         readAt: Date? = nil,
         status: MessageStatus = .sending,
+        deliveredTo: [String] = [],
+        readBy: [String] = [],
         senderName: String? = nil,
         senderPhotoURL: String? = nil
     ) {
@@ -57,6 +64,8 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
         self.deliveredAt = deliveredAt
         self.readAt = readAt
         self.status = status
+        self.deliveredTo = deliveredTo
+        self.readBy = readBy
         self.senderName = senderName
         self.senderPhotoURL = senderPhotoURL
     }
@@ -109,6 +118,78 @@ extension Message {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: sentAt, relativeTo: Date())
     }
+    
+    // MARK: - Status Display Helpers (PR #11)
+    
+    /// Returns status from sender's perspective (handles group aggregation)
+    func statusForSender(in conversation: Conversation) -> MessageStatus {
+        // If failed or sending, show that status regardless
+        if status == .failed || status == .sending {
+            return status
+        }
+        
+        // For 1-on-1 chats, return actual status
+        if !conversation.isGroup {
+            return status
+        }
+        
+        // For group chats: aggregate based on recipients (show worst status)
+        let otherParticipants = conversation.participants.filter { $0 != senderId }
+        
+        // Check if all recipients have read
+        let allRead = otherParticipants.allSatisfy { readBy.contains($0) }
+        if allRead { return .read }
+        
+        // Check if all recipients have received
+        let allDelivered = otherParticipants.allSatisfy { deliveredTo.contains($0) }
+        if allDelivered { return .delivered }
+        
+        // At least sent to server
+        return .sent
+    }
+    
+    /// Returns SF Symbol name for status icon
+    func statusIcon() -> String {
+        switch status {
+        case .sending:
+            return "clock"
+        case .sent:
+            return "checkmark"
+        case .delivered:
+            return "checkmark.circle"
+        case .read:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+    
+    /// Returns color for status icon
+    func statusColor() -> Color {
+        switch status {
+        case .sending:
+            return .gray.opacity(0.6)
+        case .sent:
+            return .gray
+        case .delivered:
+            return .gray
+        case .read:
+            return .blue
+        case .failed:
+            return .red
+        }
+    }
+    
+    /// Returns accessibility label for status
+    func statusText() -> String {
+        switch status {
+        case .sending: return "Sending"
+        case .sent: return "Sent"
+        case .delivered: return "Delivered"
+        case .read: return "Read"
+        case .failed: return "Failed to send"
+        }
+    }
 }
 
 // MARK: - Firestore Conversion
@@ -122,7 +203,9 @@ extension Message {
             "senderId": senderId,
             "text": text,
             "sentAt": Timestamp(date: sentAt),
-            "status": status.rawValue
+            "status": status.rawValue,
+            "deliveredTo": deliveredTo,  // PR #11: Recipient tracking
+            "readBy": readBy              // PR #11: Recipient tracking
         ]
         
         // Optional fields
@@ -165,6 +248,10 @@ extension Message {
         self.text = text
         self.sentAt = sentAtTimestamp.dateValue()
         self.status = status
+        
+        // PR #11: Parse recipient tracking arrays
+        self.deliveredTo = dictionary["deliveredTo"] as? [String] ?? []
+        self.readBy = dictionary["readBy"] as? [String] ?? []
         
         // Optional fields
         self.imageURL = dictionary["imageURL"] as? String
