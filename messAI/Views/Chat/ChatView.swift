@@ -66,27 +66,19 @@ struct ChatView: View {
     
     /// Check if message is last in a group
     private func isLastInGroup(at index: Int) -> Bool {
-        guard index < viewModel.messages.count - 1 else {
-            print("📍 Message \(index) is LAST in conversation")
-            return true
-        }
+        guard index < viewModel.messages.count - 1 else { return true } // Last message is always last in group
         
         let currentMessage = viewModel.messages[index]
         let nextMessage = viewModel.messages[index + 1]
         
         // Different sender = end group
         if currentMessage.senderId != nextMessage.senderId {
-            print("📍 Message \(index) is LAST in group (different sender next)")
             return true
         }
         
         // Same sender but more than 2 minutes apart = end group
         let timeDifference = nextMessage.sentAt.timeIntervalSince(currentMessage.sentAt)
-        let isLast = timeDifference > 120
-        
-        print("📍 Message \(index): timeDiff=\(timeDifference)s, isLast=\(isLast)")
-        
-        return isLast
+        return timeDifference > 120 // 2 minutes
     }
     
     var body: some View {
