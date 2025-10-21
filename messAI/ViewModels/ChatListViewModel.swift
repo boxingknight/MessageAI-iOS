@@ -22,7 +22,7 @@ class ChatListViewModel: ObservableObject {
     
     private let chatService: ChatService
     private let localDataManager: LocalDataManager
-    private let currentUserId: String
+    let currentUserId: String  // Internal access for ContactsListView integration (PR #8)
     private var firestoreTask: Task<Void, Never>?
     
     // MARK: - Computed Properties

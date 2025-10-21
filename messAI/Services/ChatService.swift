@@ -117,7 +117,8 @@ class ChatService {
     /// - Parameter userId: The user whose conversations to fetch
     /// - Returns: AsyncThrowingStream of conversation arrays
     func fetchConversations(userId: String) -> AsyncThrowingStream<[Conversation], Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream { [weak self] continuation in
+            guard let self = self else { return }
             
             let listener = db.collection("conversations")
                 .whereField("participants", arrayContains: userId)
@@ -260,7 +261,8 @@ class ChatService {
     /// - Parameter conversationId: The conversation ID
     /// - Returns: AsyncThrowingStream of message arrays
     func fetchMessages(conversationId: String) -> AsyncThrowingStream<[Message], Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream { [weak self] continuation in
+            guard let self = self else { return }
             
             let listener = db.collection("conversations")
                 .document(conversationId)

@@ -384,6 +384,55 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #9: Chat View - UI Components
+**Status:** 📋 PLANNED (documentation complete, ready to implement)  
+**Branch**: `feature/pr09-chat-view-ui` (will create)  
+**Timeline**: 3-4 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR09_CHAT_VIEW_UI.md` (~11,000 words)
+- Implementation Checklist: `PR09_IMPLEMENTATION_CHECKLIST.md` (~8,000 words)
+- Quick Start: `PR09_README.md` (~7,500 words)
+- Planning Summary: `PR09_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR09_TESTING_GUIDE.md` (~5,500 words)
+
+**Summary**: Build the core chat interface where users view message history and send new messages—the heart of the messaging app. Implements ChatViewModel for state management, MessageBubbleView for individual messages (sent vs received styling), MessageInputView for text input + send button, and ChatView as main container with ScrollView + auto-scroll to bottom. Includes keyboard handling, navigation from ChatListView, and 12 comprehensive test scenarios.
+
+**Key Decisions**:
+- ScrollView + LazyVStack + ScrollViewReader (performance + programmatic scroll)
+- HStack with conditional spacer for bubble alignment (clear, explicit)
+- iOS native keyboard handling with manual adjustments if needed
+- TextField + always-visible send button (matches industry standard)
+- Local-first display, Firestore listener in PR #10 (separation of concerns)
+
+**Files to Create**:
+- `ViewModels/ChatViewModel.swift` (~350 lines) - State management, message loading/sending
+- `Views/Chat/ChatView.swift` (~250 lines) - Main container with ScrollView
+- `Views/Chat/MessageBubbleView.swift` (~180 lines) - Individual message display
+- `Views/Chat/MessageInputView.swift` (~120 lines) - Text field + send button
+- `Views/Chat/ChatListView.swift` (+30 lines) - Add navigation to ChatView
+- **Total**: ~930 lines new, ~30 lines modified
+
+**What Will Be Built**:
+- ChatViewModel: Load messages from Core Data, send placeholder (PR #10 adds Firestore)
+- MessageBubbleView: Bubble styling, status indicators (sending/sent/delivered/read/failed)
+- MessageInputView: Text field with keyboard submit, send button enabled/disabled logic
+- ChatView: ScrollView with LazyVStack, ScrollViewReader for auto-scroll to bottom
+- Navigation: From ChatListView to ChatView with conversation ID and name
+
+**What Will Be Tested**:
+- ✅ All 24 test scenarios (5 unit, 5 integration, 5 edge cases, 4 performance, 5 acceptance)
+- ✅ Performance: <1s load, 60fps scroll with 100+ messages, <80MB memory, <50ms send response
+- ✅ Keyboard handling (doesn't obscure input field)
+- ✅ Auto-scroll to bottom on open and after send
+- ✅ Works on all iPhone sizes (SE to Pro Max)
+- ✅ Dark mode supported
+- ✅ Navigation bidirectional (chat list ↔ chat view)
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -425,7 +474,7 @@ MessageAI - A production-quality iOS messaging application with:
 - 📋 PR #6: Local Persistence with Core Data (documentation ready!)  
 - 📋 PR #7: Chat List View (documentation ready!)
 - 📋 PR #8: Contact Selection & New Chat (documentation ready!)
-- 📋 PR #9: Chat View - UI Components
+- 📋 PR #9: Chat View - UI Components (documentation ready!)  ✨ NEW!
 - 📋 PR #10: Real-Time Messaging & Optimistic UI
 - 📋 PR #11: Message Status Indicators
 - 📋 PR #12: Presence & Typing Indicators
@@ -502,10 +551,10 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **8 PRs documented** (PR #1, #2, #3, #4, #5, #6, #7, #8)
-- **~203,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5, ~29K for PR #6, ~31K for PR #7, ~31K for PR #8)
-- **40 planning documents** (5 per PR)
-- **~15 hours** spent on planning total
+- **9 PRs documented** (PR #1, #2, #3, #4, #5, #6, #7, #8, #9) ✨ NEW!
+- **~238,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5, ~29K for PR #6, ~31K for PR #7, ~31K for PR #8, ~35K for PR #9)
+- **45 planning documents** (5 per PR)
+- **~17 hours** spent on planning total
 - **~1,093 lines** of code written (PR #2: 574 lines, PR #3: 519 lines)
 - **100% test success rate** (all tests passing)
 
@@ -520,7 +569,7 @@ Each PR follows this documentation standard:
 - ✅ Implementation: 100% complete (all PRs deployed)
 
 **Core Messaging Phase (PRs #4-11)**:
-- 🚧 Planning: 62% complete (PR #4, #5, #6, #7, #8 documented, 3 remaining)
+- 🚧 Planning: 75% complete (PR #4, #5, #6, #7, #8, #9 documented, 2 remaining) ✨ NEW!
 - ⏳ Implementation: 0% complete (ready to start PR #4)
 
 ---
@@ -693,6 +742,13 @@ docs/documentation-update     (Docs only)
 - Time: 2-3 hours estimated
 - Complexity: MEDIUM (service extensions, ViewModel, search, sheet)
 - Depends on: PR #4 ✅, PR #5 ✅, PR #7 (in progress)
+
+**PR #9: Chat View - UI Components** 📋 PLANNED! ✨ NEW!
+- Branch: Will create `feature/pr09-chat-view-ui`
+- Status: ✅ Planning complete (documentation ready!)
+- Time: 3-4 hours estimated
+- Complexity: HIGH (ScrollView, keyboard handling, state management, multiple components)
+- Depends on: PR #4 ✅, PR #5 ✅, PR #6 ✅, PR #7 (in progress)
 
 ### Next Actions
 1. **Merge PR #6** (Local Persistence - COMPLETE!)
