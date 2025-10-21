@@ -27,6 +27,30 @@ struct ChatListView: View {
             }
             .navigationTitle("Messages")
             .toolbar {
+                #if DEBUG
+                // Debug: Test toast button
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        // Trigger a test toast
+                        let testToast = ToastMessage(
+                            id: UUID().uuidString,
+                            conversationId: "test-conv-123",
+                            senderId: "test-user",
+                            senderName: "Test User",
+                            senderPhotoURL: nil,
+                            messageText: "This is a test toast notification! Tap to see if navigation works.",
+                            isImageMessage: false,
+                            timestamp: Date()
+                        )
+                        ToastNotificationManager.shared.showToast(testToast)
+                        print("🧪 DEBUG: Manually triggered test toast")
+                    } label: {
+                        Image(systemName: "bell.badge.fill")
+                            .foregroundColor(.orange)
+                    }
+                }
+                #endif
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showActionSheet = true
