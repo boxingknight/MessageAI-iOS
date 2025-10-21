@@ -445,6 +445,154 @@ class ChatService {
         }
     }
     
+    // MARK: - Recipient Tracking (PR #11)
+    
+    /// Mark message as delivered to a specific user
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - messageId: The message ID
+    ///   - userId: The user ID who received the message
+    func markMessageAsDelivered(
+        conversationId: String,
+        messageId: String,
+        userId: String
+    ) async throws {
+        do {
+            let messageRef = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+            
+            try await messageRef.updateData([
+                "deliveredTo": FieldValue.arrayUnion([userId]),
+                "deliveredAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("[ChatService] ✅ Message \(messageId) delivered to \(userId)")
+        } catch {
+            throw mapFirestoreError(error)
+        }
+    }
+    
+    /// Mark message as read by a specific user
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - messageId: The message ID
+    ///   - userId: The user ID who read the message
+    func markMessageAsRead(
+        conversationId: String,
+        messageId: String,
+        userId: String
+    ) async throws {
+        do {
+            let messageRef = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+            
+            try await messageRef.updateData([
+                "readBy": FieldValue.arrayUnion([userId]),
+                "readAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("[ChatService] ✅ Message \(messageId) read by \(userId)")
+        } catch {
+            throw mapFirestoreError(error)
+        }
+    }
+    
+    /// Batch mark all messages in conversation as read (conversation-level tracking)
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - userId: The user ID marking messages as read
+    ///   - upToDate: Mark messages up to this date (default: now)
+    func markAllMessagesAsRead(
+        conversationId: String,
+        userId: String,
+        upToDate: Date = Date()
+    ) async throws {
+        do {
+            // Query messages not sent by current user, up to the specified date
+            let messagesQuery = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .whereField("sentAt", isLessThanOrEqualTo: Timestamp(date: upToDate))
+                .whereField("senderId", isNotEqualTo: userId)
+            
+            let snapshot = try await messagesQuery.getDocuments()
+            
+            guard !snapshot.documents.isEmpty else {
+                print("[ChatService] No messages to mark as read")
+                return
+            }
+            
+            let batch = db.batch()
+            
+            for document in snapshot.documents {
+                let messageRef = document.reference
+                
+                // Only update if not already read by this user
+                let readBy = document.data()["readBy"] as? [String] ?? []
+                if !readBy.contains(userId) {
+                    batch.updateData([
+                        "readBy": FieldValue.arrayUnion([userId]),
+                        "readAt": FieldValue.serverTimestamp()
+                    ], forDocument: messageRef)
+                }
+            }
+            
+            try await batch.commit()
+            print("[ChatService] ✅ Marked \(snapshot.documents.count) messages as read for \(userId)")
+            
+        } catch {
+            throw mapFirestoreError(error)
+        }
+    }
+    
+    /// Mark messages as delivered when conversation opened (background operation)
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - userId: The user ID who opened the conversation
+    func markMessagesAsDelivered(
+        conversationId: String,
+        userId: String
+    ) async throws {
+        do {
+            // Query messages not sent by current user
+            let messagesQuery = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .whereField("senderId", isNotEqualTo: userId)
+            
+            let snapshot = try await messagesQuery.getDocuments()
+            
+            guard !snapshot.documents.isEmpty else {
+                print("[ChatService] No messages to mark as delivered")
+                return
+            }
+            
+            let batch = db.batch()
+            
+            for document in snapshot.documents {
+                let messageRef = document.reference
+                
+                // Only update if not already delivered to this user
+                let deliveredTo = document.data()["deliveredTo"] as? [String] ?? []
+                if !deliveredTo.contains(userId) {
+                    batch.updateData([
+                        "deliveredTo": FieldValue.arrayUnion([userId])
+                    ], forDocument: messageRef)
+                }
+            }
+            
+            try await batch.commit()
+            print("[ChatService] ✅ Marked \(snapshot.documents.count) messages as delivered for \(userId)")
+            
+        } catch {
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Queue Management
     
     /// Retries sending all pending messages
