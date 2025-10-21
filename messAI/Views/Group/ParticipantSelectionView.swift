@@ -81,7 +81,8 @@ struct ParticipantSelectionView: View {
                 GroupSetupView(groupViewModel: groupViewModel)
             }
             .task {
-                // Users are already loaded by ContactsViewModel
+                // Load all users from Firebase for testing
+                await contactsViewModel.loadUsers()
             }
         }
     }
