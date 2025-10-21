@@ -24,8 +24,8 @@ struct messAIApp: App {
     
     var body: some Scene {
         WindowGroup {
-            if authViewModel.isAuthenticated {
-                // Main app (placeholder for now)
+            if authViewModel.isAuthenticated, authViewModel.currentUser != nil {
+                // Main app - Chat List View
                 ContentView()
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     .environmentObject(authViewModel)

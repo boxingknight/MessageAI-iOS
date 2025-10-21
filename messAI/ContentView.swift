@@ -11,8 +11,9 @@ struct ContentView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     
     var body: some View {
-        if authViewModel.isAuthenticated, let currentUser = authViewModel.currentUser {
-            // Main app view - Chat List
+        // Note: ContentView is only shown when authenticated with valid currentUser
+        // (checked in messAIApp.swift)
+        if let currentUser = authViewModel.currentUser {
             ChatListView(
                 viewModel: ChatListViewModel(
                     chatService: ChatService(),
@@ -21,13 +22,13 @@ struct ContentView: View {
                 )
             )
         } else {
-            // Fallback (should never show with proper auth flow)
+            // Loading state (brief moment while fetching user)
             VStack {
-                Text("Not authenticated")
-                    .font(.title)
-                Button("Refresh") {
-                    // Auth state should update automatically
-                }
+                ProgressView()
+                Text("Loading...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top)
             }
         }
     }
