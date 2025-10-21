@@ -51,6 +51,8 @@ class ChatViewModel: ObservableObject {
         self.currentUserId = Auth.auth().currentUser?.uid ?? ""
     }
     
+    // Note: No deinit needed - Task is automatically cancelled when ChatViewModel is deallocated
+    
     // MARK: - Methods
     
     /// Load messages from local storage (Core Data)
@@ -78,23 +80,73 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    /// Send a message (placeholder for PR #9)
-    /// TODO (PR #10): Implement actual message sending to Firestore
+    /// Send a message with optimistic UI (PR #10)
     func sendMessage() {
         guard canSendMessage else { return }
         
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         messageText = "" // Clear input immediately (optimistic UI)
         
-        // TODO (PR #10): Implement actual message sending
-        print("📤 Sending message: \(text)")
+        // Step 1: Create optimistic message with temp ID
+        let tempId = UUID().uuidString
+        let optimisticMessage = Message(
+            id: tempId,
+            conversationId: conversationId,
+            senderId: currentUserId,
+            text: text,
+            sentAt: Date(),
+            status: .sending
+        )
         
-        // PR #10 will add:
-        // 1. Create optimistic Message object with status: .sending
-        // 2. Append to messages array (UI updates instantly)
-        // 3. Save to Core Data (isSynced: false)
-        // 4. Upload to Firestore
-        // 5. Update status on success (.sent) or failure (.failed)
+        // Step 2: Add to messages array immediately (UI updates instantly!)
+        messages.append(optimisticMessage)
+        print("📤 Optimistic message added: \(tempId)")
+        
+        // Step 3: Save to Core Data (not synced yet)
+        do {
+            try localDataManager.saveMessage(optimisticMessage, isSynced: false)
+        } catch {
+            print("⚠️ Failed to save optimistic message locally: \(error)")
+        }
+        
+        // Step 4: Upload to Firestore (async)
+        Task {
+            do {
+                let serverMessage = try await chatService.sendMessage(
+                    conversationId: conversationId,
+                    text: text
+                )
+                
+                // Step 5a: Success! Map temp ID to server ID
+                print("✅ Message sent successfully: \(tempId) → \(serverMessage.id)")
+                messageIdMap[tempId] = serverMessage.id
+                
+                // The real-time listener will pick this up and deduplicate it!
+                // No need to manually update - the listener handles it
+                
+            } catch {
+                // Step 5b: Failure! Update status to .failed
+                print("❌ Failed to send message: \(error)")
+                
+                if let index = messages.firstIndex(where: { $0.id == tempId }) {
+                    messages[index].status = .failed
+                    
+                    // Update Core Data
+                    do {
+                        try localDataManager.updateMessageStatus(
+                            id: tempId,
+                            status: .failed
+                        )
+                    } catch {
+                        print("⚠️ Failed to update message status in Core Data: \(error)")
+                    }
+                }
+                
+                // Show error to user
+                errorMessage = "Failed to send message: \(error.localizedDescription)"
+                showError = true
+            }
+        }
     }
     
     // MARK: - Real-Time Sync (PR #10)
