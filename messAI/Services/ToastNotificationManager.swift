@@ -73,10 +73,10 @@ class ToastNotificationManager: ObservableObject {
     /// - Parameter conversationId: The conversation ID to check
     /// - Returns: True if toast should be shown, false otherwise
     func shouldShowToast(conversationId: String) -> Bool {
-        // Don't show if no active conversation (on chat list)
+        // No active conversation (on chat list) → SHOW toast
         guard let activeId = activeConversationId else {
-            print("   ℹ️  No active conversation (on chat list)")
-            return false
+            print("   ✅ No active conversation (on chat list) → SHOW toast")
+            return true
         }
         
         // Don't show if message is for the active conversation
