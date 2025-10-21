@@ -34,30 +34,12 @@ struct ChatListView: View {
                 }
             }
             .sheet(isPresented: $showingNewChat) {
-                // TODO: ContactsListView (PR #8)
-                VStack(spacing: 20) {
-                    Image(systemName: "person.crop.circle.badge.plus")
-                        .font(.system(size: 64))
-                        .foregroundColor(.blue)
-                    
-                    Text("New Chat")
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    Text("Contact selection coming in PR #8")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Button("Close") {
-                        showingNewChat = false
-                    }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+                ContactsListView(
+                    chatService: ChatService(),
+                    currentUserId: viewModel.currentUserId
+                ) { selectedUser in
+                    handleContactSelected(selectedUser)
                 }
-                .padding()
             }
             .alert("Error", isPresented: $viewModel.showError) {
                 Button("OK") {
@@ -165,6 +147,25 @@ struct ChatListView: View {
             }
         }
         .padding()
+    }
+    
+    // MARK: - Actions
+    
+    /// Handles contact selection from contact picker
+    /// Creates or finds conversation, then dismisses sheet
+    private func handleContactSelected(_ user: User) {
+        Task {
+            do {
+                print("[ChatListView] Contact selected: \(user.displayName)")
+                let conversation = try await viewModel.startConversation(with: user)
+                showingNewChat = false
+                print("[ChatListView] ✅ Conversation ready: \(conversation.id)")
+                // TODO (PR #9): Navigate to chat view with conversation
+            } catch {
+                print("[ChatListView] ❌ Error starting conversation: \(error)")
+                // TODO (PR #19): Show error alert to user
+            }
+        }
     }
 }
 

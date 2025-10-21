@@ -164,5 +164,39 @@ class ChatListViewModel: ObservableObject {
         // TODO: Implement unread count from message status (PR #11)
         return 0
     }
+    
+    // MARK: - Conversation Creation (PR #8)
+    
+    /// Start conversation with selected user
+    /// Checks for existing conversation first, creates new if none exists
+    /// - Parameter user: The user to start conversation with
+    /// - Returns: Existing or newly created Conversation
+    func startConversation(with user: User) async throws -> Conversation {
+        print("[ChatListViewModel] Starting conversation with: \(user.displayName)")
+        
+        // Check for existing conversation
+        if let existing = try await chatService.findExistingConversation(
+            participants: [currentUserId, user.id]
+        ) {
+            print("[ChatListViewModel] Found existing conversation: \(existing.id)")
+            return existing
+        }
+        
+        // Create new conversation
+        print("[ChatListViewModel] Creating new conversation with: \(user.displayName)")
+        let newConversation = try await chatService.createConversation(
+            participants: [currentUserId, user.id],
+            isGroup: false
+        )
+        
+        // Save to local storage
+        try localDataManager.saveConversation(newConversation)
+        
+        // Add to conversations list
+        conversations.append(newConversation)
+        
+        print("[ChatListViewModel] Created and saved conversation: \(newConversation.id)")
+        return newConversation
+    }
 }
 
