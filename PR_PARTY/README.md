@@ -213,6 +213,106 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
+### PR #6: Local Persistence with Core Data
+**Status:** 📋 PLANNED (documentation complete, ready to implement)  
+**Branch**: `feature/local-persistence` (will create)  
+**Timeline**: 2-3 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR06_LOCAL_PERSISTENCE_SWIFTDATA.md` (~8,500 words)
+- Implementation Checklist: `PR06_IMPLEMENTATION_CHECKLIST.md` (~9,500 words)
+- Quick Start: `PR06_README.md` (~4,500 words)
+- Planning Summary: `PR06_PLANNING_SUMMARY.md` (~2,500 words)
+- Testing Guide: `PR06_TESTING_GUIDE.md` (~4,000 words)
+
+**Summary**: Build offline-first persistence layer using Core Data (iOS 16+ compatible). Create MessageEntity and ConversationEntity with sync metadata, implement PersistenceController for Core Data stack, build LocalDataManager with full CRUD operations, create SyncManager for offline message queuing, and implement NetworkMonitor for connection detection. Foundation for reliable message persistence and automatic sync.
+
+**Key Decisions**:
+- Core Data over SwiftData (iOS 16.0+ compatibility required)
+- Store essential fields + sync metadata (isSynced, syncAttempts, lastSyncError)
+- Network-aware auto-sync (messages sync automatically when online)
+- Server-wins conflict resolution (last-write-wins strategy)
+- Cascade delete for relationships (deleting conversation removes messages)
+
+**Files to Create**:
+- `Persistence/MessageAI.xcdatamodeld` - Core Data model (visual editor)
+- `Persistence/MessageEntity+CoreDataClass.swift` (~80 lines)
+- `Persistence/MessageEntity+CoreDataProperties.swift` (~60 lines)
+- `Persistence/ConversationEntity+CoreDataClass.swift` (~80 lines)
+- `Persistence/ConversationEntity+CoreDataProperties.swift` (~60 lines)
+- `Persistence/PersistenceController.swift` (~120 lines)
+- `Persistence/LocalDataManager.swift` (~300 lines)
+- `Persistence/SyncManager.swift` (~200 lines)
+- `Utilities/NetworkMonitor.swift` (~80 lines)
+- **Total**: 9 files (~1,030 lines)
+
+**What Will Be Built**:
+- Core Data Setup: MessageEntity, ConversationEntity with relationships and indexes
+- PersistenceController: Core Data stack with in-memory preview support
+- LocalDataManager: Full CRUD for messages and conversations, sync operations
+- SyncManager: Offline queue management, network-aware automatic sync, retry logic
+- NetworkMonitor: Online/offline detection, connection type identification
+- Entity Conversion: Swift models ↔ Core Data entities
+
+**What Will Be Tested**:
+- ✅ All 32 test cases (unit, integration, edge cases, performance, acceptance)
+- ✅ Performance: <2s insert 1000 messages, <500ms fetch 1000 messages
+- ✅ Persistence: messages survive app restart and force quit
+- ✅ Offline: messages queue locally and sync automatically when online
+- ✅ No data loss under stress testing
+- ✅ Memory: <50MB for 10k messages
+
+---
+
+### PR #7: Chat List View - Main Conversation Interface
+**Status:** 📋 PLANNED (documentation complete, ready to implement)  
+**Branch**: `feature/chat-list-view` (will create)  
+**Timeline**: 2-3 hours estimated  
+**Started**: Not started  
+**Completed**: N/A
+
+**Documents**:
+- Main Spec: `PR07_CHAT_LIST_VIEW.md` (~8,500 words)
+- Implementation Checklist: `PR07_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
+- Quick Start: `PR07_README.md` (~5,500 words)
+- Planning Summary: `PR07_PLANNING_SUMMARY.md` (~2,500 words)
+- Testing Guide: `PR07_TESTING_GUIDE.md` (~4,500 words)
+
+**Summary**: Build the main conversation list screen—the hub where users see all their chats after login. Each row shows contact/group name, profile picture, last message preview, timestamp, unread badge, and online status. Implements local-first architecture (instant load from Core Data) with real-time Firestore sync. Includes empty state, pull-to-refresh, and navigation to chat view.
+
+**Key Decisions**:
+- Real-time listener (not pull-to-refresh) for automatic updates
+- Local-first loading (Core Data instant, Firestore background sync)
+- LazyVStack for performance (virtualized rendering)
+- Defer user names/photos to PR #8 (UserService)
+- Placeholder ChatView navigation (real ChatView in PR #9)
+
+**Files to Create**:
+- `Utilities/DateFormatter+Extensions.swift` (~80 lines) - Smart timestamps
+- `ViewModels/ChatListViewModel.swift` (~250 lines) - State management + sync
+- `Views/Chat/ConversationRowView.swift` (~120 lines) - Reusable row component
+- `Views/Chat/ChatListView.swift` (~180 lines) - Main view
+- **Total**: 4 files (~630 lines)
+
+**What Will Be Built**:
+- DateFormatter Extensions: "2m ago", "Yesterday", "Mon", "Dec 25" formatting
+- ChatListViewModel: Load from local (instant), start Firestore listener, helper methods
+- ConversationRowView: Profile picture, name, last message, timestamp, unread badge
+- ChatListView: NavigationStack, LazyVStack list, empty state, pull-to-refresh
+- Lifecycle Management: Proper listener cleanup to prevent memory leaks
+
+**What Will Be Tested**:
+- ✅ All 24 test cases (unit, integration, edge cases, performance)
+- ✅ Performance: <1s initial load, <2s Firestore sync, 60fps scroll
+- ✅ Real-time: updates within 2 seconds of Firestore change
+- ✅ Offline: loads from Core Data without errors
+- ✅ No memory leaks (verified with Instruments)
+- ✅ Works with 100+ conversations smoothly
+
+---
+
 ## Project Overview
 
 ### What We're Building
@@ -251,8 +351,8 @@ MessageAI - A production-quality iOS messaging application with:
 ### Planned
 - 📋 PR #4: Core Models & Data Structure (documentation ready!)
 - 📋 PR #5: Chat Service & Firestore Integration (documentation ready!)
-- 📋 PR #6: Local Persistence with SwiftData
-- 📋 PR #7: Chat List View
+- 📋 PR #6: Local Persistence with Core Data (documentation ready!)  
+- 📋 PR #7: Chat List View (documentation ready!)
 - 📋 PR #8: Contact Selection & New Chat
 - 📋 PR #9: Chat View - UI Components
 - 📋 PR #10: Real-Time Messaging & Optimistic UI
@@ -331,10 +431,10 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **5 PRs documented** (PR #1, #2, #3, #4, #5)
-- **~112,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5)
-- **25 planning documents** (5 per PR)
-- **~9 hours** spent on planning total
+- **7 PRs documented** (PR #1, #2, #3, #4, #5, #6, #7)
+- **~172,000 words** of planning (~25K for PR #1, ~25K for PR #2, ~19K for PR #3, ~22K for PR #4, ~21K for PR #5, ~29K for PR #6, ~31K for PR #7)
+- **35 planning documents** (5 per PR)
+- **~13 hours** spent on planning total
 - **~1,093 lines** of code written (PR #2: 574 lines, PR #3: 519 lines)
 - **100% test success rate** (all tests passing)
 
@@ -342,14 +442,14 @@ Each PR follows this documentation standard:
 - **23 PRs** total
 - **~450,000+ words** of documentation (estimated)
 - **~12 hours** average planning time across all PRs
-- **ROI**: 3-5x return on planning time investment (proven with PR #2: 2h planning → 2.5h implementation, PR #3: 1.5h planning → 2h implementation)
+- **ROI**: 3-5x return on planning time investment (proven with PR #2: 2h planning → 2.5h implementation, PR #3: 1.5h planning → 2h implementation, PR #5: 2h planning → 1h implementation = 6x!)
 
 **Foundation Phase (PRs #1-3)**:
 - ✅ Planning: 100% complete (all 3 PRs documented)
 - ✅ Implementation: 100% complete (all PRs deployed)
 
 **Core Messaging Phase (PRs #4-11)**:
-- 🚧 Planning: 25% complete (PR #4, #5 documented, 6 remaining)
+- 🚧 Planning: 50% complete (PR #4, #5, #6, #7 documented, 4 remaining)
 - ⏳ Implementation: 0% complete (ready to start PR #4)
 
 ---
@@ -499,33 +599,63 @@ docs/documentation-update     (Docs only)
 ## Quick Reference
 
 ### Current Focus
+**PR #4: Core Models & Data Structure**
+- Branch: Will create `feature/core-models`
+- Status: Planning complete, ready to implement FIRST
+- Time: 1-2 hours estimated
+- Complexity: LOW-MEDIUM (straightforward structs with Firestore conversion)
+
 **PR #5: Chat Service & Firestore Integration**
 - Branch: Will create `feature/chat-service`
 - Status: Planning complete, ready to implement (after PR #4)
 - Time: 3-4 hours estimated
 - Complexity: HIGH (async/await, real-time listeners, Firestore integration)
 
-**PR #4: Core Models & Data Structure**
-- Branch: Will create `feature/core-models`
-- Status: Planning complete, ready to implement
-- Time: 1-2 hours estimated
-- Complexity: LOW-MEDIUM (straightforward structs with Firestore conversion)
+**PR #6: Local Persistence with Core Data**
+- Branch: Will create `feature/local-persistence`
+- Status: Planning complete, ready to implement (after PR #4)
+- Time: 2-3 hours estimated
+- Complexity: MEDIUM (Core Data setup, CRUD, sync logic)
+
+**PR #7: Chat List View**
+- Branch: Will create `feature/chat-list-view`
+- Status: Planning complete, ready to implement (after PR #6)
+- Time: 2-3 hours estimated
+- Complexity: MEDIUM (real-time listeners, local-first architecture)
 
 ### Next Actions
-1. **Complete PR #4 first** (models are required for PR #5)
+1. **Complete PR #4 first** (models are required for PR #5, #6, and #7)
    - Create feature branch: `git checkout -b feature/core-models`
    - Follow `PR04_IMPLEMENTATION_CHECKLIST.md`
    - Create 4 model files: MessageStatus, Message, Conversation, TypingStatus
    - Test Firestore conversion
    - Commit and merge
 
-2. **Then start PR #5**
+2. **Then choose PR #5 OR PR #6** (can do in either order)
+   
+   **Option A: PR #5 (Chat Service)**
    - Create feature branch: `git checkout -b feature/chat-service`
    - Read `PR05_CHAT_SERVICE.md` (45 min)
    - Follow `PR05_IMPLEMENTATION_CHECKLIST.md` step-by-step
    - Create ChatService (~400 lines)
    - Write and deploy Firestore rules
    - Test thoroughly (39 test cases)
+   
+   **Option B: PR #6 (Local Persistence)**
+   - Create feature branch: `git checkout -b feature/local-persistence`
+   - Read `PR06_LOCAL_PERSISTENCE_SWIFTDATA.md` (45 min)
+   - Follow `PR06_IMPLEMENTATION_CHECKLIST.md` step-by-step
+   - Create Core Data model visually
+   - Implement PersistenceController, LocalDataManager, SyncManager
+   - Test thoroughly (32 test cases)
+
+3. **Finally PR #7** (requires PR #4, #5, and #6 complete)
+   - Create feature branch: `git checkout -b feature/chat-list-view`
+   - Read `PR07_CHAT_LIST_VIEW.md` (45 min)
+   - Follow `PR07_IMPLEMENTATION_CHECKLIST.md` step-by-step
+   - Create 4 files: DateFormatter+Extensions, ChatListViewModel, ConversationRowView, ChatListView
+   - Test thoroughly (24 test cases)
+   - **Result:** Main conversation list screen working! 🎉
 
 ---
 

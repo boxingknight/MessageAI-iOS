@@ -122,10 +122,10 @@ class ChatService {
             let listener = db.collection("conversations")
                 .whereField("participants", arrayContains: userId)
                 .order(by: "lastMessageAt", descending: true)
-                .addSnapshotListener { snapshot, error in
+                .addSnapshotListener { [weak self] snapshot, error in
                     
                     if let error = error {
-                        continuation.finish(throwing: self.mapFirestoreError(error))
+                        continuation.finish(throwing: self?.mapFirestoreError(error) ?? ChatError.unknown(error))
                         return
                     }
                     
@@ -266,10 +266,10 @@ class ChatService {
                 .document(conversationId)
                 .collection("messages")
                 .order(by: "sentAt", descending: false)
-                .addSnapshotListener { snapshot, error in
+                .addSnapshotListener { [weak self] snapshot, error in
                     
                     if let error = error {
-                        continuation.finish(throwing: self.mapFirestoreError(error))
+                        continuation.finish(throwing: self?.mapFirestoreError(error) ?? ChatError.unknown(error))
                         return
                     }
                     
