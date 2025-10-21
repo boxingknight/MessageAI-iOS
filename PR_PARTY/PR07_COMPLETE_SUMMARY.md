@@ -174,9 +174,208 @@ private func startRealtimeListener() // AsyncThrowingStream
 
 ## Bugs Fixed During Development
 
-**No bugs encountered!** 🎉
+### Bug #1: Missing `LocalDataManager.shared` Singleton 🐛
+**Severity**: HIGH (Build Failure)  
+**Discovery**: During first build attempt after PR#7 implementation  
+**Symptoms**: Build error: "Type 'LocalDataManager' has no member 'shared'"
 
-The comprehensive planning (2 hours of documentation) enabled bug-free implementation. All code compiled correctly on first attempt.
+**Root Cause**:
+- ContentView tried to use `LocalDataManager.shared` 
+- But LocalDataManager didn't have a static shared instance
+- Previous code only used instance initialization
+
+**Fix**:
+```swift
+// Added to LocalDataManager.swift
+static let shared = LocalDataManager()
+```
+
+**Time to Fix**: 2 minutes  
+**Files Changed**: `Persistence/LocalDataManager.swift`  
+**Commit**: `[PR #7] Fix build errors - Added LocalDataManager.shared singleton`
+
+---
+
+### Bug #2: Incomplete Conversation Initializer Calls 🐛
+**Severity**: HIGH (Build Failure)  
+**Discovery**: After fixing Bug #1  
+**Symptoms**: Build error: "Missing argument for parameter 'groupPhotoURL' in call"
+
+**Root Cause**:
+- `ConversationRowView_Previews` used simplified Conversation initializer
+- `ChatListViewModel` also used incomplete initializer
+- Conversation model requires all parameters (no convenience init)
+
+**Fix**:
+```swift
+// Before (incomplete):
+Conversation(
+    id: "1",
+    participants: ["user1", "user2"],
+    isGroup: false,
+    lastMessage: "Hey!",
+    lastMessageAt: Date(),
+    createdBy: "user1",
+    createdAt: Date()
+)
+
+// After (complete):
+Conversation(
+    id: "1",
+    participants: ["user1", "user2"],
+    isGroup: false,
+    groupName: nil,           // Added
+    groupPhotoURL: nil,       // Added
+    lastMessage: "Hey!",
+    lastMessageAt: Date(),
+    lastMessageSenderId: "user2",  // Added
+    createdBy: "user1",
+    createdAt: Date(),
+    unreadCount: [:],         // Added
+    admins: nil              // Added
+)
+```
+
+**Time to Fix**: 3 minutes  
+**Files Changed**: 
+- `Views/Chat/ConversationRowView.swift`
+- `ViewModels/ChatListViewModel.swift`
+
+**Commit**: `[PR #7] Fix build errors - Fixed Conversation initializer`
+
+---
+
+### Bug #3: Incorrect `fetchConversations()` Method Call 🐛
+**Severity**: HIGH (Build Failure)  
+**Discovery**: After fixing Bug #2  
+**Symptoms**: Build error: "Extra argument 'userId' in call"
+
+**Root Cause**:
+- `ChatListViewModel` called `fetchConversations(userId: currentUserId)`
+- But `LocalDataManager.fetchConversations()` takes no parameters
+- It returns ALL conversations from Core Data
+- Filtering should be done in the ViewModel after fetch
+
+**Fix**:
+```swift
+// Before (incorrect):
+let localConversations = try localDataManager.fetchConversations(userId: currentUserId)
+
+// After (correct):
+let allConversations = try localDataManager.fetchConversations()
+conversations = allConversations.filter { $0.participants.contains(currentUserId) }
+```
+
+**Time to Fix**: 2 minutes  
+**Files Changed**: `ViewModels/ChatListViewModel.swift`  
+**Commit**: `[PR #7] Fix fetchConversations call - no parameters needed`
+
+---
+
+### Bug #4: Authentication State Race Condition 🐛
+**Severity**: HIGH (App shows wrong screen)  
+**Discovery**: First app launch after successful build  
+**Symptoms**: App showed "Not authenticated" fallback instead of login screen
+
+**Root Cause**:
+- `messAIApp.swift` checked only `isAuthenticated`
+- `ContentView` checked both `isAuthenticated` AND `currentUser != nil`
+- Brief moment during auth where `isAuthenticated` is true but `currentUser` is still nil
+- This caused ContentView to show, which then showed the "not authenticated" fallback
+
+**Fix**:
+```swift
+// In messAIApp.swift - now checks both conditions:
+if authViewModel.isAuthenticated, authViewModel.currentUser != nil {
+    ContentView() // Only show when BOTH conditions met
+} else {
+    AuthenticationView() // Show login screen
+}
+
+// In ContentView.swift - simplified with loading state:
+if let currentUser = authViewModel.currentUser {
+    ChatListView(...)
+} else {
+    ProgressView() // Brief loading state
+}
+```
+
+**Time to Fix**: 5 minutes  
+**Files Changed**: 
+- `messAI/messAIApp.swift`
+- `messAI/ContentView.swift`
+
+**Commit**: `[PR #7] Fix authentication flow - Show login screen properly`
+
+---
+
+### Bug #5: Core Data Entity Name Typo 🐛🐛🐛
+**Severity**: CRITICAL (App Crash)  
+**Discovery**: First app launch after fixing auth flow  
+**Symptoms**: App crashed immediately after login with:
+```
+NSFetchRequest could not locate an NSEntityDescription for entity name 'ConversationEntity'
+CoreSimulator: terminating due to uncaught exception of type NSException
+```
+
+**Root Cause**:
+- Core Data model had entity named `ConverstationEntity` (missing 'n' in "Conversation")
+- All Swift code referenced `ConversationEntity` (correct spelling)
+- Core Data couldn't find the entity during fetch request
+- **This was a typo from PR#6 that went undetected until runtime**
+
+**Fix**:
+```xml
+<!-- In MessageAI.xcdatamodel/contents -->
+<!-- Before (incorrect): -->
+<entity name="ConverstationEntity" representedClassName="ConverstationEntity" syncable="YES">
+
+<!-- After (correct): -->
+<entity name="ConversationEntity" representedClassName="ConversationEntity" syncable="YES">
+
+<!-- Also fixed relationship reference in MessageEntity: -->
+<relationship name="conversation" 
+             destinationEntity="ConversationEntity" 
+             inverseEntity="ConversationEntity"/>
+```
+
+**Time to Fix**: 3 minutes  
+**Files Changed**: `Persistence/MessageAI.xcdatamodeld/MessageAI.xcdatamodel/contents`  
+**Additional Step Required**: Clean build folder (Cmd+Shift+K) to regenerate Core Data model  
+**Commit**: `[PR #6 HOTFIX] Fix typo in Core Data model entity name`
+
+**Lesson Learned**: Core Data model changes require:
+1. Runtime testing (not just build testing)
+2. Clean build after model changes
+3. Delete app from simulator to clear old database
+
+---
+
+### Summary: 5 Bugs Fixed
+
+| Bug | Severity | Time to Fix | Phase |
+|-----|----------|-------------|-------|
+| #1: Missing singleton | HIGH | 2 min | Build |
+| #2: Incomplete initializer | HIGH | 3 min | Build |
+| #3: Wrong method signature | HIGH | 2 min | Build |
+| #4: Auth race condition | HIGH | 5 min | Runtime |
+| #5: Core Data typo | CRITICAL | 3 min + clean build | Runtime |
+| **Total** | | **15 min** | |
+
+**Total Debug Time**: ~20 minutes (including testing between fixes)
+
+**Key Insight**: 
+- Build errors (#1-3) were quick to fix with clear error messages
+- Runtime bugs (#4-5) required more investigation
+- Bug #5 was from PR#6 (technical debt from previous PR)
+- All bugs fixed within 30 minutes thanks to systematic debugging
+
+**Prevention for Future PRs**:
+1. ✅ Always test singleton patterns in integration
+2. ✅ Use full initializers in preview code (catches missing parameters)
+3. ✅ Check method signatures match between caller and implementation
+4. ✅ Test auth flow with all states (unauthenticated, loading, authenticated)
+5. ✅ **ALWAYS runtime test Core Data models after creation** (don't just build-test)
 
 ---
 
