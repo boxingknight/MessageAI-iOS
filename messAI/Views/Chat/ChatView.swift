@@ -44,23 +44,62 @@ struct ChatView: View {
         ))
     }
     
+    // MARK: - Message Grouping Helpers
+    
+    /// Check if message is first in a group (iMessage-style grouping)
+    /// Messages are grouped if they're from the same sender and within 2 minutes
+    private func isFirstInGroup(at index: Int) -> Bool {
+        guard index > 0 else { return true } // First message is always first in group
+        
+        let currentMessage = viewModel.messages[index]
+        let previousMessage = viewModel.messages[index - 1]
+        
+        // Different sender = start new group
+        if currentMessage.senderId != previousMessage.senderId {
+            return true
+        }
+        
+        // Same sender but more than 2 minutes apart = start new group
+        let timeDifference = currentMessage.sentAt.timeIntervalSince(previousMessage.sentAt)
+        return timeDifference > 120 // 2 minutes
+    }
+    
+    /// Check if message is last in a group
+    private func isLastInGroup(at index: Int) -> Bool {
+        guard index < viewModel.messages.count - 1 else { return true } // Last message is always last in group
+        
+        let currentMessage = viewModel.messages[index]
+        let nextMessage = viewModel.messages[index + 1]
+        
+        // Different sender = end group
+        if currentMessage.senderId != nextMessage.senderId {
+            return true
+        }
+        
+        // Same sender but more than 2 minutes apart = end group
+        let timeDifference = nextMessage.sentAt.timeIntervalSince(currentMessage.sentAt)
+        return timeDifference > 120 // 2 minutes
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Messages ScrollView
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 0) { // No fixed spacing - dynamic per message!
                         // Loading indicator at top
                         if viewModel.isLoading {
                             ProgressView()
                                 .padding()
                         }
                         
-                        // Messages
-                        ForEach(viewModel.messages) { message in
+                        // Messages with grouping
+                        ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
                             MessageBubbleView(
                                 message: message,
-                                isFromCurrentUser: message.senderId == viewModel.currentUserId
+                                isFromCurrentUser: message.senderId == viewModel.currentUserId,
+                                isFirstInGroup: isFirstInGroup(at: index),
+                                isLastInGroup: isLastInGroup(at: index)
                             )
                             .id(message.id)
                         }

@@ -12,6 +12,10 @@ struct MessageBubbleView: View {
     let message: Message
     let isFromCurrentUser: Bool
     
+    // Message grouping (for iMessage-style spacing)
+    let isFirstInGroup: Bool
+    let isLastInGroup: Bool
+    
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isFromCurrentUser {
@@ -25,18 +29,20 @@ struct MessageBubbleView: View {
                     .padding(.vertical, 10)
                     .background(bubbleColor)
                     .foregroundColor(textColor)
-                    .cornerRadius(18)
+                    .clipShape(messageBubbleShape)
                     .textSelection(.enabled)
                 
-                // Timestamp + Status (bottom of bubble)
-                HStack(spacing: 4) {
-                    Text(formatTime(message.sentAt))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    // Status indicator (sent/delivered/read) - only for sent messages
-                    if isFromCurrentUser {
-                        statusIcon
+                // Timestamp + Status (only show on last message in group)
+                if isLastInGroup {
+                    HStack(spacing: 4) {
+                        Text(formatTime(message.sentAt))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        // Status indicator (sent/delivered/read) - only for sent messages
+                        if isFromCurrentUser {
+                            statusIcon
+                        }
                     }
                 }
             }
@@ -46,7 +52,7 @@ struct MessageBubbleView: View {
             }
         }
         .padding(.horizontal)
-        .padding(.vertical, 2)
+        .padding(.vertical, verticalPadding)
     }
     
     // MARK: - Computed Properties
@@ -57,6 +63,87 @@ struct MessageBubbleView: View {
     
     private var textColor: Color {
         isFromCurrentUser ? .white : .primary
+    }
+    
+    /// Dynamic spacing: tight for grouped messages, normal for separate messages
+    private var verticalPadding: CGFloat {
+        // First message in group or standalone: normal spacing
+        if isFirstInGroup && isLastInGroup {
+            return 6 // Standalone message
+        } else if isFirstInGroup {
+            return 6 // First in group: normal spacing above
+        } else {
+            return 1 // Grouped message: tight spacing
+        }
+    }
+    
+    /// iMessage-style bubble shape with dynamic corners
+    private var messageBubbleShape: some Shape {
+        let radius: CGFloat = 18
+        let tightRadius: CGFloat = 6
+        
+        // Determine which corners should be tight based on grouping
+        if isFromCurrentUser {
+            // Sent messages (right side)
+            if isFirstInGroup && isLastInGroup {
+                // Standalone: all corners rounded
+                return RoundedRectangle(cornerRadius: radius)
+            } else if isFirstInGroup {
+                // First in group: tight bottom-right
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: tightRadius,
+                    topTrailingRadius: radius
+                )
+            } else if isLastInGroup {
+                // Last in group: tight top-right
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: tightRadius
+                )
+            } else {
+                // Middle: tight top-right and bottom-right
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: tightRadius,
+                    topTrailingRadius: tightRadius
+                )
+            }
+        } else {
+            // Received messages (left side)
+            if isFirstInGroup && isLastInGroup {
+                // Standalone: all corners rounded
+                return RoundedRectangle(cornerRadius: radius)
+            } else if isFirstInGroup {
+                // First in group: tight bottom-left
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: tightRadius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: radius
+                )
+            } else if isLastInGroup {
+                // Last in group: tight top-left
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: tightRadius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: radius
+                )
+            } else {
+                // Middle: tight top-left and bottom-left
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: tightRadius,
+                    bottomLeadingRadius: tightRadius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: radius
+                )
+            }
+        }
     }
     
     private var statusIcon: some View {
@@ -101,56 +188,83 @@ struct MessageBubbleView: View {
     }
 }
 
-#Preview("Sent and Received Messages") {
-    VStack(spacing: 12) {
-        MessageBubbleView(
-            message: Message(
-                id: "1",
-                conversationId: "conv1",
-                senderId: "user1",
-                text: "Hey, how are you doing today?",
-                sentAt: Date(),
-                status: .delivered
-            ),
-            isFromCurrentUser: false
-        )
-        
-        MessageBubbleView(
-            message: Message(
-                id: "2",
-                conversationId: "conv1",
-                senderId: "user2",
-                text: "I'm great! Thanks for asking. How about you?",
-                sentAt: Date(),
-                status: .read
-            ),
-            isFromCurrentUser: true
-        )
-        
-        MessageBubbleView(
-            message: Message(
-                id: "3",
-                conversationId: "conv1",
-                senderId: "user1",
-                text: "Doing well! Just working on some projects.",
-                sentAt: Date(),
-                status: .sent
-            ),
-            isFromCurrentUser: false
-        )
-        
-        MessageBubbleView(
-            message: Message(
-                id: "4",
-                conversationId: "conv1",
-                senderId: "user2",
-                text: "That's awesome! Keep up the good work!",
-                sentAt: Date(),
-                status: .sending
-            ),
-            isFromCurrentUser: true
-        )
+#Preview("Message Grouping") {
+    ScrollView {
+        VStack(spacing: 0) {
+            // Standalone message
+            MessageBubbleView(
+                message: Message(
+                    id: "1",
+                    conversationId: "conv1",
+                    senderId: "user1",
+                    text: "Hey there!",
+                    sentAt: Date(),
+                    status: .delivered
+                ),
+                isFromCurrentUser: false,
+                isFirstInGroup: true,
+                isLastInGroup: true
+            )
+            
+            // Grouped messages from same sender
+            MessageBubbleView(
+                message: Message(
+                    id: "2",
+                    conversationId: "conv1",
+                    senderId: "user2",
+                    text: "I'm great!",
+                    sentAt: Date(),
+                    status: .sent
+                ),
+                isFromCurrentUser: true,
+                isFirstInGroup: true,
+                isLastInGroup: false
+            )
+            
+            MessageBubbleView(
+                message: Message(
+                    id: "3",
+                    conversationId: "conv1",
+                    senderId: "user2",
+                    text: "Thanks for asking",
+                    sentAt: Date(),
+                    status: .sent
+                ),
+                isFromCurrentUser: true,
+                isFirstInGroup: false,
+                isLastInGroup: false
+            )
+            
+            MessageBubbleView(
+                message: Message(
+                    id: "4",
+                    conversationId: "conv1",
+                    senderId: "user2",
+                    text: "How about you?",
+                    sentAt: Date(),
+                    status: .read
+                ),
+                isFromCurrentUser: true,
+                isFirstInGroup: false,
+                isLastInGroup: true
+            )
+            
+            // Another standalone
+            MessageBubbleView(
+                message: Message(
+                    id: "5",
+                    conversationId: "conv1",
+                    senderId: "user1",
+                    text: "Doing well!",
+                    sentAt: Date(),
+                    status: .sent
+                ),
+                isFromCurrentUser: false,
+                isFirstInGroup: true,
+                isLastInGroup: true
+            )
+        }
+        .padding()
     }
-    .padding()
 }
 
