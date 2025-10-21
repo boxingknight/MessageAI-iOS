@@ -78,7 +78,7 @@ struct MessageBubbleView: View {
     }
     
     /// iMessage-style bubble shape with dynamic corners
-    private var messageBubbleShape: some Shape {
+    private var messageBubbleShape: UnevenRoundedRectangle {
         let radius: CGFloat = 18
         let tightRadius: CGFloat = 6
         
@@ -87,7 +87,12 @@ struct MessageBubbleView: View {
             // Sent messages (right side)
             if isFirstInGroup && isLastInGroup {
                 // Standalone: all corners rounded
-                return RoundedRectangle(cornerRadius: radius)
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: radius
+                )
             } else if isFirstInGroup {
                 // First in group: tight bottom-right
                 return UnevenRoundedRectangle(
@@ -117,7 +122,12 @@ struct MessageBubbleView: View {
             // Received messages (left side)
             if isFirstInGroup && isLastInGroup {
                 // Standalone: all corners rounded
-                return RoundedRectangle(cornerRadius: radius)
+                return UnevenRoundedRectangle(
+                    topLeadingRadius: radius,
+                    bottomLeadingRadius: radius,
+                    bottomTrailingRadius: radius,
+                    topTrailingRadius: radius
+                )
             } else if isFirstInGroup {
                 // First in group: tight bottom-left
                 return UnevenRoundedRectangle(
