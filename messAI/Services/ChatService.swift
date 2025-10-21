@@ -589,6 +589,61 @@ class ChatService {
         }
     }
     
+    /// Mark specific messages as delivered only (PR #11 Fix)
+    /// Used when message arrives on device (device-level receipt)
+    /// - Parameters:
+    ///   - conversationId: The conversation ID
+    ///   - messageIds: Array of specific message IDs to mark
+    ///   - userId: The user ID who received the messages
+    func markSpecificMessagesAsDelivered(
+        conversationId: String,
+        messageIds: [String],
+        userId: String
+    ) async throws {
+        do {
+            print("📦 [ChatService] markSpecificMessagesAsDelivered called for \(messageIds.count) messages")
+            
+            let batch = db.batch()
+            var updatedCount = 0
+            
+            for messageId in messageIds {
+                let messageRef = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
+                
+                // Fetch current data to check if already marked
+                let document = try await messageRef.getDocument()
+                guard document.exists else {
+                    print("   ⚠️ Message \(messageId) not found")
+                    continue
+                }
+                
+                let data = document.data() ?? [:]
+                let deliveredTo = data["deliveredTo"] as? [String] ?? []
+                
+                // Only update if not already delivered to this user
+                if !deliveredTo.contains(userId) {
+                    print("   ➕ Adding \(userId) to deliveredTo for message \(messageId)")
+                    batch.updateData([
+                        "deliveredTo": FieldValue.arrayUnion([userId]),
+                        "deliveredAt": FieldValue.serverTimestamp()
+                    ], forDocument: messageRef)
+                    updatedCount += 1
+                } else {
+                    print("   ✅ Already delivered to \(userId)")
+                }
+            }
+            
+            try await batch.commit()
+            print("[ChatService] ✅ Marked \(updatedCount)/\(messageIds.count) messages as delivered")
+            
+        } catch {
+            print("[ChatService] ❌ Error marking specific messages as delivered: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     /// Mark specific messages as delivered + read (PR #11 Fix)
     /// Used for real-time read receipts when chat is visible
     /// - Parameters:

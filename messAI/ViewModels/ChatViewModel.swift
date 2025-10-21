@@ -269,6 +269,7 @@ class ChatViewModel: ObservableObject {
         print("🔄 [ChatViewModel] handleFirestoreMessages called with \(firebaseMessages.count) messages")
         print("   isChatVisible: \(isChatVisible)")
         
+        var messagesToMarkAsDelivered: [String] = []
         var messagesToMarkAsRead: [String] = []
         
         for firebaseMessage in firebaseMessages {
@@ -314,11 +315,17 @@ class ChatViewModel: ObservableObject {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
                 
-                // PR #11 Fix: If this is a new message from someone else AND chat is visible
-                // Mark it as delivered + read immediately (like WhatsApp)
-                if firebaseMessage.senderId != currentUserId && isChatVisible {
-                    print("   🔔 Chat is visible! Will mark message as delivered + read")
-                    messagesToMarkAsRead.append(firebaseMessage.id)
+                // PR #11 Fix: WhatsApp-style delivery tracking
+                if firebaseMessage.senderId != currentUserId {
+                    // Step 1: ALWAYS mark as delivered (message arrived on device)
+                    print("   📦 Message from other user - will mark as delivered")
+                    messagesToMarkAsDelivered.append(firebaseMessage.id)
+                    
+                    // Step 2: ONLY mark as read if chat is currently visible
+                    if isChatVisible {
+                        print("   👁️ Chat is visible - will ALSO mark as read")
+                        messagesToMarkAsRead.append(firebaseMessage.id)
+                    }
                 }
             }
         }
@@ -327,9 +334,15 @@ class ChatViewModel: ObservableObject {
         messages.sort { $0.sentAt < $1.sentAt }
         print("✅ [ChatViewModel] Finished processing, total messages: \(messages.count)")
         
-        // PR #11 Fix: Mark new messages as read if chat was visible
+        // PR #11 Fix: Mark new messages as delivered (device-level receipt)
+        if !messagesToMarkAsDelivered.isEmpty {
+            print("📦 [ChatViewModel] Marking \(messagesToMarkAsDelivered.count) messages as DELIVERED")
+            await markNewMessagesAsDelivered(messageIds: messagesToMarkAsDelivered)
+        }
+        
+        // PR #11 Fix: Mark new messages as read (only if chat was visible)
         if !messagesToMarkAsRead.isEmpty && isChatVisible {
-            print("📖 [ChatViewModel] Marking \(messagesToMarkAsRead.count) new messages as delivered + read")
+            print("📖 [ChatViewModel] Marking \(messagesToMarkAsRead.count) messages as READ")
             await markNewMessagesAsRead(messageIds: messagesToMarkAsRead)
         }
     }
@@ -382,20 +395,41 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    /// Mark specific new messages as delivered + read (real-time, like WhatsApp)
+    /// Mark specific new messages as delivered (device-level receipt)
+    /// Called when messages arrive on device (even if chat is closed)
+    private func markNewMessagesAsDelivered(messageIds: [String]) async {
+        do {
+            print("📦 [ChatViewModel] markNewMessagesAsDelivered called for \(messageIds.count) messages")
+            
+            // Mark as delivered (double gray checks)
+            try await chatService.markSpecificMessagesAsDelivered(
+                conversationId: conversationId,
+                messageIds: messageIds,
+                userId: currentUserId
+            )
+            
+            print("✅ [ChatViewModel] Marked \(messageIds.count) messages as delivered")
+            
+        } catch {
+            print("⚠️ [ChatViewModel] Failed to mark messages as delivered: \(error)")
+            // Don't show error to user (non-critical operation)
+        }
+    }
+    
+    /// Mark specific new messages as read (chat-level receipt)
     /// Called when messages arrive while chat is visible
     private func markNewMessagesAsRead(messageIds: [String]) async {
         do {
-            print("🔔 [ChatViewModel] markNewMessagesAsRead called for \(messageIds.count) messages")
+            print("📖 [ChatViewModel] markNewMessagesAsRead called for \(messageIds.count) messages")
             
-            // Mark as delivered + read for this user
+            // Mark as read (blue checks)
             try await chatService.markSpecificMessagesAsRead(
                 conversationId: conversationId,
                 messageIds: messageIds,
                 userId: currentUserId
             )
             
-            print("✅ [ChatViewModel] Marked \(messageIds.count) messages as delivered + read")
+            print("✅ [ChatViewModel] Marked \(messageIds.count) messages as read")
             
         } catch {
             print("⚠️ [ChatViewModel] Failed to mark messages as read: \(error)")
