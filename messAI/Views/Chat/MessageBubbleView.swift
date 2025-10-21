@@ -19,6 +19,9 @@ struct MessageBubbleView: View {
     // PR #11: Conversation for group status aggregation
     let conversation: Conversation?
     
+    // PR #13: Users for group sender names
+    let users: [String: User]?
+    
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if isFromCurrentUser {
@@ -26,6 +29,18 @@ struct MessageBubbleView: View {
             }
             
             VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
+                // PR #13: Sender name for group chats (show above first message from others)
+                if let conversation = conversation,
+                   conversation.isGroup,
+                   !isFromCurrentUser,
+                   isFirstInGroup,
+                   let users = users {
+                    Text(message.senderDisplayName(users: users))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 12)
+                }
+                
                 // Message text bubble
                 Text(message.text)
                     .padding(.horizontal, 16)
@@ -233,7 +248,8 @@ struct MessageBubbleView: View {
                 isFromCurrentUser: false,
                 isFirstInGroup: true,
                 isLastInGroup: true,
-                conversation: nil
+                conversation: nil,
+                users: nil
             )
             
             // Grouped messages from same sender
@@ -249,7 +265,8 @@ struct MessageBubbleView: View {
                 isFromCurrentUser: true,
                 isFirstInGroup: true,
                 isLastInGroup: false,
-                conversation: nil
+                conversation: nil,
+                users: nil
             )
             
             MessageBubbleView(
@@ -264,7 +281,8 @@ struct MessageBubbleView: View {
                 isFromCurrentUser: true,
                 isFirstInGroup: false,
                 isLastInGroup: false,
-                conversation: nil
+                conversation: nil,
+                users: nil
             )
             
             MessageBubbleView(
@@ -279,7 +297,8 @@ struct MessageBubbleView: View {
                 isFromCurrentUser: true,
                 isFirstInGroup: false,
                 isLastInGroup: true,
-                conversation: nil
+                conversation: nil,
+                users: nil
             )
             
             // Another standalone
@@ -295,7 +314,8 @@ struct MessageBubbleView: View {
                 isFromCurrentUser: false,
                 isFirstInGroup: true,
                 isLastInGroup: true,
-                conversation: nil
+                conversation: nil,
+                users: nil
             )
         }
         .padding()

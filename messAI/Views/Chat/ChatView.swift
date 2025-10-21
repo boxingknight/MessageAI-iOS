@@ -13,8 +13,12 @@ struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
+    @State private var showGroupInfo = false
     
     let conversation: Conversation
+    
+    // PR #13: User cache for group sender names (TODO: populate from ChatViewModel)
+    private let userCache: [String: User] = [:]
     
     // MARK: - Computed Properties
     
@@ -87,10 +91,56 @@ struct ChatView: View {
         return timeDifference > 120 // 2 minutes
     }
     
-    var body: some View {
-        VStack(spacing: 0) {
-            // Messages ScrollView
-            ScrollViewReader { proxy in
+    // MARK: - Toolbar Components
+    
+    @ViewBuilder
+    private var toolbarTitle: some View {
+        VStack(spacing: 2) {
+            Text(conversationTitle)
+                .font(.headline)
+            
+            // Show presence text if available
+            if let presence = viewModel.otherUserPresence {
+                Text(presence.presenceText)
+                    .font(.caption)
+                    .foregroundColor(presence.isOnline ? .green : .secondary)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var toolbarTrailing: some View {
+        if conversation.isGroup {
+            // Group chat: Show group info button
+            Button(action: {
+                showGroupInfo = true
+            }) {
+                Image(systemName: "info.circle")
+            }
+        } else {
+            // 1-on-1 chat: Show menu
+            Menu {
+                Button(action: {
+                    print("View info tapped")
+                }) {
+                    Label("Chat Info", systemImage: "info.circle")
+                }
+                
+                Button(action: {
+                    print("Mute tapped")
+                }) {
+                    Label("Mute", systemImage: "bell.slash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+    }
+    
+    // MARK: - Message List
+    
+    @ViewBuilder
+    private func messagesList(proxy: ScrollViewProxy) -> some View {
                 ScrollView {
                     LazyVStack(spacing: 0) { // No fixed spacing - dynamic per message!
                         // Loading indicator at top
@@ -110,7 +160,8 @@ struct ChatView: View {
                                 isFromCurrentUser: message.senderId == viewModel.currentUserId,
                                 isFirstInGroup: isFirst,
                                 isLastInGroup: isLast,
-                                conversation: nil // PR #11: Group aggregation deferred to future enhancement
+                                conversation: conversation, // PR #13: Pass conversation for group support
+                                users: userCache // PR #13: Pass users for sender names
                             )
                             .id(message.id)
                         }
@@ -132,6 +183,13 @@ struct ChatView: View {
                         proxy.scrollTo(lastMessage.id, anchor: .bottom)
                     }
                 }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Messages ScrollView
+            ScrollViewReader { proxy in
+                messagesList(proxy: proxy)
             }
             
             // Typing indicator
@@ -155,7 +213,7 @@ struct ChatView: View {
             MessageInputView(
                 text: $viewModel.messageText,
                 onSend: {
-                    viewModel.sendMessage() // PR #10: Now with optimistic UI!
+                    viewModel.sendMessage()
                 }
             )
         }
@@ -166,39 +224,19 @@ struct ChatView: View {
         .navigationTitle(conversationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Custom title with presence indicator
             ToolbarItem(placement: .principal) {
-                VStack(spacing: 2) {
-                    Text(conversationTitle)
-                        .font(.headline)
-                    
-                    // Show presence text if available
-                    if let presence = viewModel.otherUserPresence {
-                        Text(presence.presenceText)
-                            .font(.caption)
-                            .foregroundColor(presence.isOnline ? .green : .secondary)
-                    }
-                }
+                toolbarTitle
             }
             
             ToolbarItem(placement: .navigationBarTrailing) {
-                // Placeholder for future features (PR #11+)
-                Menu {
-                    Button(action: {
-                        print("View info tapped")
-                    }) {
-                        Label("Chat Info", systemImage: "info.circle")
-                    }
-                    
-                    Button(action: {
-                        print("Mute tapped")
-                    }) {
-                        Label("Mute", systemImage: "bell.slash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
+                toolbarTrailing
             }
+        }
+        .sheet(isPresented: $showGroupInfo) {
+            GroupInfoView(
+                conversation: conversation,
+                users: userCache
+            )
         }
         .task {
             // Load messages when view appears

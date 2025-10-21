@@ -697,6 +697,317 @@ class ChatService {
         }
     }
     
+    // MARK: - Group Management (PR #13)
+    
+    /// Create a new group conversation with 3-50 participants
+    /// - Parameters:
+    ///   - participants: Array of user IDs (3-50, including creator)
+    ///   - groupName: Optional name for the group
+    /// - Returns: Created group Conversation
+    func createGroup(
+        participants: [String],
+        groupName: String?
+    ) async throws -> Conversation {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Ensure current user is in participants
+        var allParticipants = Set(participants)
+        allParticipants.insert(currentUserId)
+        
+        // Validate: 3-50 participants
+        guard allParticipants.count >= 3 && allParticipants.count <= 50 else {
+            throw ChatError.invalidData
+        }
+        
+        // Create group conversation
+        let conversation = Conversation(
+            participants: Array(allParticipants),
+            groupName: groupName ?? "",
+            createdBy: currentUserId
+        )
+        
+        // Upload to Firestore
+        try await db.collection("conversations")
+            .document(conversation.id)
+            .setData(conversation.toDictionary())
+        
+        print("[ChatService] Created group: \(conversation.id) with \(allParticipants.count) participants")
+        return conversation
+    }
+    
+    /// Add participants to an existing group
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - userIds: Array of user IDs to add
+    ///   - currentUserId: The user performing the action (must be admin)
+    func addParticipants(
+        to conversationId: String,
+        userIds: [String],
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Verify it's a group
+        guard conversation.isGroup else {
+            throw ChatError.invalidData
+        }
+        
+        // Verify won't exceed 50 participants
+        let newTotal = conversation.participants.count + userIds.count
+        guard newTotal <= 50 else {
+            throw ChatError.invalidData
+        }
+        
+        // Add participants
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "participants": FieldValue.arrayUnion(userIds)
+            ])
+        
+        print("[ChatService] Added \(userIds.count) participants to group: \(conversationId)")
+    }
+    
+    /// Remove a participant from a group
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - userId: User ID to remove
+    ///   - currentUserId: The user performing the action (must be admin)
+    func removeParticipant(
+        from conversationId: String,
+        userId: String,
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Can't remove the creator
+        guard userId != conversation.createdBy else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Remove participant
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "participants": FieldValue.arrayRemove([userId]),
+                "admins": FieldValue.arrayRemove([userId]) // Remove from admins too if admin
+            ])
+        
+        print("[ChatService] Removed participant \(userId) from group: \(conversationId)")
+    }
+    
+    /// Leave a group conversation
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - userId: User ID leaving the group
+    func leaveGroup(
+        conversationId: String,
+        userId: String
+    ) async throws {
+        // Fetch conversation
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Creator cannot leave (must transfer ownership first)
+        guard userId != conversation.createdBy else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Remove user from participants and admins
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "participants": FieldValue.arrayRemove([userId]),
+                "admins": FieldValue.arrayRemove([userId])
+            ])
+        
+        print("[ChatService] User \(userId) left group: \(conversationId)")
+    }
+    
+    /// Update group name
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - groupName: New group name
+    ///   - currentUserId: The user performing the action (must be admin)
+    func updateGroupName(
+        conversationId: String,
+        groupName: String,
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Update name
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "groupName": groupName
+            ])
+        
+        print("[ChatService] Updated group name to: \(groupName)")
+    }
+    
+    /// Update group photo URL
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - photoURL: New group photo URL
+    ///   - currentUserId: The user performing the action (must be admin)
+    func updateGroupPhoto(
+        conversationId: String,
+        photoURL: String,
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Update photo
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "groupPhotoURL": photoURL
+            ])
+        
+        print("[ChatService] Updated group photo")
+    }
+    
+    /// Promote a participant to admin
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - userId: User ID to promote
+    ///   - currentUserId: The user performing the action (must be admin)
+    func promoteToAdmin(
+        conversationId: String,
+        userId: String,
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Verify target user is participant
+        guard conversation.participants.contains(userId) else {
+            throw ChatError.invalidData
+        }
+        
+        // Promote to admin
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "admins": FieldValue.arrayUnion([userId])
+            ])
+        
+        print("[ChatService] Promoted \(userId) to admin in group: \(conversationId)")
+    }
+    
+    /// Demote an admin to regular participant
+    /// - Parameters:
+    ///   - conversationId: The group conversation ID
+    ///   - userId: User ID to demote
+    ///   - currentUserId: The user performing the action (must be admin)
+    func demoteFromAdmin(
+        conversationId: String,
+        userId: String,
+        currentUserId: String
+    ) async throws {
+        // Fetch conversation to verify admin status
+        let conversationDoc = try await db.collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard let conversationData = conversationDoc.data(),
+              let conversation = Conversation(dictionary: conversationData) else {
+            throw ChatError.conversationNotFound
+        }
+        
+        // Verify user is admin
+        guard conversation.isAdmin(userId: currentUserId) else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Can't demote the creator
+        guard userId != conversation.createdBy else {
+            throw ChatError.permissionDenied
+        }
+        
+        // Demote from admin
+        try await db.collection("conversations")
+            .document(conversationId)
+            .updateData([
+                "admins": FieldValue.arrayRemove([userId])
+            ])
+        
+        print("[ChatService] Demoted \(userId) from admin in group: \(conversationId)")
+    }
+    
     // MARK: - Cleanup
     
     /// Removes all active listeners
