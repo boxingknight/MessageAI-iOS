@@ -242,6 +242,16 @@ struct ChatView: View {
             // Load messages when view appears
             await viewModel.loadMessages()
         }
+        .onAppear {
+            // PR#17.1: Track active conversation for toast notifications
+            ToastNotificationManager.shared.activeConversationId = conversation.id
+            print("📍 Set active conversation: \(conversation.id)")
+        }
+        .onDisappear {
+            // PR#17.1: Clear active conversation when leaving chat
+            ToastNotificationManager.shared.activeConversationId = nil
+            print("📍 Cleared active conversation")
+        }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {
                 viewModel.showError = false

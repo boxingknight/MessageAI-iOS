@@ -105,6 +105,9 @@ class ChatListViewModel: ObservableObject {
                 let stream = chatService.fetchConversations(userId: currentUserId)
                 
                 for try await firestoreConversations in stream {
+                    // PR#17.1: Check for new messages and trigger toasts
+                    await checkForNewMessagesAndNotify(newConversations: firestoreConversations)
+                    
                     // Update UI on main thread
                     await MainActor.run {
                         self.conversations = firestoreConversations
@@ -129,6 +132,63 @@ class ChatListViewModel: ObservableObject {
                     print("❌ Firestore listener error: \(error)")
                 }
             }
+        }
+    }
+    
+    /// PR#17.1: Check for new messages and trigger toast notifications
+    private func checkForNewMessagesAndNotify(newConversations: [Conversation]) async {
+        for newConv in newConversations {
+            // Find corresponding old conversation
+            guard let oldConv = conversations.first(where: { $0.id == newConv.id }) else {
+                // New conversation, skip toast (user likely just created it)
+                continue
+            }
+            
+            // Check if last message changed (new message arrived)
+            guard newConv.lastMessageAt > oldConv.lastMessageAt,
+                  let lastMessage = newConv.lastMessage else {
+                continue
+            }
+            
+            // Don't show toast for our own messages
+            guard lastMessage.senderId != currentUserId else {
+                continue
+            }
+            
+            // Check if we should show toast (not for active conversation)
+            guard ToastNotificationManager.shared.shouldShowToast(conversationId: newConv.id) else {
+                continue
+            }
+            
+            // Fetch sender info for the toast
+            await showToastForMessage(lastMessage, in: newConv)
+        }
+    }
+    
+    /// Show toast notification for a message
+    private func showToastForMessage(_ message: Message, in conversation: Conversation) async {
+        do {
+            // Fetch sender information
+            let sender = try await chatService.getUser(userId: message.senderId)
+            
+            // Create toast
+            let toast = ToastMessage(
+                id: message.id,
+                conversationId: conversation.id,
+                senderId: message.senderId,
+                senderName: sender?.displayName ?? "Unknown",
+                senderPhotoURL: sender?.photoURL,
+                messageText: message.text,
+                isImageMessage: message.imageURL != nil,
+                timestamp: message.sentAt
+            )
+            
+            // Show toast
+            await MainActor.run {
+                ToastNotificationManager.shared.showToast(toast)
+            }
+        } catch {
+            print("⚠️ Failed to fetch sender info for toast: \(error)")
         }
     }
     

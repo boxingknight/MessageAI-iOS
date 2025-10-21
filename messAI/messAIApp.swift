@@ -27,15 +27,21 @@ struct messAIApp: App {
     
     var body: some Scene {
         WindowGroup {
-            if authViewModel.isAuthenticated, authViewModel.currentUser != nil {
-                // Main app - Chat List View
-                ContentView()
-                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                    .environmentObject(authViewModel)
-            } else {
-                // Auth flow
-                AuthenticationView()
-                    .environmentObject(authViewModel)
+            ZStack {
+                if authViewModel.isAuthenticated, authViewModel.currentUser != nil {
+                    // Main app - Chat List View
+                    ContentView()
+                        .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                        .environmentObject(authViewModel)
+                } else {
+                    // Auth flow
+                    AuthenticationView()
+                        .environmentObject(authViewModel)
+                }
+            }
+            .overlay(alignment: .top) {
+                // Toast notifications overlay
+                ToastNotificationView(manager: .shared)
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in

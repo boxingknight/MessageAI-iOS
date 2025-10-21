@@ -12,9 +12,10 @@ struct ChatListView: View {
     @State private var showingNewChat = false
     @State private var showingNewGroup = false
     @State private var showActionSheet = false
+    @State private var navigationPath = NavigationPath() // PR#17.1: For programmatic navigation
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 // Main Content
                 content
@@ -69,6 +70,19 @@ struct ChatListView: View {
             }
             .onDisappear {
                 viewModel.stopListening()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenConversationFromToast"))) { notification in
+                // PR#17.1: Handle toast tap navigation
+                guard let userInfo = notification.userInfo,
+                      let conversationId = userInfo["conversationId"] as? String else {
+                    return
+                }
+                
+                // Find conversation and navigate to it
+                if let conversation = viewModel.conversations.first(where: { $0.id == conversationId }) {
+                    print("📱 Opening conversation from toast: \(conversationId)")
+                    navigationPath.append(conversation)
+                }
             }
         }
     }
