@@ -74,28 +74,11 @@ class ChatListViewModel: ObservableObject {
     /// Load conversations from Core Data (instant display)
     private func loadConversationsFromLocal() async {
         do {
-            let localConversations = try localDataManager.fetchConversations(
-                userId: currentUserId
-            )
+            let allConversations = try localDataManager.fetchConversations()
             
-            // Convert ConversationEntity to Conversation
-            conversations = localConversations.compactMap { entity in
-                guard let id = entity.id else { return nil }
-                
-                return Conversation(
-                    id: id,
-                    participants: entity.participantsArray,
-                    isGroup: entity.isGroup,
-                    groupName: entity.groupName,
-                    groupPhotoURL: entity.groupPhotoURL,
-                    lastMessage: entity.lastMessage ?? "",
-                    lastMessageAt: entity.lastMessageAt ?? Date(),
-                    lastMessageSenderId: entity.lastMessageSenderId,
-                    createdBy: entity.createdBy ?? "",
-                    createdAt: entity.createdAt ?? Date(),
-                    unreadCount: [:], // TODO: Parse from Core Data
-                    admins: entity.adminsArray
-                )
+            // Filter to only conversations where current user is a participant
+            conversations = allConversations.filter { conversation in
+                conversation.participants.contains(currentUserId)
             }
             
             print("✅ Loaded \(conversations.count) conversations from local storage")
