@@ -128,12 +128,7 @@ extension Message {
             return status
         }
         
-        // For 1-on-1 chats, return actual status
-        if !conversation.isGroup {
-            return status
-        }
-        
-        // For group chats: aggregate based on recipients (show worst status)
+        // For both 1-on-1 and group chats: check recipient status
         let otherParticipants = conversation.participants.filter { $0 != senderId }
         
         // Check if all recipients have read
