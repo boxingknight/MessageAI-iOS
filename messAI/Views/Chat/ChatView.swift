@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
@@ -37,10 +38,15 @@ struct ChatView: View {
         let chatService = ChatService()
         let localDataManager = LocalDataManager.shared
         
+        // Get other user ID for 1-on-1 chats (for presence)
+        let currentUserId = FirebaseAuth.Auth.auth().currentUser?.uid ?? ""
+        let otherUserId = conversation.isGroup ? nil : conversation.participants.first { $0 != currentUserId }
+        
         _viewModel = StateObject(wrappedValue: ChatViewModel(
             conversationId: conversation.id,
             chatService: chatService,
-            localDataManager: localDataManager
+            localDataManager: localDataManager,
+            otherUserId: otherUserId
         ))
     }
     
@@ -156,6 +162,21 @@ struct ChatView: View {
         .navigationTitle(conversationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Custom title with presence indicator
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 2) {
+                    Text(conversationTitle)
+                        .font(.headline)
+                    
+                    // Show presence text if available
+                    if let presence = viewModel.otherUserPresence {
+                        Text(presence.presenceText)
+                            .font(.caption)
+                            .foregroundColor(presence.isOnline ? .green : .secondary)
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 // Placeholder for future features (PR #11+)
                 Menu {

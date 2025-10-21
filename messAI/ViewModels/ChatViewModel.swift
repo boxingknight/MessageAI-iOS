@@ -18,14 +18,17 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var isTyping: Bool = false
     @Published var otherUserTyping: Bool = false
+    @Published var otherUserPresence: Presence?
     @Published var errorMessage: String?
     @Published var showError: Bool = false
     
     // MARK: - Dependencies
     private let chatService: ChatService
     private let localDataManager: LocalDataManager
+    private let presenceService = PresenceService.shared
     let conversationId: String
     let currentUserId: String
+    var otherUserId: String?  // For 1-on-1 chats
     
     // MARK: - Listener Management (PR #10)
     private var listenerTask: Task<Void, Never>?
@@ -43,12 +46,14 @@ class ChatViewModel: ObservableObject {
     init(
         conversationId: String,
         chatService: ChatService,
-        localDataManager: LocalDataManager
+        localDataManager: LocalDataManager,
+        otherUserId: String? = nil
     ) {
         self.conversationId = conversationId
         self.chatService = chatService
         self.localDataManager = localDataManager
         self.currentUserId = Auth.auth().currentUser?.uid ?? ""
+        self.otherUserId = otherUserId
     }
     
     // Note: No deinit needed - Task is automatically cancelled when ChatViewModel is deallocated
@@ -74,6 +79,9 @@ class ChatViewModel: ObservableObject {
             
             // Mark conversation as viewed (PR #11)
             await markConversationAsViewed()
+            
+            // Observe other user's presence (PR #12)
+            observeOtherUserPresence()
             
         } catch {
             print("❌ Error loading messages: \(error)")
@@ -185,6 +193,27 @@ class ChatViewModel: ObservableObject {
         print("🛑 Stopping real-time listener")
         listenerTask?.cancel()
         listenerTask = nil
+        
+        // Stop presence observer if active
+        if let otherUserId = otherUserId {
+            presenceService.stopObservingPresence(otherUserId)
+        }
+    }
+    
+    /// Observe other user's presence (for 1-on-1 chats)
+    private func observeOtherUserPresence() {
+        guard let otherUserId = otherUserId else {
+            print("⚠️ No other user ID, skipping presence observer")
+            return
+        }
+        
+        print("👀 Starting presence observer for: \(otherUserId)")
+        presenceService.observePresence(otherUserId)
+        
+        // Subscribe to presence updates
+        presenceService.$userPresence
+            .map { $0[otherUserId] }
+            .assign(to: &$otherUserPresence)
     }
     
     /// Handle new messages from Firestore (deduplication logic)
