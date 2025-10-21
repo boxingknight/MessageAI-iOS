@@ -26,6 +26,7 @@ class ChatViewModel: ObservableObject {
     private let chatService: ChatService
     private let localDataManager: LocalDataManager
     private let presenceService = PresenceService.shared
+    private let typingService = TypingService.shared
     let conversationId: String
     let currentUserId: String
     var otherUserId: String?  // For 1-on-1 chats
@@ -83,6 +84,9 @@ class ChatViewModel: ObservableObject {
             // Observe other user's presence (PR #12)
             observeOtherUserPresence()
             
+            // Observe typing indicators (PR #12)
+            observeTypingIndicators()
+            
         } catch {
             print("❌ Error loading messages: \(error)")
             errorMessage = "Failed to load messages: \(error.localizedDescription)"
@@ -97,6 +101,11 @@ class ChatViewModel: ObservableObject {
         
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         messageText = "" // Clear input immediately (optimistic UI)
+        
+        // Stop typing indicator when message sent
+        Task {
+            try? await typingService.stopTyping(userId: currentUserId, conversationId: conversationId)
+        }
         
         // Step 1: Create optimistic message with temp ID
         let tempId = UUID().uuidString
@@ -198,6 +207,14 @@ class ChatViewModel: ObservableObject {
         if let otherUserId = otherUserId {
             presenceService.stopObservingPresence(otherUserId)
         }
+        
+        // Stop typing observer
+        typingService.stopObservingTyping(conversationId: conversationId)
+        
+        // Stop our own typing status
+        Task {
+            try? await typingService.stopTyping(userId: currentUserId, conversationId: conversationId)
+        }
     }
     
     /// Observe other user's presence (for 1-on-1 chats)
@@ -214,6 +231,34 @@ class ChatViewModel: ObservableObject {
         presenceService.$userPresence
             .map { $0[otherUserId] }
             .assign(to: &$otherUserPresence)
+    }
+    
+    /// Observe typing indicators for this conversation
+    private func observeTypingIndicators() {
+        print("👀 Starting typing observer for conversation: \(conversationId)")
+        typingService.observeTyping(conversationId: conversationId, currentUserId: currentUserId)
+        
+        // Subscribe to typing updates
+        typingService.$typingUsers
+            .map { $0[self.conversationId]?.isEmpty == false }
+            .assign(to: &$otherUserTyping)
+    }
+    
+    /// Handle text input changes (trigger typing indicator)
+    func handleTextChange() {
+        // Only send typing indicator if text is non-empty
+        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            // Text cleared - stop typing
+            Task {
+                try? await typingService.stopTyping(userId: currentUserId, conversationId: conversationId)
+            }
+            return
+        }
+        
+        // User is typing
+        Task {
+            try? await typingService.startTyping(userId: currentUserId, conversationId: conversationId)
+        }
     }
     
     /// Handle new messages from Firestore (deduplication logic)

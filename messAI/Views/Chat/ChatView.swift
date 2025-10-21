@@ -159,6 +159,10 @@ struct ChatView: View {
                 }
             )
         }
+        .onChange(of: viewModel.messageText) { oldValue, newValue in
+            // Trigger typing indicator when text changes
+            viewModel.handleTextChange()
+        }
         .navigationTitle(conversationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
