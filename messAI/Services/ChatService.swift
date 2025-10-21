@@ -164,11 +164,13 @@ class ChatService {
     ///   - conversationId: ID of the conversation
     ///   - text: Message text content
     ///   - imageURL: Optional image URL
-    /// - Returns: Created Message object (optimistic)
+    ///   - messageId: Optional message ID (for optimistic UI - PR #10 bug fix)
+    /// - Returns: Created Message object with server confirmation
     func sendMessage(
         conversationId: String,
         text: String,
-        imageURL: String? = nil
+        imageURL: String? = nil,
+        messageId: String? = nil
     ) async throws -> Message {
         
         guard let currentUserId = Auth.auth().currentUser?.uid else {
@@ -180,25 +182,19 @@ class ChatService {
             throw ChatError.invalidData
         }
         
-        // Create message optimistically
-        var message: Message
-        if let imageURL = imageURL {
-            // Use full initializer for messages with images
-            message = Message(
-                id: UUID().uuidString,
-                conversationId: conversationId,
-                senderId: currentUserId,
-                text: text,
-                imageURL: imageURL
-            )
-        } else {
-            // Use convenience initializer for text-only messages
-            message = Message(
-                conversationId: conversationId,
-                senderId: currentUserId,
-                text: text
-            )
-        }
+        // Use provided ID or generate new one
+        let id = messageId ?? UUID().uuidString
+        
+        // Create message with specific ID
+        let message = Message(
+            id: id,
+            conversationId: conversationId,
+            senderId: currentUserId,
+            text: text,
+            imageURL: imageURL,
+            sentAt: Date(),
+            status: .sending
+        )
         
         // Add to pending queue
         pendingMessages.append(message)
@@ -209,7 +205,8 @@ class ChatService {
             try await uploadMessageToFirestore(message)
             
             // Success! Update status and remove from queue
-            message.status = MessageStatus.sent
+            var updatedMessage = message
+            updatedMessage.status = MessageStatus.sent
             pendingMessages.removeAll { $0.id == message.id }
             
             // Update conversation's lastMessage
@@ -218,8 +215,8 @@ class ChatService {
                 lastMessage: text
             )
             
-            print("[ChatService] Sent message successfully: \(message.id)")
-            return message
+            print("[ChatService] Sent message successfully: \(updatedMessage.id)")
+            return updatedMessage
             
         } catch {
             // Failed! Keep in queue with failed status
@@ -258,6 +255,7 @@ class ChatService {
     }
     
     /// Fetch messages in real-time using Firestore snapshot listener (PR #10)
+    /// Now uses documentChanges for better performance (bug fix)
     /// - Parameter conversationId: ID of the conversation
     /// - Returns: AsyncThrowingStream of message arrays as they update
     func fetchMessagesRealtime(
@@ -278,22 +276,37 @@ class ChatService {
                         return
                     }
                     
-                    guard let documents = snapshot?.documents else {
-                        print("📭 [ChatService] No documents in snapshot")
+                    guard let snapshot = snapshot else {
+                        print("📭 [ChatService] No snapshot")
                         continuation.yield([])
                         return
                     }
                     
-                    // Convert Firestore documents to Message objects
-                    let messages = documents.compactMap { doc -> Message? in
-                        var data = doc.data()
-                        data["id"] = doc.documentID // Add document ID to data
+                    // Process only changed documents (Firestore automatically includes all as .added on first load)
+                    // This is more efficient than processing all documents every time
+                    let changedMessages = snapshot.documentChanges.compactMap { change -> Message? in
+                        var data = change.document.data()
+                        data["id"] = change.document.documentID
                         
-                        return Message(dictionary: data)
+                        guard let message = Message(dictionary: data) else {
+                            return nil
+                        }
+                        
+                        // Log the type of change
+                        switch change.type {
+                        case .added:
+                            print("➕ [ChatService] New message: \(message.id)")
+                        case .modified:
+                            print("✏️ [ChatService] Modified message: \(message.id)")
+                        case .removed:
+                            print("🗑️ [ChatService] Removed message: \(message.id)")
+                        }
+                        
+                        return message
                     }
                     
-                    print("📨 [ChatService] Received \(messages.count) messages from real-time listener")
-                    continuation.yield(messages)
+                    print("📨 [ChatService] Received \(changedMessages.count) changed messages")
+                    continuation.yield(changedMessages)
                 }
             
             // Cleanup when stream is cancelled

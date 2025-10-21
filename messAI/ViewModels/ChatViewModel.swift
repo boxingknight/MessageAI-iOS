@@ -109,20 +109,25 @@ class ChatViewModel: ObservableObject {
             print("⚠️ Failed to save optimistic message locally: \(error)")
         }
         
-        // Step 4: Upload to Firestore (async)
+        // Step 4: Store ID mapping BEFORE upload (prevents race condition!)
+        // This ensures the listener can deduplicate when it fires
+        messageIdMap[tempId] = tempId // Maps to itself since ChatService will use same ID
+        print("🗺️ ID mapping stored BEFORE upload: \(tempId) → \(tempId)")
+        
+        // Step 5: Upload to Firestore (async)
         Task {
             do {
                 let serverMessage = try await chatService.sendMessage(
                     conversationId: conversationId,
-                    text: text
+                    text: text,
+                    messageId: tempId // Pass our ID so ChatService uses it!
                 )
                 
-                // Step 5a: Success! Map temp ID to server ID
-                print("✅ Message sent successfully: \(tempId) → \(serverMessage.id)")
-                messageIdMap[tempId] = serverMessage.id
+                // Success! Message should now have .sent status
+                print("✅ Message sent successfully with ID: \(serverMessage.id)")
                 
                 // The real-time listener will pick this up and deduplicate it!
-                // No need to manually update - the listener handles it
+                // Since we stored the mapping before upload, deduplication will work
                 
             } catch {
                 // Step 5b: Failure! Update status to .failed
