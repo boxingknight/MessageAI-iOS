@@ -57,6 +57,35 @@ extension Date {
         formatter.dateFormat = "MMM d"
         return formatter.string(from: self)
     }
+    
+    /// Format date as presence text: "Active now", "5m ago", "Last seen recently"
+    func presenceText() -> String {
+        let now = Date()
+        let seconds = now.timeIntervalSince(self)
+        
+        switch seconds {
+        case 0..<60:
+            // Less than 1 minute
+            return "Active now"
+            
+        case 60..<300:
+            // 1-5 minutes
+            let minutes = Int(seconds / 60)
+            return "\(minutes)m ago"
+            
+        case 300..<3600:
+            // 5-60 minutes
+            return "Active recently"
+            
+        case 3600..<86400:
+            // 1-24 hours
+            return "Last seen today"
+            
+        default:
+            // More than 24 hours
+            return "Last seen recently"
+        }
+    }
 }
 
 // MARK: - DateFormatter Extensions
