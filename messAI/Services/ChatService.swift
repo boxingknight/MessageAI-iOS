@@ -257,6 +257,53 @@ class ChatService {
         print("[ChatService] Updated last message for conversation: \(conversationId)")
     }
     
+    /// Fetch messages in real-time using Firestore snapshot listener (PR #10)
+    /// - Parameter conversationId: ID of the conversation
+    /// - Returns: AsyncThrowingStream of message arrays as they update
+    func fetchMessagesRealtime(
+        conversationId: String
+    ) async throws -> AsyncThrowingStream<[Message], Error> {
+        
+        print("🎧 [ChatService] Setting up real-time listener for conversation: \(conversationId)")
+        
+        return AsyncThrowingStream { continuation in
+            let listener = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .order(by: "sentAt", descending: false)
+                .addSnapshotListener { [weak self] snapshot, error in
+                    if let error = error {
+                        print("❌ [ChatService] Real-time listener error: \(error)")
+                        continuation.finish(throwing: self?.mapFirestoreError(error) ?? ChatError.unknown(error))
+                        return
+                    }
+                    
+                    guard let documents = snapshot?.documents else {
+                        print("📭 [ChatService] No documents in snapshot")
+                        continuation.yield([])
+                        return
+                    }
+                    
+                    // Convert Firestore documents to Message objects
+                    let messages = documents.compactMap { doc -> Message? in
+                        var data = doc.data()
+                        data["id"] = doc.documentID // Add document ID to data
+                        
+                        return Message(dictionary: data)
+                    }
+                    
+                    print("📨 [ChatService] Received \(messages.count) messages from real-time listener")
+                    continuation.yield(messages)
+                }
+            
+            // Cleanup when stream is cancelled
+            continuation.onTermination = { @Sendable _ in
+                listener.remove()
+                print("🛑 [ChatService] Real-time listener removed for conversation: \(conversationId)")
+            }
+        }
+    }
+    
     /// Fetches messages for a conversation with real-time updates
     /// - Parameter conversationId: The conversation ID
     /// - Returns: AsyncThrowingStream of message arrays

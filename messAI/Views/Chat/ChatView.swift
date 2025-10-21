@@ -105,9 +105,7 @@ struct ChatView: View {
             MessageInputView(
                 text: $viewModel.messageText,
                 onSend: {
-                    Task {
-                        viewModel.sendMessage()
-                    }
+                    viewModel.sendMessage() // PR #10: Now with optimistic UI!
                 }
             )
         }
