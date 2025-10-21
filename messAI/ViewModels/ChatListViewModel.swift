@@ -145,13 +145,17 @@ class ChatListViewModel: ObservableObject {
             }
             
             // Check if last message changed (new message arrived)
-            guard newConv.lastMessageAt > oldConv.lastMessageAt,
-                  let lastMessage = newConv.lastMessage else {
+            guard newConv.lastMessageAt > oldConv.lastMessageAt else {
+                continue
+            }
+            
+            // Check if we have sender ID
+            guard let senderId = newConv.lastMessageSenderId else {
                 continue
             }
             
             // Don't show toast for our own messages
-            guard lastMessage.senderId != currentUserId else {
+            guard senderId != currentUserId else {
                 continue
             }
             
@@ -160,27 +164,37 @@ class ChatListViewModel: ObservableObject {
                 continue
             }
             
-            // Fetch sender info for the toast
-            await showToastForMessage(lastMessage, in: newConv)
+            // Show toast for this new message
+            await showToastForMessage(
+                messageText: newConv.lastMessage,
+                senderId: senderId,
+                conversationId: newConv.id,
+                timestamp: newConv.lastMessageAt
+            )
         }
     }
     
     /// Show toast notification for a message
-    private func showToastForMessage(_ message: Message, in conversation: Conversation) async {
+    private func showToastForMessage(
+        messageText: String,
+        senderId: String,
+        conversationId: String,
+        timestamp: Date
+    ) async {
         do {
             // Fetch sender information
-            let sender = try await chatService.getUser(userId: message.senderId)
+            let sender = try await chatService.fetchUser(userId: senderId)
             
             // Create toast
             let toast = ToastMessage(
-                id: message.id,
-                conversationId: conversation.id,
-                senderId: message.senderId,
+                id: UUID().uuidString,
+                conversationId: conversationId,
+                senderId: senderId,
                 senderName: sender?.displayName ?? "Unknown",
                 senderPhotoURL: sender?.photoURL,
-                messageText: message.text,
-                isImageMessage: message.imageURL != nil,
-                timestamp: message.sentAt
+                messageText: messageText,
+                isImageMessage: false, // We don't have image info from conversation, assume text
+                timestamp: timestamp
             )
             
             // Show toast

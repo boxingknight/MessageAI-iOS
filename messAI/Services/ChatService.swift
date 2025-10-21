@@ -697,6 +697,28 @@ class ChatService {
         }
     }
     
+    /// Fetch a single user by ID (PR #17.1: for toast notifications)
+    /// - Parameter userId: The user ID to fetch
+    /// - Returns: User object or nil if not found
+    func fetchUser(userId: String) async throws -> User? {
+        do {
+            let document = try await db.collection("users").document(userId).getDocument()
+            
+            guard document.exists, let data = document.data() else {
+                print("[ChatService] User not found: \(userId)")
+                return nil
+            }
+            
+            let user = User(from: data)
+            print("[ChatService] Fetched user: \(user?.displayName ?? "Unknown")")
+            return user
+            
+        } catch {
+            print("[ChatService] Error fetching user: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Group Management (PR #13)
     
     /// Create a new group conversation with 3-50 participants
