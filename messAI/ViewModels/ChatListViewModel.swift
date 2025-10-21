@@ -137,32 +137,52 @@ class ChatListViewModel: ObservableObject {
     
     /// PR#17.1: Check for new messages and trigger toast notifications
     private func checkForNewMessagesAndNotify(newConversations: [Conversation]) async {
+        print("🔍 [Toast Debug] Checking \(newConversations.count) conversations for new messages")
+        print("🔍 [Toast Debug] Current conversations count: \(conversations.count)")
+        
         for newConv in newConversations {
+            print("🔍 [Toast Debug] Checking conversation: \(newConv.id)")
+            
             // Find corresponding old conversation
             guard let oldConv = conversations.first(where: { $0.id == newConv.id }) else {
-                // New conversation, skip toast (user likely just created it)
+                print("   ⏭️  No old version found (first load or new conversation), skipping")
                 continue
             }
+            
+            print("   📅 Old timestamp: \(oldConv.lastMessageAt)")
+            print("   📅 New timestamp: \(newConv.lastMessageAt)")
             
             // Check if last message changed (new message arrived)
             guard newConv.lastMessageAt > oldConv.lastMessageAt else {
+                print("   ⏭️  No new message (timestamp unchanged)")
                 continue
             }
+            
+            print("   ✅ New message detected!")
             
             // Check if we have sender ID
             guard let senderId = newConv.lastMessageSenderId else {
+                print("   ❌ No sender ID in conversation")
                 continue
             }
+            
+            print("   👤 Sender ID: \(senderId), Current user: \(currentUserId)")
             
             // Don't show toast for our own messages
             guard senderId != currentUserId else {
+                print("   ⏭️  Skipping our own message")
                 continue
             }
             
+            print("   🔔 Message from other user, checking if should show toast...")
+            
             // Check if we should show toast (not for active conversation)
             guard ToastNotificationManager.shared.shouldShowToast(conversationId: newConv.id) else {
+                print("   ⏭️  Toast manager says no (active conversation)")
                 continue
             }
+            
+            print("   🚀 All checks passed, triggering toast!")
             
             // Show toast for this new message
             await showToastForMessage(
@@ -172,6 +192,8 @@ class ChatListViewModel: ObservableObject {
                 timestamp: newConv.lastMessageAt
             )
         }
+        
+        print("🔍 [Toast Debug] Check complete\n")
     }
     
     /// Show toast notification for a message
@@ -181,9 +203,15 @@ class ChatListViewModel: ObservableObject {
         conversationId: String,
         timestamp: Date
     ) async {
+        print("   📨 [Toast Debug] showToastForMessage called")
+        print("   📨 Message: \(messageText)")
+        print("   📨 Sender ID: \(senderId)")
+        
         do {
             // Fetch sender information
+            print("   🔄 Fetching sender info...")
             let sender = try await chatService.fetchUser(userId: senderId)
+            print("   ✅ Sender fetched: \(sender?.displayName ?? "Unknown")")
             
             // Create toast
             let toast = ToastMessage(
@@ -197,12 +225,15 @@ class ChatListViewModel: ObservableObject {
                 timestamp: timestamp
             )
             
+            print("   🎯 Toast created: \(toast.senderName) - \(toast.displayText)")
+            
             // Show toast
             await MainActor.run {
+                print("   🚀 Calling ToastNotificationManager.showToast()")
                 ToastNotificationManager.shared.showToast(toast)
             }
         } catch {
-            print("⚠️ Failed to fetch sender info for toast: \(error)")
+            print("   ❌ Failed to fetch sender info for toast: \(error)")
         }
     }
     
