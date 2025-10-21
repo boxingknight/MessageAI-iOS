@@ -76,6 +76,14 @@ class AuthViewModel: ObservableObject {
             currentUser = user
             isAuthenticated = true
             
+            // Set presence online after successful sign up
+            if let userId = currentUser?.id {
+                Task {
+                    try? await PresenceService.shared.goOnline(userId)
+                    print("✅ Set presence online after sign up")
+                }
+            }
+            
         } catch let error as AuthError {
             errorMessage = error.errorDescription
         } catch {
@@ -96,6 +104,14 @@ class AuthViewModel: ObservableObject {
             currentUser = user
             isAuthenticated = true
             
+            // Set presence online after successful sign in
+            if let userId = currentUser?.id {
+                Task {
+                    try? await PresenceService.shared.goOnline(userId)
+                    print("✅ Set presence online after sign in")
+                }
+            }
+            
         } catch let error as AuthError {
             errorMessage = error.errorDescription
         } catch {
@@ -109,6 +125,14 @@ class AuthViewModel: ObservableObject {
     func signOut() async {
         isLoading = true
         errorMessage = nil
+        
+        // Set presence offline before signing out
+        if let userId = currentUser?.id {
+            Task {
+                try? await PresenceService.shared.goOffline(userId)
+                print("✅ Set presence offline before sign out")
+            }
+        }
         
         do {
             try await authService.signOut()
