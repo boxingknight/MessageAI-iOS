@@ -230,6 +230,38 @@ class LocalDataManager {
         }
     }
     
+    /// Replace a message's temporary ID with server ID (PR #10)
+    /// - Parameters:
+    ///   - tempId: Temporary UUID generated locally
+    ///   - serverId: Server-generated ID from Firestore
+    func replaceMessageId(tempId: String, serverId: String) throws {
+        let fetchRequest: NSFetchRequest<MessageEntity> = MessageEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", tempId)
+        
+        do {
+            guard let entity = try context.fetch(fetchRequest).first else {
+                throw PersistenceError.messageNotFound
+            }
+            
+            entity.id = serverId
+            try context.save()
+            
+            print("✅ Replaced message ID: \(tempId) → \(serverId)")
+            
+        } catch let error as PersistenceError {
+            throw error
+        } catch {
+            throw PersistenceError.saveFailed(error)
+        }
+    }
+    
+    /// Marks a message as synced with Firestore (PR #10)
+    /// Alias for markAsSynced for clarity in real-time sync context
+    /// - Parameter id: The message ID
+    func markMessageAsSynced(id: String) throws {
+        try markAsSynced(messageId: id)
+    }
+    
     /// Marks a message as synced
     /// - Parameter messageId: The message ID
     func markAsSynced(messageId: String) throws {

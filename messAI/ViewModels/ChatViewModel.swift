@@ -27,6 +27,13 @@ class ChatViewModel: ObservableObject {
     let conversationId: String
     let currentUserId: String
     
+    // MARK: - Listener Management (PR #10)
+    private var listenerTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
+    
+    // Message ID mapping for deduplication (temp UUID → server ID)
+    private var messageIdMap: [String: String] = [:]
+    
     // MARK: - Computed Properties
     var canSendMessage: Bool {
         !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -60,8 +67,8 @@ class ChatViewModel: ObservableObject {
             print("📥 Loaded \(messages.count) messages from Core Data")
             isLoading = false
             
-            // TODO (PR #10): Start Firestore real-time listener
-            // This will add new messages as they arrive from other users
+            // Start Firestore real-time listener (PR #10)
+            startRealtimeSync()
             
         } catch {
             print("❌ Error loading messages: \(error)")
@@ -88,6 +95,104 @@ class ChatViewModel: ObservableObject {
         // 3. Save to Core Data (isSynced: false)
         // 4. Upload to Firestore
         // 5. Update status on success (.sent) or failure (.failed)
+    }
+    
+    // MARK: - Real-Time Sync (PR #10)
+    
+    /// Start Firestore real-time listener for new messages
+    func startRealtimeSync() {
+        print("🎧 Starting real-time listener for conversation: \(conversationId)")
+        
+        listenerTask = Task {
+            do {
+                let messagesStream = try await chatService.fetchMessagesRealtime(
+                    conversationId: conversationId
+                )
+                
+                for try await firebaseMessages in messagesStream {
+                    await handleFirestoreMessages(firebaseMessages)
+                }
+            } catch {
+                print("❌ Real-time sync failed: \(error)")
+                errorMessage = "Real-time sync failed: \(error.localizedDescription)"
+                showError = true
+            }
+        }
+    }
+    
+    /// Stop Firestore real-time listener
+    func stopRealtimeSync() {
+        print("🛑 Stopping real-time listener")
+        listenerTask?.cancel()
+        listenerTask = nil
+    }
+    
+    /// Handle new messages from Firestore (deduplication logic)
+    private func handleFirestoreMessages(_ firebaseMessages: [Message]) async {
+        for firebaseMessage in firebaseMessages {
+            // Check 1: Is this our optimistic message coming back from server?
+            if let tempId = messageIdMap.first(where: { $0.value == firebaseMessage.id })?.key {
+                print("🔄 Deduplicating: replacing temp ID \(tempId) with server ID \(firebaseMessage.id)")
+                updateOptimisticMessage(tempId: tempId, serverMessage: firebaseMessage)
+            }
+            // Check 2: Does message already exist locally?
+            else if let existingIndex = messages.firstIndex(where: { $0.id == firebaseMessage.id }) {
+                print("🔄 Updating existing message: \(firebaseMessage.id)")
+                messages[existingIndex] = firebaseMessage
+                
+                // Update Core Data
+                do {
+                    try localDataManager.updateMessageStatus(
+                        id: firebaseMessage.id,
+                        status: firebaseMessage.status
+                    )
+                } catch {
+                    print("⚠️ Failed to update message in Core Data: \(error)")
+                }
+            }
+            // Check 3: Brand new message from other user
+            else {
+                print("📨 New message received: \(firebaseMessage.id)")
+                messages.append(firebaseMessage)
+                
+                // Save to Core Data
+                do {
+                    try localDataManager.saveMessage(firebaseMessage, isSynced: true)
+                } catch {
+                    print("⚠️ Failed to save message to Core Data: \(error)")
+                }
+            }
+        }
+        
+        // Always sort by timestamp (Firestore doesn't guarantee order)
+        messages.sort { $0.sentAt < $1.sentAt }
+    }
+    
+    /// Update optimistic message with server data
+    private func updateOptimisticMessage(tempId: String, serverMessage: Message) {
+        guard let index = messages.firstIndex(where: { $0.id == tempId }) else {
+            return
+        }
+        
+        // Replace optimistic message with server version
+        messages[index] = serverMessage
+        
+        // Update Core Data: replace temp ID with server ID
+        Task {
+            do {
+                try localDataManager.replaceMessageId(
+                    tempId: tempId,
+                    serverId: serverMessage.id
+                )
+                try localDataManager.markMessageAsSynced(id: serverMessage.id)
+                print("✅ Optimistic message updated: \(tempId) → \(serverMessage.id)")
+            } catch {
+                print("⚠️ Failed to update message in Core Data: \(error)")
+            }
+        }
+        
+        // Clean up mapping
+        messageIdMap.removeValue(forKey: tempId)
     }
 }
 
