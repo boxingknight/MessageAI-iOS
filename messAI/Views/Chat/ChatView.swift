@@ -66,19 +66,27 @@ struct ChatView: View {
     
     /// Check if message is last in a group
     private func isLastInGroup(at index: Int) -> Bool {
-        guard index < viewModel.messages.count - 1 else { return true } // Last message is always last in group
+        guard index < viewModel.messages.count - 1 else {
+            print("📍 Message \(index) is LAST in conversation")
+            return true
+        }
         
         let currentMessage = viewModel.messages[index]
         let nextMessage = viewModel.messages[index + 1]
         
         // Different sender = end group
         if currentMessage.senderId != nextMessage.senderId {
+            print("📍 Message \(index) is LAST in group (different sender next)")
             return true
         }
         
         // Same sender but more than 2 minutes apart = end group
         let timeDifference = nextMessage.sentAt.timeIntervalSince(currentMessage.sentAt)
-        return timeDifference > 120 // 2 minutes
+        let isLast = timeDifference > 120
+        
+        print("📍 Message \(index): timeDiff=\(timeDifference)s, isLast=\(isLast)")
+        
+        return isLast
     }
     
     var body: some View {
@@ -94,12 +102,16 @@ struct ChatView: View {
                         }
                         
                         // Messages with grouping
-                        ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
+                        ForEach(0..<viewModel.messages.count, id: \.self) { index in
+                            let message = viewModel.messages[index]
+                            let isFirst = isFirstInGroup(at: index)
+                            let isLast = isLastInGroup(at: index)
+                            
                             MessageBubbleView(
                                 message: message,
                                 isFromCurrentUser: message.senderId == viewModel.currentUserId,
-                                isFirstInGroup: isFirstInGroup(at: index),
-                                isLastInGroup: isLastInGroup(at: index)
+                                isFirstInGroup: isFirst,
+                                isLastInGroup: isLast
                             )
                             .id(message.id)
                         }
