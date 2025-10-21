@@ -92,27 +92,7 @@ struct ChatListView: View {
             }
         }
         .navigationDestination(for: Conversation.self) { conversation in
-            // TODO: ChatView (PR #9)
-            VStack(spacing: 20) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 64))
-                    .foregroundColor(.blue)
-                
-                Text("Chat View")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Text("Coming in PR #9")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                
-                Text("Conversation ID: \(conversation.id)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .padding()
-            .navigationTitle(viewModel.getConversationName(conversation))
-            .navigationBarTitleDisplayMode(.inline)
+            ChatView(conversation: conversation)
         }
         .refreshable {
             await viewModel.refresh()
