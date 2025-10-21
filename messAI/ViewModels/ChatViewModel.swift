@@ -263,7 +263,14 @@ class ChatViewModel: ObservableObject {
     
     /// Handle new messages from Firestore (deduplication logic)
     private func handleFirestoreMessages(_ firebaseMessages: [Message]) async {
+        print("🔄 [ChatViewModel] handleFirestoreMessages called with \(firebaseMessages.count) messages")
+        
         for firebaseMessage in firebaseMessages {
+            print("   Processing message: \(firebaseMessage.id)")
+            print("   deliveredTo: \(firebaseMessage.deliveredTo)")
+            print("   readBy: \(firebaseMessage.readBy)")
+            print("   status: \(firebaseMessage.status)")
+            
             // Check 1: Is this our optimistic message coming back from server?
             if let tempId = messageIdMap.first(where: { $0.value == firebaseMessage.id })?.key {
                 print("🔄 Deduplicating: replacing temp ID \(tempId) with server ID \(firebaseMessage.id)")
@@ -272,6 +279,11 @@ class ChatViewModel: ObservableObject {
             // Check 2: Does message already exist locally?
             else if let existingIndex = messages.firstIndex(where: { $0.id == firebaseMessage.id }) {
                 print("🔄 Updating existing message: \(firebaseMessage.id)")
+                print("   OLD deliveredTo: \(messages[existingIndex].deliveredTo)")
+                print("   NEW deliveredTo: \(firebaseMessage.deliveredTo)")
+                print("   OLD readBy: \(messages[existingIndex].readBy)")
+                print("   NEW readBy: \(firebaseMessage.readBy)")
+                
                 messages[existingIndex] = firebaseMessage
                 
                 // Update Core Data
@@ -300,6 +312,7 @@ class ChatViewModel: ObservableObject {
         
         // Always sort by timestamp (Firestore doesn't guarantee order)
         messages.sort { $0.sentAt < $1.sentAt }
+        print("✅ [ChatViewModel] Finished processing, total messages: \(messages.count)")
     }
     
     /// Update optimistic message with server data

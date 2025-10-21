@@ -123,23 +123,41 @@ extension Message {
     
     /// Returns status from sender's perspective (handles group aggregation)
     func statusForSender(in conversation: Conversation) -> MessageStatus {
+        print("🔍 [Message] statusForSender called for message: \(id)")
+        print("   Current status: \(status)")
+        print("   deliveredTo: \(deliveredTo)")
+        print("   readBy: \(readBy)")
+        print("   senderId: \(senderId)")
+        print("   conversation participants: \(conversation.participants)")
+        
         // If failed or sending, show that status regardless
         if status == .failed || status == .sending {
+            print("   ⏱ Returning \(status) (failed or sending)")
             return status
         }
         
         // For both 1-on-1 and group chats: check recipient status
         let otherParticipants = conversation.participants.filter { $0 != senderId }
+        print("   Other participants: \(otherParticipants)")
         
         // Check if all recipients have read
         let allRead = otherParticipants.allSatisfy { readBy.contains($0) }
-        if allRead { return .read }
+        print("   All read? \(allRead)")
+        if allRead { 
+            print("   ✅ Returning .read")
+            return .read 
+        }
         
         // Check if all recipients have received
         let allDelivered = otherParticipants.allSatisfy { deliveredTo.contains($0) }
-        if allDelivered { return .delivered }
+        print("   All delivered? \(allDelivered)")
+        if allDelivered { 
+            print("   ✅ Returning .delivered")
+            return .delivered 
+        }
         
         // At least sent to server
+        print("   ✅ Returning .sent (default)")
         return .sent
     }
     

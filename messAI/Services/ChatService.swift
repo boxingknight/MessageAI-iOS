@@ -304,12 +304,15 @@ class ChatService {
                             return nil
                         }
                         
-                        // Log the type of change
+                        // Log the type of change WITH DETAILED INFO
                         switch change.type {
                         case .added:
                             print("➕ [ChatService] New message: \(message.id)")
                         case .modified:
                             print("✏️ [ChatService] Modified message: \(message.id)")
+                            print("   deliveredTo: \(message.deliveredTo)")
+                            print("   readBy: \(message.readBy)")
+                            print("   status: \(message.status)")
                         case .removed:
                             print("🗑️ [ChatService] Removed message: \(message.id)")
                         }
@@ -524,6 +527,8 @@ class ChatService {
         upToDate: Date = Date()
     ) async throws {
         do {
+            print("📖 [ChatService] markAllMessagesAsRead called for user: \(userId)")
+            
             // Query messages not sent by current user, up to the specified date
             let messagesQuery = db.collection("conversations")
                 .document(conversationId)
@@ -538,25 +543,36 @@ class ChatService {
                 return
             }
             
+            print("📨 [ChatService] Found \(snapshot.documents.count) messages from other users")
+            
             let batch = db.batch()
+            var updatedCount = 0
             
             for document in snapshot.documents {
                 let messageRef = document.reference
+                let messageId = document.documentID
                 
                 // Only update if not already read by this user
                 let readBy = document.data()["readBy"] as? [String] ?? []
+                print("   Message \(messageId): readBy = \(readBy)")
+                
                 if !readBy.contains(userId) {
+                    print("   ➕ Adding \(userId) to readBy array")
                     batch.updateData([
                         "readBy": FieldValue.arrayUnion([userId]),
                         "readAt": FieldValue.serverTimestamp()
                     ], forDocument: messageRef)
+                    updatedCount += 1
+                } else {
+                    print("   ✅ Already read by \(userId)")
                 }
             }
             
             try await batch.commit()
-            print("[ChatService] ✅ Marked \(snapshot.documents.count) messages as read for \(userId)")
+            print("[ChatService] ✅ Marked \(updatedCount)/\(snapshot.documents.count) messages as read for \(userId)")
             
         } catch {
+            print("[ChatService] ❌ Error marking messages as read: \(error)")
             throw mapFirestoreError(error)
         }
     }
@@ -570,6 +586,8 @@ class ChatService {
         userId: String
     ) async throws {
         do {
+            print("🔔 [ChatService] markMessagesAsDelivered called for user: \(userId)")
+            
             // Query messages not sent by current user
             let messagesQuery = db.collection("conversations")
                 .document(conversationId)
@@ -583,24 +601,35 @@ class ChatService {
                 return
             }
             
+            print("📨 [ChatService] Found \(snapshot.documents.count) messages from other users")
+            
             let batch = db.batch()
+            var updatedCount = 0
             
             for document in snapshot.documents {
                 let messageRef = document.reference
+                let messageId = document.documentID
                 
                 // Only update if not already delivered to this user
                 let deliveredTo = document.data()["deliveredTo"] as? [String] ?? []
+                print("   Message \(messageId): deliveredTo = \(deliveredTo)")
+                
                 if !deliveredTo.contains(userId) {
+                    print("   ➕ Adding \(userId) to deliveredTo array")
                     batch.updateData([
                         "deliveredTo": FieldValue.arrayUnion([userId])
                     ], forDocument: messageRef)
+                    updatedCount += 1
+                } else {
+                    print("   ✅ Already delivered to \(userId)")
                 }
             }
             
             try await batch.commit()
-            print("[ChatService] ✅ Marked \(snapshot.documents.count) messages as delivered for \(userId)")
+            print("[ChatService] ✅ Marked \(updatedCount)/\(snapshot.documents.count) messages as delivered for \(userId)")
             
         } catch {
+            print("[ChatService] ❌ Error marking messages as delivered: \(error)")
             throw mapFirestoreError(error)
         }
     }
