@@ -35,12 +35,12 @@
 
 ### 🎯 Current Phase: AI Features Implementation (PRs 14-20)
 
-**Status**: First AI feature complete and working!  
-**Current Branch**: `feature/pr15-calendar-extraction` (ready to merge)  
-**Current PR**: PR #15 COMPLETE! (Calendar Extraction working perfectly!) ✅  
-**Next PR**: PR #16 - Decision Summarization OR PR #17 - Priority Highlighting  
-**Estimated Time**: 3-4h (PR#16) or 2-3h (PR#17)  
-**Next Branch**: Will create `feature/pr16-decision-summary` or `feature/pr17-priority-highlight`
+**Status**: Starting PR#16 - Decision Summarization Feature!  
+**Current Branch**: `feature/pr16-decision-summarization` ✅ CREATED  
+**Current PR**: PR #16 IN PROGRESS (Decision Summarization) 🚧  
+**Previous PR**: PR #15 COMPLETE! (Calendar Extraction) ✅  
+**Estimated Time**: 3-4 hours  
+**Progress**: Ready to implement (planning docs reviewed)
 
 **Achievement Unlocked**: 🏆 **WhatsApp-Quality Read Receipts**
 - ✓ Single gray check (sent)
@@ -64,6 +64,41 @@
 ---
 
 ## Immediate Context (What Just Happened)
+
+### 🚧 NOW STARTING: PR #16 - Decision Summarization Feature (October 22, 2025)
+
+**Status**: Branch created, ready to implement!  
+**Branch**: `feature/pr16-decision-summarization` ✅  
+**Planning Complete**: 5 documents (~40,000 words)  
+**Estimated Time**: 3-4 hours
+
+**What We're Building**:
+AI-powered decision summarization for group chats. Sarah (busy parent) returns from a meeting to 50+ messages in the school parent group. Instead of reading everything, she taps "Summarize" → AI reads 50 messages in 2 seconds → Extracts decisions, action items, and key points → Displays beautiful summary card at top of chat.
+
+**Key Features**:
+1. Manual trigger (toolbar button: "Summarize")
+2. Last 50 messages analyzed (GPT-4 with structured prompt)
+3. Inline card display (pinned at top of chat)
+4. 5-minute caching (prevents duplicate API calls)
+5. Firestore persistence (/summaries collection)
+6. Expandable/collapsible UI with smooth animations
+
+**Technical Stack**:
+- Cloud Function: `decisionSummary.ts` (~250 lines)
+- iOS Models: `ConversationSummary.swift`, `ActionItem.swift` (~250 lines)
+- SwiftUI: `DecisionSummaryCardView.swift` (~250 lines)
+- Service: `AIService.summarizeConversation()` (~120 lines)
+- Integration: ChatViewModel state management (~100 lines)
+
+**Cost**: ~$0.06 per summary (GPT-4 API)
+**Performance**: <5s cold start, <1s cached
+
+**Next Steps**:
+1. Review PR16_IMPLEMENTATION_CHECKLIST.md
+2. Start Phase 1: Cloud Function implementation
+3. Follow checklist step-by-step with testing after each phase
+
+---
 
 ### ✅ JUST COMPLETED: PR #15 - Calendar Extraction Feature 🎉 (October 22, 2025)
 

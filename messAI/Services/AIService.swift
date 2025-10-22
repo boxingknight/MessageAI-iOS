@@ -174,5 +174,79 @@ class AIService {
         
         return calendarEvents
     }
+    
+    // MARK: - Decision Summarization (PR #16)
+    
+    /// Summarize conversation decisions and action items
+    /// Returns ConversationSummary with decisions, action items, and key points
+    func summarizeConversation(conversationId: String) async throws -> ConversationSummary {
+        print("📝 AIService: Summarizing conversation \(conversationId)")
+        
+        // Check cache (conversation-specific)
+        let cacheKey = "summary:\(conversationId)"
+        if let cached = cache[cacheKey],
+           Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+            print("✅ AIService: Using cached summary (age: \(Int(Date().timeIntervalSince(cached.timestamp)))s)")
+            if let summary = cached.result as? ConversationSummary {
+                return summary
+            }
+        }
+        
+        // Prepare request data
+        let data: [String: Any] = [
+            "feature": AIFeature.decision.rawValue,
+            "conversationId": conversationId
+        ]
+        
+        print("📤 AIService: Calling Cloud Function for decision summarization")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                print("❌ AIService: Invalid response format")
+                throw AIError.invalidResponse
+            }
+            
+            // Check if summary was generated
+            guard let hasSummary = resultData["hasSummary"] as? Bool, hasSummary else {
+                // Not enough messages or other reason
+                let message = resultData["message"] as? String ?? "Unable to generate summary"
+                print("⚠️ AIService: \(message)")
+                throw AIError.serverError(message)
+            }
+            
+            // Parse summary dictionary
+            guard let summaryDict = resultData["summary"] as? [String: Any] else {
+                print("❌ AIService: Missing summary data in response")
+                throw AIError.invalidResponse
+            }
+            
+            // Convert to ConversationSummary model
+            guard let summary = ConversationSummary(dictionary: summaryDict) else {
+                print("❌ AIService: Failed to parse ConversationSummary from response")
+                print("   Response: \(summaryDict)")
+                throw AIError.invalidResponse
+            }
+            
+            print("✅ AIService: Summary generated successfully")
+            print("   - Decisions: \(summary.decisions.count)")
+            print("   - Action Items: \(summary.actionItems.count)")
+            print("   - Key Points: \(summary.keyPoints.count)")
+            print("   - Messages Analyzed: \(summary.messageCount)")
+            
+            // Cache result (as ConversationSummary object)
+            cache[cacheKey] = (summary, Date())
+            
+            return summary
+            
+        } catch let error as NSError {
+            print("❌ AIService: Error calling Cloud Function: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
 }
 

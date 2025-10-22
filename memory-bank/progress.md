@@ -1,7 +1,7 @@
 # MessageAI - Progress Tracking
 
 **Last Updated**: October 22, 2025  
-**Project Status**: ✅ PR #13 COMPLETE - CORE MESSAGING FOUNDATION COMPLETE! 🎉 **NEW DIRECTION: AI FEATURES**
+**Project Status**: ✅ PR #15 COMPLETE - FIRST AI FEATURE LIVE! 🎉 **NOW STARTING PR #16**
 
 ---
 
@@ -26,7 +26,7 @@ We've pivoted to focus on **AI-powered features for busy parents** after complet
 
 Foundation: ████████████████████ 100% (PRs #1-3 complete!) 🎉
 Core Messaging: ████████████████████ 100% (PRs #4-13 complete!) 🚀 **COMPLETE!**
-AI Features: ████░░░░ 29% (PRs #14-15 complete!) 🎉 **FIRST AI FEATURE LIVE!**
+AI Features: ████░░░░ 29% (PRs #14-15 complete!) 🎉 **PR#16 IN PROGRESS!**
 Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
 ```
 
@@ -383,11 +383,11 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
   - Fix all-day event bug (timed events working correctly) ✅
   - Fix auto-scroll bug (natural scrolling for all updates) ✅
 
-- [ ] **PR #16: Decision Summarization Feature** (3-4h)
-  - Build decision/action item summarization
-  - Create summary display UI
-  - Add summary caching
-  - Test with group chat decisions
+- [ ] **PR #16: Decision Summarization Feature** (3-4h) 🚧 **IN PROGRESS!**
+  - [ ] Build decision/action item summarization (Cloud Function)
+  - [ ] Create summary display UI (SwiftUI)
+  - [ ] Add summary caching (5-minute TTL)
+  - [ ] Test with group chat decisions
 
 - [ ] **PR #17: Priority Highlighting Feature** (2-3h)
   - Build message priority detection
@@ -756,10 +756,10 @@ Day 2-3 (Extended features):
 
 ---
 
-**Current Status**: 🟢 First AI Feature Live!  
-**Current Phase**: AI Features (29% complete - 2 of 7 PRs done)  
-**Next Phase**: PR #16 (Decision Summarization) OR PR #17 (Priority Highlighting)  
-**Mood**: 🎉 Celebrating first AI feature! Ready for more!
+**Current Status**: 🟢 First AI Feature Live! Now starting PR#16!  
+**Current Phase**: AI Features (29% complete - 2 of 7 PRs done, 1 in progress)  
+**Next Phase**: PR #16 (Decision Summarization) 🚧 **IN PROGRESS!**  
+**Mood**: 🚀 Riding the AI momentum! Let's summarize group chats!
 
 ---
 

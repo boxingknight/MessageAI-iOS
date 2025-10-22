@@ -520,5 +520,60 @@ class ChatViewModel: ObservableObject {
             return false
         }
     }
+    
+    // MARK: - Decision Summarization (PR #16)
+    
+    @Published var conversationSummary: ConversationSummary?
+    @Published var isSummarizing = false
+    @Published var summarizationError: String?
+    @Published var showSummary = false
+    
+    /// Request AI summary of the conversation
+    /// Analyzes last 50 messages and extracts decisions, action items, and key points
+    func requestSummary() async {
+        guard !isSummarizing else {
+            print("⚠️ Already summarizing, ignoring duplicate request")
+            return
+        }
+        
+        isSummarizing = true
+        summarizationError = nil
+        
+        do {
+            print("📝 Requesting conversation summary for: \(conversationId)")
+            
+            // Call AI service to generate summary
+            let summary = try await AIService.shared.summarizeConversation(conversationId: conversationId)
+            
+            // Update state
+            conversationSummary = summary
+            showSummary = true
+            
+            print("✅ Summary generated successfully:")
+            print("   - Overview: \(summary.overview)")
+            print("   - Decisions: \(summary.decisions.count)")
+            print("   - Action Items: \(summary.actionItems.count)")
+            print("   - Key Points: \(summary.keyPoints.count)")
+            
+            isSummarizing = false
+            
+        } catch let error as AIError {
+            print("❌ Summarization failed: \(error.localizedDescription)")
+            summarizationError = error.localizedDescription
+            isSummarizing = false
+        } catch {
+            print("❌ Summarization failed: \(error)")
+            summarizationError = "Failed to generate summary. Please try again."
+            isSummarizing = false
+        }
+    }
+    
+    /// Dismiss the summary card
+    func dismissSummary() {
+        print("🗑️ Dismissing summary card")
+        showSummary = false
+        conversationSummary = nil
+        summarizationError = nil
+    }
 }
 
