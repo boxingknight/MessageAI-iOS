@@ -1143,6 +1143,67 @@ MessageAI - A production-quality iOS messaging application with:
 
 ---
 
+### PR #17: Priority Highlighting Feature
+**Status:** 📋 PLANNED (Documentation complete, ready to implement!)  
+**Branch**: `feature/pr17-priority-highlighting` (to be created)  
+**Timeline**: 2-3 hours estimated  
+**Priority**: 🟡 HIGH - Safety feature to prevent missing critical information  
+**Depends on**: PR#14 (Cloud Functions Setup) COMPLETE ✅, PR#16 (Decision Summarization) RECOMMENDED  
+**Created**: October 22, 2025
+
+**Documents**:
+- Main Spec: `PR17_PRIORITY_HIGHLIGHTING.md` (~15,000 words)
+- Implementation Checklist: `PR17_IMPLEMENTATION_CHECKLIST.md` (~11,000 words)
+- Quick Start: `PR17_README.md` (~8,000 words)
+- Planning Summary: `PR17_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR17_TESTING_GUIDE.md` (~10,000 words)
+- **Total Documentation**: ~47,000 words
+
+**Summary**: AI-powered urgent message detection that automatically highlights critical messages with visual indicators (red borders, badges, priority banners). Hybrid approach uses keyword filter (80% of messages, <100ms, free) + GPT-4 context analysis (20% of messages, ~2s, ~$0.002/call) for cost-effective accuracy. Prevents busy parents from missing urgent information like "Pickup changed to 2pm TODAY" buried in casual group chat.
+
+**Key Decisions**:
+- Detection: **Hybrid approach (keyword filter → GPT-4)** - 80% cost savings while maintaining accuracy
+- Levels: **3-level system (Critical/High/Normal)** - Clear visual hierarchy
+- UI: **Border + Badge + Banner** - Maximum visibility, accessibility-friendly (color + icon)
+- Collapsible: **In-chat banner + Global tab** - Both in-context and overview modes
+
+**What This Enables**:
+- 🎯 Safety feature (prevents real-world problems: late pickups, missed deadlines)
+- 🎯 Anxiety reducer (users trust app to catch urgent info)
+- 🎯 Differentiator (WhatsApp/iMessage treat all messages equally)
+- 🎯 Viral potential ("This app saved me from being late!")
+- 🎯 Foundation for smart notifications (PR#22)
+
+**Files to Create** (5 new files, ~600 lines):
+- `functions/src/ai/priorityDetection.ts` - Hybrid detection (keyword + GPT-4) (~250 lines)
+- `messAI/Models/PriorityLevel.swift` - Urgency enum with colors/icons (~80 lines)
+- `messAI/Views/Chat/PriorityBannerView.swift` - In-chat urgent section (~150 lines)
+- `messAI/Views/Priority/PriorityTabView.swift` - Global urgent messages tab (~120 lines)
+
+**Files to Modify** (+~250 lines):
+- `functions/src/ai/processAI.ts` (+20 lines) - Add priority_detection route
+- `messAI/Models/AIMetadata.swift` (+30 lines) - Add priority fields
+- `messAI/Services/AIService.swift` (+100 lines) - detectPriority() method
+- `messAI/ViewModels/ChatViewModel.swift` (+80 lines) - Priority detection logic
+- `messAI/Views/Chat/MessageBubbleView.swift` (+60 lines) - Border + badge display
+- `messAI/Views/Chat/ChatView.swift` (+50 lines) - Display priority banner
+
+**Success Metrics**:
+- Classification accuracy: >80% true positive, <5% false negative (CRITICAL - can't miss urgent messages)
+- Performance: Keyword <100ms (95%), GPT-4 <3s (95%), 80% fast path usage
+- Cost: <$2/month/user at 100 messages/day
+- UI clarity: Critical messages visually stand out when scanning chat
+
+**Risks & Mitigation**:
+- 🔴 False negatives (miss urgent) → Broad keywords, GPT-4 fallback, low normal threshold
+- 🟡 False positives (normal flagged) → GPT-4 context, acceptable trade-off (better safe than sorry)
+- 🟢 High API costs → Hybrid approach (80% keyword filter, 20% GPT-4)
+- 🟢 Slow performance → Async detection (message appears immediately, priority updates 1-2s later)
+
+**Prerequisites**: PR#14 (Cloud Functions) MUST BE 100% COMPLETE
+
+---
+
 ## Project Status
 
 ### Completed (~31.5 hours) 🎉
@@ -1164,12 +1225,12 @@ MessageAI - A production-quality iOS messaging application with:
 **Achievement**: 14 PRs complete! Core messaging COMPLETE + AI infrastructure DEPLOYED + FIRST AI FEATURE WORKING! 🚀🎉
 
 ### In Progress
-- None currently - Ready for PR #16 or #17!
+- 🚧 **PR #16: Decision Summarization Feature** - Planning complete, ready to implement!
 
-### Planned
+### Planned (Documentation Complete - Ready to Build!)
 - ✅ **PR #15: Calendar Extraction Feature** ✅ COMPLETE! 🎉 **FIRST AI FEATURE WORKING!**
-- 📋 PR #16: Decision Summarization Feature (next AI feature)
-- 📋 PR #17: Priority Highlighting Feature (AI urgency detection)
+- 📋 **PR #16: Decision Summarization Feature** - 📝 DOCUMENTATION COMPLETE (~47K words)
+- 📋 **PR #17: Priority Highlighting Feature** - 📝 DOCUMENTATION COMPLETE (~47K words)
 - 📋 PR #18: RSVP Tracking Feature (builds on PR#15)
 - 📋 PR #19: Deadline Extraction Feature (AI deadline detection)
 - 📋 PR #20: Multi-Step Event Planning Agent (advanced agent +10 bonus!)
@@ -1244,8 +1305,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **17 PRs documented** (PR #1-16, PR #17, PR #17.1, PR #23) 🎉 **PR #16: SECOND AI FEATURE!**
-- **~680,000 words** of planning and documentation (+40K from PR#16!)
+- **18 PRs documented** (PR #1-17, PR #17.1, PR #23) 🎉 **PR #17: THIRD AI FEATURE!**
+- **~727,000 words** of planning and documentation (+47K from PR#17!)
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -1256,12 +1317,13 @@ Each PR follows this documentation standard:
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~24K (with complete summary) ✅ **COMPLETE!**
   - PR #15: ~39K (planning complete) 🎉 **FIRST AI FEATURE READY!**
-  - PR #16: ~40K (planning complete) 🎉 **SECOND AI FEATURE READY!** **NEW!**
+  - PR #16: ~40K (planning complete) 🎉 **SECOND AI FEATURE READY!**
+  - PR #17: ~47K (planning complete) 🎉 **THIRD AI FEATURE READY!** **NEW!**
   - PR #23: ~48K (planning complete - image sharing)
-  - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
+  - PR #17 (old): ~50K (planning complete) 🎉 **MVP #10 READY!**
   - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
-- **99 planning documents** (5-7 per PR, +5 from PR#16)
-- **~39 hours** spent on planning + debugging documentation total (+2h from PR#16)
+- **104 planning documents** (5-7 per PR, +5 from PR#17)
+- **~41 hours** spent on planning + debugging documentation total (+2h from PR#17)
 - **~4,850+ lines** of production code written (13 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 

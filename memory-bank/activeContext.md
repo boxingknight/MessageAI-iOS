@@ -1,7 +1,7 @@
 # MessageAI - Active Context
 
 **Last Updated**: October 22, 2025  
-**Current Status**: ✅ PR #15 COMPLETE - FIRST AI FEATURE WORKING! 🎉 **CALENDAR EXTRACTION LIVE!**
+**Current Status**: ✅ PR #15 COMPLETE + PR #16 & PR #17 DOCUMENTATION READY! 🎉 **3 AI FEATURES READY TO IMPLEMENT!**
 
 ---
 
@@ -35,12 +35,14 @@
 
 ### 🎯 Current Phase: AI Features Implementation (PRs 14-20)
 
-**Status**: Starting PR#16 - Decision Summarization Feature!  
-**Current Branch**: `feature/pr16-decision-summarization` ✅ CREATED  
-**Current PR**: PR #16 IN PROGRESS (Decision Summarization) 🚧  
-**Previous PR**: PR #15 COMPLETE! (Calendar Extraction) ✅  
-**Estimated Time**: 3-4 hours  
-**Progress**: Ready to implement (planning docs reviewed)
+**Status**: PR#16 & PR#17 Documentation Complete - Ready to Choose & Implement!  
+**Available Branches**: 
+- `feature/pr16-decision-summarization` ✅ READY TO IMPLEMENT  
+- `feature/pr17-priority-highlighting` 📋 READY TO PLAN & IMPLEMENT  
+**Current PR**: PR #15 COMPLETE! (Calendar Extraction) ✅  
+**Next PR Options**: PR #16 (Decision Summarization) OR PR #17 (Priority Highlighting)  
+**Estimated Time**: 3-4 hours (PR#16) OR 2-3 hours (PR#17)  
+**Progress**: Both PRs fully documented with ~47K words each
 
 **Achievement Unlocked**: 🏆 **WhatsApp-Quality Read Receipts**
 - ✓ Single gray check (sent)
@@ -97,6 +99,53 @@ AI-powered decision summarization for group chats. Sarah (busy parent) returns f
 1. Review PR16_IMPLEMENTATION_CHECKLIST.md
 2. Start Phase 1: Cloud Function implementation
 3. Follow checklist step-by-step with testing after each phase
+
+---
+
+### 🚧 NOW READY: PR #17 - Priority Highlighting Feature (October 22, 2025)
+
+**Status**: Planning complete, ready to implement!  
+**Branch**: `feature/pr17-priority-highlighting` (to be created)  
+**Planning Complete**: 5 documents (~47,000 words)  
+**Estimated Time**: 2-3 hours
+
+**What We're Building**:
+AI-powered urgent message detection that automatically highlights critical messages with visual indicators (red borders, badges, priority banners). Hybrid approach uses keyword filter (80% of messages, <100ms, free) + GPT-4 context analysis (20% of messages, ~2s, ~$0.002/call) for cost-effective accuracy. Prevents busy parents from missing urgent information like "Pickup changed to 2pm TODAY" buried in casual group chat.
+
+**Key Features**:
+1. **Hybrid Detection**: Keyword filter → GPT-4 context analysis (80% cost savings)
+2. **3-Level System**: Critical/High/Normal with clear visual hierarchy
+3. **Visual Indicators**: Border + Badge + Banner (maximum visibility)
+4. **Dual Views**: In-chat banner + Global priority tab
+5. **Real-time Processing**: Async detection (message appears, priority updates 1-2s later)
+
+**Technical Stack**:
+- Cloud Function: `priorityDetection.ts` (~250 lines)
+- iOS Models: `PriorityLevel.swift` (~80 lines)
+- SwiftUI: `PriorityBannerView.swift` (~150 lines), `PriorityTabView.swift` (~120 lines)
+- Service: `AIService.detectPriority()` (~100 lines)
+- Integration: ChatViewModel priority logic (~80 lines)
+
+**Cost**: <$2/month/user at 100 messages/day (hybrid approach)
+**Performance**: Keyword <100ms (95%), GPT-4 <3s (95%), 80% fast path usage
+
+**Why This Matters**:
+- 🎯 Safety feature (prevents real-world problems: late pickups, missed deadlines)
+- 🎯 Anxiety reducer (users trust app to catch urgent info)
+- 🎯 Differentiator (WhatsApp/iMessage treat all messages equally)
+- 🎯 Viral potential ("This app saved me from being late!")
+
+**Key Decisions**:
+1. **Hybrid over Pure AI**: 80% cost savings while maintaining accuracy
+2. **3-Level over Binary**: Clearer visual hierarchy for scanning
+3. **Border+Badge+Banner over Color Alone**: Accessibility-friendly
+4. **Collapsible Banner**: Reduces UI clutter while maintaining visibility
+
+**Next Steps**:
+1. Review PR17_IMPLEMENTATION_CHECKLIST.md
+2. Create branch: `feature/pr17-priority-highlighting`
+3. Start Phase 1: Cloud Function implementation (priorityDetection.ts)
+4. Follow checklist step-by-step with testing after each phase
 
 ---
 

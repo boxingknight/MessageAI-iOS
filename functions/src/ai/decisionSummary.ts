@@ -66,8 +66,9 @@ export async function summarizeDecisions(data: any): Promise<any> {
     // 1. Fetch last 50 messages from Firestore (RAG pipeline)
     const db = admin.firestore();
     const messagesSnapshot = await db
+      .collection('conversations')
+      .doc(conversationId)
       .collection('messages')
-      .where('conversationId', '==', conversationId)
       .orderBy('timestamp', 'desc')
       .limit(50)
       .get();
