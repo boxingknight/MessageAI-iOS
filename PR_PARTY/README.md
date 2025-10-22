@@ -706,19 +706,19 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
-### PR #14: Image Sharing - Storage Integration
-**Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **NEW!**  
-**Branch**: `feature/pr14-image-sharing` (will create)  
+### PR #23: Image Sharing - Storage Integration
+**Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **RENUMBERED FROM PR14**  
+**Branch**: `feature/pr23-image-sharing` (will create)  
 **Timeline**: 2-3 hours estimated  
 **Started**: Not started  
 **Completed**: N/A
 
 **Documents**:
-- Main Spec: `PR14_IMAGE_SHARING.md` (~15,000 words)
-- Implementation Checklist: `PR14_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
-- Quick Start: `PR14_README.md` (~8,000 words)
-- Planning Summary: `PR14_PLANNING_SUMMARY.md` (~5,000 words)
-- Testing Guide: `PR14_TESTING_GUIDE.md` (~10,000 words)
+- Main Spec: `PR23_IMAGE_SHARING.md` (~15,000 words)
+- Implementation Checklist: `PR23_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
+- Quick Start: `PR23_README.md` (~8,000 words)
+- Planning Summary: `PR23_PLANNING_SUMMARY.md` (~5,000 words)
+- Testing Guide: `PR23_TESTING_GUIDE.md` (~10,000 words)
 
 **Summary**: Image sharing for visual communication—select from photo library or camera, compress automatically to <2MB, upload to Firebase Storage with progress tracking, display thumbnails in chat bubbles, tap for full-screen with pinch-zoom. Implements client-side image compression (2-second max), Firebase Storage service with secure rules, thumbnail generation (200x200), optimistic UI with upload progress, full-screen image viewer with zoom (1x-5x), and offline image queue. Essential feature: 55% of WhatsApp messages contain images—visual communication is table stakes.
 
@@ -908,6 +908,83 @@ MessageAI - A production-quality iOS messaging application with:
 
 ---
 
+### PR #14: Cloud Functions Setup & AI Service Base
+**Status:** 📋 PLANNED (Documentation complete, ready to implement!)  
+**Branch**: `feature/pr14-cloud-functions` (to be created)  
+**Timeline**: 2-3 hours estimated  
+**Priority**: 🔴 CRITICAL - Foundation for all AI features  
+**Created**: October 22, 2025
+
+**Documents**:
+- Main Spec: `PR14_CLOUD_FUNCTIONS_SETUP.md` (~3,000 words)
+- Implementation Checklist: `PR14_IMPLEMENTATION_CHECKLIST.md` (~3,600 words)
+- Quick Start: `PR14_README.md` (~2,400 words)
+- Planning Summary: `PR14_PLANNING_SUMMARY.md` (~2,000 words)
+- Testing Guide: `PR14_TESTING_GUIDE.md` (~4,800 words)
+- **Total Documentation**: ~15,800 words
+
+**Summary**: Set up Firebase Cloud Functions backend with OpenAI GPT-4 integration to enable all 5 required AI features for busy parents. Implements serverless AI processing infrastructure with secure API key management (server-side only), rate limiting (100 req/hour/user), authentication enforcement, feature routing (calendar, decision, urgency, RSVP, deadline, agent), iOS AIService wrapper, and AI metadata models. This is pure infrastructure—no user-visible features yet, but enables PRs #15-20.
+
+**Key Decisions**:
+- Cloud Functions vs client-side AI: **Cloud Functions** (secures API keys, enables rate limiting, cost control)
+- OpenAI GPT-4 vs alternatives: **GPT-4** (best quality, function calling support, reliability)
+- TypeScript vs JavaScript: **TypeScript** (type safety, better refactoring, self-documenting)
+- Single router vs multiple functions: **Single router** (DRY, consistent patterns, easier maintenance)
+- Rate limit: **100 requests/hour/user** (prevents abuse, manageable budget ~$5-10/month)
+
+**Files to Create** (14 new files, ~800 lines):
+- `functions/src/index.ts` - Main export file
+- `functions/src/ai/processAI.ts` - AI router (~200 lines)
+- `functions/src/middleware/auth.ts` - Authentication (~40 lines)
+- `functions/src/middleware/rateLimit.ts` - Rate limiting (~80 lines)
+- `functions/src/middleware/validation.ts` - Input validation (~60 lines)
+- `functions/src/ai/calendarExtraction.ts` - Placeholder (PR #15)
+- `functions/src/ai/decisionSummary.ts` - Placeholder (PR #16)
+- `functions/src/ai/priorityDetection.ts` - Placeholder (PR #17)
+- `functions/src/ai/rsvpTracking.ts` - Placeholder (PR #18)
+- `functions/src/ai/deadlineExtraction.ts` - Placeholder (PR #19)
+- `functions/src/ai/eventPlanningAgent.ts` - Placeholder (PR #20)
+- `Services/AIService.swift` - iOS wrapper (~200 lines)
+- `Models/AIMetadata.swift` - AI result models (~160 lines)
+- `Models/Message.swift` - Updated to include aiMetadata field
+
+**What This Enables**:
+- ✅ Secure AI processing (API keys never in client app)
+- ✅ Cost control (rate limiting prevents abuse)
+- ✅ Flexible architecture (easy to add/change AI features)
+- ✅ Professional infrastructure (production-ready patterns)
+- ✅ All 5 AI features + advanced agent (PRs #15-20)
+
+**Blocks**:
+- PR #15: Calendar Extraction (needs AI infrastructure)
+- PR #16: Decision Summarization (needs AI infrastructure)
+- PR #17: Priority Highlighting (needs AI infrastructure)
+- PR #18: RSVP Tracking (needs AI infrastructure)
+- PR #19: Deadline Extraction (needs AI infrastructure)
+- PR #20: Multi-Step Event Planning Agent (needs AI infrastructure)
+
+**Prerequisites**:
+- OpenAI API account and key (get from platform.openai.com)
+- Firebase billing enabled (Blaze plan for Cloud Functions)
+- Firebase CLI installed (`npm install -g firebase-tools`)
+
+**5 Implementation Phases**:
+1. **Cloud Functions Setup** (30 min) - Initialize, install dependencies, configure environment
+2. **Middleware** (45 min) - Auth, rate limiting, validation
+3. **AI Router** (60 min) - Main function with feature routing, 6 placeholders
+4. **iOS AIService** (45 min) - Swift wrapper, AIMetadata models, Message updates
+5. **Deploy & Test** (30 min) - Deploy to Firebase, test end-to-end
+
+**Success Criteria**:
+- ✅ Cloud Functions deployed to Firebase
+- ✅ Can call from iOS app with authentication required
+- ✅ Rate limiting enforced (100 req/hour/user)
+- ✅ All 6 features route to placeholder functions
+- ✅ API keys secured (never in iOS code, .env in .gitignore)
+- ✅ Performance: Cold start <3s, warm <1s, end-to-end <2s
+
+---
+
 ## Project Status
 
 ### Completed (~29 hours) 🎉
@@ -930,8 +1007,8 @@ MessageAI - A production-quality iOS messaging application with:
 - None currently
 
 ### Planned
-- 📋 PR #14: Image Sharing - Storage Integration (documentation complete!)
-- 📋 PR #14.5: Image Sharing - UI Components
+- 📋 PR #23: Image Sharing - Storage Integration (documentation complete!)
+- 📋 PR #24: Profile Management (documentation pending)
 - 📋 PR #15: Offline Support & Network Monitoring
 - 📋 PR #16: Profile Management
 - 📋 PR #17: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
@@ -1014,7 +1091,7 @@ Each PR follows this documentation standard:
   - PR #11: ~52.5K (with bug analysis + complete summary) ✅ **5 CRITICAL BUGS DOCUMENTED!** 🎯
   - PR #12: ~54.5K (with complete summary) ✅
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
-  - PR #14: ~48K (planning complete) 🎉
+  - PR #23: ~48K (planning complete - renumbered from PR14) 🎉
   - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
   - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
 - **89 planning documents** (5-7 per PR)
@@ -1049,7 +1126,7 @@ Each PR follows this documentation standard:
 - 🚧 Implementation: **67% complete** (2/3 PRs done) 🎉 **PR #13 COMPLETE!**
   - ✅ PR #12: Presence & Typing ✅ **COMPLETE!**
   - ✅ PR #13: Group Chat ✅ **COMPLETE!** 🎉
-  - 📋 PR #14: Image Sharing (documentation complete)
+  - 📋 PR #23: Image Sharing (documentation complete - renumbered from PR14)
   - ⏳ PR #15: Offline Support (not documented yet)
 
 ---

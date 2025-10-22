@@ -1,1243 +1,1156 @@
-# PR#14: Image Sharing - Implementation Checklist
+# PR#14: Implementation Checklist
 
 **Use this as your daily todo list.** Check off items as you complete them.
 
 ---
 
-## Pre-Implementation Setup (10 minutes)
+## Pre-Implementation Setup (15 minutes)
 
-- [ ] Read main planning document (`PR14_IMAGE_SHARING.md`) (~45 min)
-- [ ] Prerequisites verified:
-  - [ ] PR #4 (Message model) complete ✅
-  - [ ] PR #5 (ChatService) complete ✅
-  - [ ] PR #9 (ChatView) complete ✅
-  - [ ] PR #10 (Real-time messaging) complete ✅
-  - [ ] PR #11 (Message status) complete ✅
-  - [ ] Firebase project has Storage enabled
-  - [ ] Xcode open with messAI project
-  - [ ] Physical iOS device available (for camera testing)
-
-- [ ] Environment configured:
-  - [ ] Xcode build successful
-  - [ ] No existing linter errors
-  - [ ] Firebase connected and working
-
-- [ ] Git branch created:
+- [ ] Read main planning document `PR14_CLOUD_FUNCTIONS_SETUP.md` (~45 min)
+- [ ] Verify prerequisites
+  - [ ] Core messaging complete (PRs 1-13) ✅
+  - [ ] Firebase project active ✅
+  - [ ] Firebase billing enabled
+  - [ ] OpenAI API account created
+  - [ ] OpenAI API key obtained
+- [ ] Git branch created
   ```bash
-  git checkout main
-  git pull origin main
-  git checkout -b feature/pr14-image-sharing
+  git checkout -b feature/pr14-cloud-functions
   ```
-
-**Checkpoint:** Ready to start implementation ✓
+- [ ] Firebase CLI installed
+  ```bash
+  npm install -g firebase-tools
+  firebase login
+  ```
 
 ---
 
-## Phase 1: Core Image Utilities (45 minutes)
+## Phase 1: Cloud Functions Initialization (30 minutes)
 
-### 1.1: Create ImageCompressor Utility (30 minutes)
+### 1.1: Initialize Firebase Cloud Functions (10 min)
 
-#### Create File
-- [ ] Create `messAI/Utilities/ImageCompressor.swift`
-- [ ] Add to Xcode project (Utilities group)
-
-#### Add Imports
-- [ ] Add imports:
-  ```swift
-  import UIKit
+- [ ] Navigate to project root
+  ```bash
+  cd /Users/ijaramil/Documents/GauntletAI/Week2/messAI
   ```
 
-#### Implement Compression Methods
-- [ ] Create `ImageCompressor` struct:
-  ```swift
-  struct ImageCompressor {
-      // Methods will be static
-  }
+- [ ] Run Firebase init
+  ```bash
+  firebase init functions
+  ```
+  
+- [ ] Select options:
+  - [ ] Use existing project: `messageai-95c8f`
+  - [ ] Language: **TypeScript**
+  - [ ] ESLint: **Yes**
+  - [ ] Install dependencies: **Yes**
+
+- [ ] Verify structure created
+  ```bash
+  ls -la functions/
+  # Should see: src/, package.json, tsconfig.json
   ```
 
-- [ ] Implement `compress()` method:
-  ```swift
-  static func compress(
-      _ image: UIImage,
-      maxSizeMB: Double = 2.0,
-      maxWidth: CGFloat = 1920
-  ) -> Data? {
-      // 1. Resize if needed
-      let resized = resize(image, maxWidth: maxWidth)
-      
-      // 2. Compress to target size
-      var compressionQuality: CGFloat = 0.7
-      var imageData = resized.jpegData(compressionQuality: compressionQuality)
-      
-      let maxSizeBytes = maxSizeMB * 1024 * 1024
-      
-      // Iteratively reduce quality until under target size
-      while let data = imageData,
-            data.count > Int(maxSizeBytes),
-            compressionQuality > 0.1 {
-          compressionQuality -= 0.1
-          imageData = resized.jpegData(compressionQuality: compressionQuality)
-      }
-      
-      return imageData
-  }
-  ```
+**Checkpoint:** ✅ `functions/` directory exists with TypeScript setup
 
-- [ ] Implement `resize()` helper method:
-  ```swift
-  static func resize(
-      _ image: UIImage,
-      maxWidth: CGFloat
-  ) -> UIImage {
-      let width = image.size.width
-      let height = image.size.height
-      
-      // If already smaller, return original
-      if width <= maxWidth && height <= maxWidth {
-          return image
-      }
-      
-      // Calculate new dimensions maintaining aspect ratio
-      let aspectRatio = width / height
-      let newSize: CGSize
-      
-      if width > height {
-          // Landscape
-          newSize = CGSize(width: maxWidth, height: maxWidth / aspectRatio)
-      } else {
-          // Portrait or square
-          newSize = CGSize(width: maxWidth * aspectRatio, height: maxWidth)
-      }
-      
-      let renderer = UIGraphicsImageRenderer(size: newSize)
-      return renderer.image { context in
-          image.draw(in: CGRect(origin: .zero, size: newSize))
-      }
-  }
-  ```
-
-- [ ] Implement `createThumbnail()` method:
-  ```swift
-  static func createThumbnail(
-      _ image: UIImage,
-      size: CGSize = CGSize(width: 200, height: 200)
-  ) -> UIImage? {
-      let renderer = UIGraphicsImageRenderer(size: size)
-      return renderer.image { context in
-          image.draw(in: CGRect(origin: .zero, size: size))
-      }
-  }
-  ```
-
-#### Test Compression
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-- [ ] Verify methods are available
-
-**Checkpoint:** ImageCompressor utility complete ✓
-
-**Commit:** `git add . && git commit -m "feat(utilities): Add ImageCompressor for image optimization"`
+**Commit:** `feat(pr14): initialize Cloud Functions with TypeScript`
 
 ---
 
-### 1.2: Create ImagePicker Wrapper (15 minutes)
+### 1.2: Install Dependencies (5 min)
 
-#### Create File
-- [ ] Create `messAI/Utilities/ImagePicker.swift`
-- [ ] Add to Xcode project (Utilities group)
-
-#### Add Imports
-- [ ] Add imports:
-  ```swift
-  import SwiftUI
-  import UIKit
+- [ ] Navigate to functions directory
+  ```bash
+  cd functions
   ```
 
-#### Implement ImagePicker Struct
-- [ ] Create ImagePicker conforming to UIViewControllerRepresentable:
-  ```swift
-  struct ImagePicker: UIViewControllerRepresentable {
-      @Binding var image: UIImage?
-      @Environment(\.dismiss) var dismiss
-      
-      var sourceType: UIImagePickerController.SourceType = .photoLibrary
-      
-      // ... methods below
-  }
+- [ ] Install OpenAI SDK
+  ```bash
+  npm install openai@^4.0.0
   ```
 
-- [ ] Implement `makeUIViewController`:
-  ```swift
-  func makeUIViewController(context: Context) -> UIImagePickerController {
-      let picker = UIImagePickerController()
-      picker.sourceType = sourceType
-      picker.allowsEditing = false
-      picker.delegate = context.coordinator
-      return picker
-  }
+- [ ] Install type definitions
+  ```bash
+  npm install @types/node --save-dev
   ```
 
-- [ ] Implement `updateUIViewController`:
-  ```swift
-  func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
-      // No updates needed
-  }
+- [ ] Verify package.json
+  ```bash
+  cat package.json | grep openai
+  # Should show: "openai": "^4.0.0"
   ```
 
-- [ ] Implement `makeCoordinator`:
-  ```swift
-  func makeCoordinator() -> Coordinator {
-      Coordinator(self)
-  }
-  ```
+**Checkpoint:** ✅ Dependencies installed successfully
 
-#### Implement Coordinator
-- [ ] Add Coordinator class inside ImagePicker:
-  ```swift
-  class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-      let parent: ImagePicker
-      
-      init(_ parent: ImagePicker) {
-          self.parent = parent
-      }
-      
-      func imagePickerController(
-          _ picker: UIImagePickerController,
-          didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]
-      ) {
-          if let image = info[.originalImage] as? UIImage {
-              parent.image = image
-          }
-          parent.dismiss()
-      }
-      
-      func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-          parent.dismiss()
-      }
-  }
-  ```
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-- [ ] Verify ImagePicker is available in SwiftUI
-
-**Checkpoint:** ImagePicker wrapper complete ✓
-
-**Commit:** `git add . && git commit -m "feat(utilities): Add ImagePicker UIKit wrapper for SwiftUI"`
+**Commit:** `feat(pr14): install OpenAI and dependencies`
 
 ---
 
-## Phase 2: Firebase Storage Service (60 minutes)
+### 1.3: Configure Environment Variables (15 min)
 
-### 2.1: Create StorageService (45 minutes)
-
-#### Create File
-- [ ] Create `messAI/Services/StorageService.swift`
-- [ ] Add to Xcode project (Services group)
-
-#### Add Imports
-- [ ] Add imports:
-  ```swift
-  import FirebaseStorage
-  import UIKit
+- [ ] Create `.env` file in `functions/` directory
+  ```bash
+  cd functions
+  touch .env
   ```
 
-#### Create Error Enum
-- [ ] Add StorageError enum at bottom of file:
-  ```swift
-  enum StorageError: LocalizedError {
-      case compressionFailed
-      case thumbnailFailed
-      case uploadFailed
-      case noDownloadURL
-      case invalidURL
-      case invalidImageData
-      
-      var errorDescription: String? {
-          switch self {
-          case .compressionFailed: return "Failed to compress image"
-          case .thumbnailFailed: return "Failed to create thumbnail"
-          case .uploadFailed: return "Image upload failed"
-          case .noDownloadURL: return "Could not get download URL"
-          case .invalidURL: return "Invalid image URL"
-          case .invalidImageData: return "Invalid image data"
-          }
-      }
-  }
+- [ ] Add environment variables to `.env`
+  ```env
+  OPENAI_API_KEY=sk-proj-your-actual-key-here
+  OPENAI_MODEL=gpt-4
+  RATE_LIMIT_PER_HOUR=100
   ```
 
-#### Create StorageService Class
-- [ ] Add class with @MainActor:
-  ```swift
-  @MainActor
-  class StorageService {
-      private let storage = Storage.storage()
-      private let storageRef: StorageReference
-      
-      init() {
-          self.storageRef = storage.reference()
-      }
-      
-      // Methods below
-  }
+- [ ] Create `.env.example` template
+  ```bash
+  cat > .env.example << 'EOF'
+  OPENAI_API_KEY=sk-proj-your-key-here
+  OPENAI_MODEL=gpt-4
+  RATE_LIMIT_PER_HOUR=100
+  EOF
   ```
 
-#### Implement Main Upload Method
-- [ ] Add `uploadImage()` method:
-  ```swift
-  func uploadImage(
-      _ image: UIImage,
-      conversationId: String,
-      messageId: String,
-      progressHandler: @escaping (Double) -> Void
-  ) async throws -> (imageURL: String, thumbnailURL: String) {
-      // 1. Compress full image
-      guard let fullImageData = ImageCompressor.compress(image, maxSizeMB: 2.0) else {
-          throw StorageError.compressionFailed
-      }
-      
-      // 2. Generate thumbnail
-      guard let thumbnail = ImageCompressor.createThumbnail(image, size: CGSize(width: 200, height: 200)),
-            let thumbnailData = ImageCompressor.compress(thumbnail, maxSizeMB: 0.05) else {
-          throw StorageError.thumbnailFailed
-      }
-      
-      // 3. Create storage references
-      let basePath = "chat_images/\(conversationId)"
-      let fullRef = storageRef.child("\(basePath)/\(messageId).jpg")
-      let thumbRef = storageRef.child("\(basePath)/\(messageId)_thumb.jpg")
-      
-      // 4. Upload thumbnail first (fast, gives quick feedback)
-      let thumbnailURL = try await uploadData(thumbnailData, to: thumbRef, progressHandler: nil)
-      
-      // 5. Upload full image with progress
-      let imageURL = try await uploadData(fullImageData, to: fullRef, progressHandler: progressHandler)
-      
-      return (imageURL, thumbnailURL)
-  }
+- [ ] Add `.env` to `.gitignore`
+  ```bash
+  echo ".env" >> .gitignore
+  echo "*.env" >> ../.gitignore
   ```
 
-#### Implement Upload Helper
-- [ ] Add `uploadData()` private method:
-  ```swift
-  private func uploadData(
-      _ data: Data,
-      to ref: StorageReference,
-      progressHandler: ((Double) -> Void)?
-  ) async throws -> String {
-      let metadata = StorageMetadata()
-      metadata.contentType = "image/jpeg"
-      
-      return try await withCheckedThrowingContinuation { continuation in
-          let uploadTask = ref.putData(data, metadata: metadata)
-          
-          // Track progress
-          uploadTask.observe(.progress) { snapshot in
-              if let progress = snapshot.progress {
-                  let percentComplete = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
-                  progressHandler?(percentComplete)
-              }
-          }
-          
-          // Handle completion
-          uploadTask.observe(.success) { _ in
-              ref.downloadURL { url, error in
-                  if let error = error {
-                      continuation.resume(throwing: error)
-                  } else if let url = url {
-                      continuation.resume(returning: url.absoluteString)
-                  } else {
-                      continuation.resume(throwing: StorageError.noDownloadURL)
-                  }
-              }
-          }
-          
-          uploadTask.observe(.failure) { snapshot in
-              if let error = snapshot.error {
-                  continuation.resume(throwing: error)
-              } else {
-                  continuation.resume(throwing: StorageError.uploadFailed)
-              }
-          }
-      }
-  }
+- [ ] Verify `.env` is ignored
+  ```bash
+  git status | grep ".env"
+  # Should NOT show .env file
   ```
 
-#### Implement Additional Methods
-- [ ] Add `downloadImage()` method:
-  ```swift
-  func downloadImage(from urlString: String) async throws -> UIImage {
-      guard let url = URL(string: urlString) else {
-          throw StorageError.invalidURL
-      }
-      
-      let (data, _) = try await URLSession.shared.data(from: url)
-      guard let image = UIImage(data: data) else {
-          throw StorageError.invalidImageData
-      }
-      
-      return image
-  }
+- [ ] Set Firebase config (production)
+  ```bash
+  firebase functions:config:set openai.key="sk-proj-your-actual-key-here"
+  firebase functions:config:set openai.model="gpt-4"
   ```
 
-- [ ] Add `deleteImage()` method:
-  ```swift
-  func deleteImage(at urlString: String) async throws {
-      let ref = storage.reference(forURL: urlString)
-      try await ref.delete()
-  }
+- [ ] Verify Firebase config
+  ```bash
+  firebase functions:config:get
   ```
 
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-- [ ] Verify StorageService compiles
+**Checkpoint:** ✅ API keys configured and secured
 
-**Checkpoint:** StorageService complete ✓
-
-**Commit:** `git add . && git commit -m "feat(services): Add StorageService for Firebase Storage integration"`
+**Commit:** `feat(pr14): configure environment variables and API keys`
 
 ---
 
-### 2.2: Firebase Storage Security Rules (15 minutes)
+## Phase 2: Middleware Implementation (45 minutes)
 
-#### Create Rules File
-- [ ] Create `firebase/storage.rules` (if doesn't exist)
+### 2.1: Create Authentication Middleware (10 min)
 
-#### Write Security Rules
-- [ ] Add storage rules:
-  ```javascript
-  rules_version = '2';
-  service firebase.storage {
-    match /b/{bucket}/o {
-      // Helper function: Check if user is authenticated
-      function isAuthenticated() {
-        return request.auth != null;
+- [ ] Create middleware directory
+  ```bash
+  mkdir -p functions/src/middleware
+  ```
+
+- [ ] Create `functions/src/middleware/auth.ts`
+  ```typescript
+  import * as functions from 'firebase-functions';
+  
+  /**
+   * Require authentication for AI requests
+   * @throws HttpsError if not authenticated
+   */
+  export function requireAuth(context: functions.https.CallableContext): void {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'You must be logged in to use AI features.'
+      );
+    }
+  }
+  
+  /**
+   * Get authenticated user ID
+   * @throws HttpsError if not authenticated
+   */
+  export function getUserId(context: functions.https.CallableContext): string {
+    requireAuth(context);
+    return context.auth!.uid;
+  }
+  ```
+
+- [ ] Test compilation
+  ```bash
+  npm run build
+  ```
+
+**Checkpoint:** ✅ Auth middleware compiles without errors
+
+**Commit:** `feat(pr14): add authentication middleware`
+
+---
+
+### 2.2: Create Rate Limiting Middleware (20 min)
+
+- [ ] Create `functions/src/middleware/rateLimit.ts`
+  ```typescript
+  import * as functions from 'firebase-functions';
+  import * as admin from 'firebase-admin';
+  
+  const RATE_LIMIT_PER_HOUR = 100;
+  
+  /**
+   * Check and enforce rate limiting for AI requests
+   * Limits: 100 requests per hour per user
+   * @param userId - User ID to check rate limit for
+   * @throws HttpsError if rate limit exceeded
+   */
+  export async function checkRateLimit(userId: string): Promise<void> {
+    // Create hour bucket key
+    const hourKey = Math.floor(Date.now() / 3600000);
+    const rateLimitRef = admin.firestore()
+      .collection('rateLimits')
+      .doc(`${userId}_${hourKey}`);
+    
+    try {
+      // Get current count
+      const doc = await rateLimitRef.get();
+      const count = doc.exists ? (doc.data()?.count || 0) : 0;
+      
+      // Check if limit exceeded
+      if (count >= RATE_LIMIT_PER_HOUR) {
+        functions.logger.warn('Rate limit exceeded', { userId, count });
+        throw new functions.https.HttpsError(
+          'resource-exhausted',
+          `Too many AI requests. You've used ${count}/${RATE_LIMIT_PER_HOUR} requests this hour. Please try again later.`
+        );
       }
       
-      // Helper function: Check if user is participant in conversation
-      function isParticipant(conversationId) {
-        let conversation = firestore.get(/databases/(default)/documents/conversations/$(conversationId));
-        return isAuthenticated() && request.auth.uid in conversation.data.participants;
-      }
+      // Increment counter
+      await rateLimitRef.set({
+        count: count + 1,
+        lastRequest: admin.firestore.FieldValue.serverTimestamp(),
+        userId: userId
+      }, { merge: true });
       
-      // Profile pictures
-      match /profile_pictures/{userId} {
-        // Anyone authenticated can read
-        allow read: if isAuthenticated();
-        // Only owner can write
-        allow write: if isAuthenticated() && request.auth.uid == userId;
-      }
+      functions.logger.info('Rate limit check passed', { 
+        userId, 
+        count: count + 1,
+        limit: RATE_LIMIT_PER_HOUR 
+      });
       
-      // Chat images
-      match /chat_images/{conversationId}/{imageFile} {
-        // Only conversation participants can read
-        allow read: if isParticipant(conversationId);
-        // Only conversation participants can write
-        allow write: if isParticipant(conversationId);
+    } catch (error: any) {
+      if (error.code === 'resource-exhausted') {
+        throw error; // Re-throw rate limit errors
       }
-      
-      // Deny all other access
-      match /{allPaths=**} {
-        allow read, write: if false;
+      functions.logger.error('Rate limit check failed', { error, userId });
+      // Continue on error (fail open) - don't block users due to Firestore issues
+    }
+  }
+  
+  /**
+   * Get current rate limit status for a user
+   */
+  export async function getRateLimitStatus(userId: string): Promise<{
+    used: number;
+    limit: number;
+    remaining: number;
+  }> {
+    const hourKey = Math.floor(Date.now() / 3600000);
+    const rateLimitRef = admin.firestore()
+      .collection('rateLimits')
+      .doc(`${userId}_${hourKey}`);
+    
+    const doc = await rateLimitRef.get();
+    const used = doc.exists ? (doc.data()?.count || 0) : 0;
+    
+    return {
+      used,
+      limit: RATE_LIMIT_PER_HOUR,
+      remaining: Math.max(0, RATE_LIMIT_PER_HOUR - used)
+    };
+  }
+  ```
+
+- [ ] Test compilation
+  ```bash
+  npm run build
+  ```
+
+**Checkpoint:** ✅ Rate limiting middleware compiles without errors
+
+**Commit:** `feat(pr14): add rate limiting middleware`
+
+---
+
+### 2.3: Create Validation Middleware (15 min)
+
+- [ ] Create `functions/src/middleware/validation.ts`
+  ```typescript
+  import * as functions from 'firebase-functions';
+  
+  /**
+   * Validate request has required fields
+   * @param data - Request data to validate
+   * @param requiredFields - Array of required field names
+   * @throws HttpsError if validation fails
+   */
+  export function validateRequest(data: any, requiredFields: string[]): void {
+    // Check if data exists
+    if (!data) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Request data is required.'
+      );
+    }
+    
+    // Check each required field
+    const missingFields: string[] = [];
+    for (const field of requiredFields) {
+      if (data[field] === undefined || data[field] === null) {
+        missingFields.push(field);
       }
+    }
+    
+    if (missingFields.length > 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Missing required fields: ${missingFields.join(', ')}`
+      );
+    }
+  }
+  
+  /**
+   * Validate AI feature type
+   * @param feature - Feature name to validate
+   * @throws HttpsError if invalid feature
+   */
+  export function validateFeature(feature: string): void {
+    const validFeatures = [
+      'calendar',
+      'decision',
+      'urgency',
+      'rsvp',
+      'deadline',
+      'agent'
+    ];
+    
+    if (!validFeatures.includes(feature)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Invalid AI feature: ${feature}. Valid features: ${validFeatures.join(', ')}`
+      );
+    }
+  }
+  
+  /**
+   * Validate message text
+   * @param message - Message text to validate
+   * @throws HttpsError if invalid
+   */
+  export function validateMessage(message: string): void {
+    if (!message || typeof message !== 'string') {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Message must be a non-empty string.'
+      );
+    }
+    
+    if (message.length > 5000) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Message too long. Maximum 5000 characters.'
+      );
     }
   }
   ```
 
-#### Deploy Rules
-- [ ] Open terminal in project root
-- [ ] Deploy storage rules:
+- [ ] Test compilation
   ```bash
-  firebase deploy --only storage
+  npm run build
   ```
-- [ ] Verify deployment successful
-- [ ] Check Firebase Console > Storage > Rules
 
-**Checkpoint:** Storage rules deployed ✓
+**Checkpoint:** ✅ Validation middleware compiles without errors
 
-**Commit:** `git add firebase/storage.rules && git commit -m "feat(firebase): Add Storage security rules for chat images"`
+**Commit:** `feat(pr14): add validation middleware`
 
 ---
 
-## Phase 3: Model & Service Updates (30 minutes)
+## Phase 3: AI Router Implementation (60 minutes)
 
-### 3.1: Update Message Model (15 minutes)
+### 3.1: Create AI Directory Structure (5 min)
 
-#### Open Message Model
+- [ ] Create AI directory
+  ```bash
+  mkdir -p functions/src/ai
+  ```
+
+- [ ] Create placeholder files
+  ```bash
+  touch functions/src/ai/calendarExtraction.ts
+  touch functions/src/ai/decisionSummary.ts
+  touch functions/src/ai/priorityDetection.ts
+  touch functions/src/ai/rsvpTracking.ts
+  touch functions/src/ai/deadlineExtraction.ts
+  touch functions/src/ai/eventPlanningAgent.ts
+  ```
+
+**Checkpoint:** ✅ AI directory structure created
+
+---
+
+### 3.2: Implement Placeholder Functions (20 min)
+
+- [ ] Create `functions/src/ai/calendarExtraction.ts`
+  ```typescript
+  /**
+   * Extract calendar dates from messages (PR #15)
+   * @param data - Request data with message
+   * @returns Placeholder response
+   */
+  export async function extractCalendarDates(data: any): Promise<any> {
+    // TODO: Implement in PR #15
+    return {
+      events: [],
+      message: 'Calendar extraction not yet implemented (PR #15)'
+    };
+  }
+  ```
+
+- [ ] Create `functions/src/ai/decisionSummary.ts`
+  ```typescript
+  /**
+   * Summarize group decisions (PR #16)
+   * @param data - Request data with messages
+   * @returns Placeholder response
+   */
+  export async function summarizeDecisions(data: any): Promise<any> {
+    // TODO: Implement in PR #16
+    return {
+      hasDecision: false,
+      message: 'Decision summarization not yet implemented (PR #16)'
+    };
+  }
+  ```
+
+- [ ] Create `functions/src/ai/priorityDetection.ts`
+  ```typescript
+  /**
+   * Detect message urgency/priority (PR #17)
+   * @param data - Request data with message
+   * @returns Placeholder response
+   */
+  export async function detectUrgency(data: any): Promise<any> {
+    // TODO: Implement in PR #17
+    return {
+      urgencyLevel: 'normal',
+      isUrgent: false,
+      message: 'Priority detection not yet implemented (PR #17)'
+    };
+  }
+  ```
+
+- [ ] Create `functions/src/ai/rsvpTracking.ts`
+  ```typescript
+  /**
+   * Extract RSVP responses (PR #18)
+   * @param data - Request data with message
+   * @returns Placeholder response
+   */
+  export async function extractRSVP(data: any): Promise<any> {
+    // TODO: Implement in PR #18
+    return {
+      response: 'pending',
+      message: 'RSVP tracking not yet implemented (PR #18)'
+    };
+  }
+  ```
+
+- [ ] Create `functions/src/ai/deadlineExtraction.ts`
+  ```typescript
+  /**
+   * Extract deadlines from messages (PR #19)
+   * @param data - Request data with message
+   * @returns Placeholder response
+   */
+  export async function extractDeadlines(data: any): Promise<any> {
+    // TODO: Implement in PR #19
+    return {
+      deadlines: [],
+      message: 'Deadline extraction not yet implemented (PR #19)'
+    };
+  }
+  ```
+
+- [ ] Create `functions/src/ai/eventPlanningAgent.ts`
+  ```typescript
+  /**
+   * Multi-step event planning agent (PR #20)
+   * @param data - Request data with context
+   * @returns Placeholder response
+   */
+  export async function eventPlanningAgent(data: any): Promise<any> {
+    // TODO: Implement in PR #20
+    return {
+      message: 'Event planning agent not yet implemented (PR #20)',
+      nextStep: null
+    };
+  }
+  ```
+
+- [ ] Test compilation
+  ```bash
+  npm run build
+  ```
+
+**Checkpoint:** ✅ All placeholder functions compile
+
+**Commit:** `feat(pr14): add placeholder AI feature functions`
+
+---
+
+### 3.3: Implement Main AI Router (35 min)
+
+- [ ] Create `functions/src/ai/processAI.ts`
+  ```typescript
+  import * as functions from 'firebase-functions';
+  import { requireAuth, getUserId } from '../middleware/auth';
+  import { checkRateLimit } from '../middleware/rateLimit';
+  import { validateRequest, validateFeature, validateMessage } from '../middleware/validation';
+  import { extractCalendarDates } from './calendarExtraction';
+  import { summarizeDecisions } from './decisionSummary';
+  import { detectUrgency } from './priorityDetection';
+  import { extractRSVP } from './rsvpTracking';
+  import { extractDeadlines } from './deadlineExtraction';
+  import { eventPlanningAgent } from './eventPlanningAgent';
+  
+  /**
+   * Main AI processing function
+   * Routes requests to appropriate AI features
+   */
+  export const processAI = functions
+    .runWith({
+      memory: '512MB',
+      timeoutSeconds: 30,
+      maxInstances: 10
+    })
+    .https.onCall(async (data, context) => {
+      const startTime = Date.now();
+      
+      try {
+        // 1. Require authentication
+        requireAuth(context);
+        const userId = getUserId(context);
+        
+        functions.logger.info('AI request received', {
+          userId,
+          feature: data.feature,
+          hasMessage: !!data.message,
+          hasContext: !!data.context
+        });
+        
+        // 2. Validate request
+        validateRequest(data, ['feature']);
+        validateFeature(data.feature);
+        
+        if (data.message) {
+          validateMessage(data.message);
+        }
+        
+        // 3. Check rate limiting (100 req/hour/user)
+        await checkRateLimit(userId);
+        
+        // 4. Route to appropriate AI feature
+        const result = await routeAIFeature(data);
+        
+        // 5. Add metadata
+        const processingTime = Date.now() - startTime;
+        const response = {
+          ...result,
+          processingTimeMs: processingTime,
+          modelUsed: 'gpt-4',
+          processedAt: new Date().toISOString()
+        };
+        
+        functions.logger.info('AI request completed', {
+          userId,
+          feature: data.feature,
+          processingTimeMs: processingTime
+        });
+        
+        return response;
+        
+      } catch (error: any) {
+        const processingTime = Date.now() - startTime;
+        
+        functions.logger.error('AI request failed', {
+          error: error.message,
+          code: error.code,
+          userId: context.auth?.uid,
+          feature: data?.feature,
+          processingTimeMs: processingTime
+        });
+        
+        // Map known errors to user-friendly messages
+        if (error.code === 'unauthenticated') {
+          throw error; // Already formatted
+        }
+        
+        if (error.code === 'resource-exhausted') {
+          throw error; // Already formatted
+        }
+        
+        if (error.code === 'invalid-argument') {
+          throw error; // Already formatted
+        }
+        
+        // Unknown error
+        throw new functions.https.HttpsError(
+          'internal',
+          'AI processing failed. Please try again later.'
+        );
+      }
+    });
+  
+  /**
+   * Route request to appropriate AI feature
+   */
+  async function routeAIFeature(data: any): Promise<any> {
+    switch (data.feature) {
+      case 'calendar':
+        return await extractCalendarDates(data);
+      
+      case 'decision':
+        return await summarizeDecisions(data);
+      
+      case 'urgency':
+        return await detectUrgency(data);
+      
+      case 'rsvp':
+        return await extractRSVP(data);
+      
+      case 'deadline':
+        return await extractDeadlines(data);
+      
+      case 'agent':
+        return await eventPlanningAgent(data);
+      
+      default:
+        // This should never happen due to validation
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          `Unknown AI feature: ${data.feature}`
+        );
+    }
+  }
+  ```
+
+- [ ] Update `functions/src/index.ts` to export function
+  ```typescript
+  import * as admin from 'firebase-admin';
+  admin.initializeApp();
+  
+  export { processAI } from './ai/processAI';
+  ```
+
+- [ ] Test compilation
+  ```bash
+  npm run build
+  ```
+
+**Checkpoint:** ✅ Main AI router compiles without errors
+
+**Commit:** `feat(pr14): implement main AI router with feature routing`
+
+---
+
+## Phase 4: iOS AIService Implementation (45 minutes)
+
+### 4.1: Create AIMetadata Model (15 min)
+
+- [ ] Create `messAI/Models/AIMetadata.swift`
+  ```swift
+  import Foundation
+  
+  /// Urgency level for messages
+  enum UrgencyLevel: String, Codable {
+      case low      // "FYI", "when you can"
+      case normal   // Regular messages
+      case high     // "important", "need by tomorrow"
+      case urgent   // "ASAP", "NOW", "TODAY"
+  }
+  
+  /// Extracted date/time from message
+  struct ExtractedDate: Codable, Equatable, Identifiable {
+      let id: String
+      let date: Date
+      let time: Date?
+      let eventDescription: String
+      let confidence: Double  // 0.0-1.0
+  }
+  
+  /// Group decision summary
+  struct Decision: Codable, Equatable {
+      let summary: String
+      let participants: [String]
+      let timestamp: Date
+  }
+  
+  /// RSVP response status
+  enum RSVPStatus: String, Codable {
+      case yes, no, maybe, pending
+  }
+  
+  /// RSVP response info
+  struct RSVPResponse: Codable, Equatable {
+      let eventId: String
+      let response: RSVPStatus
+      let respondedAt: Date
+  }
+  
+  /// Deadline extracted from message
+  struct Deadline: Codable, Equatable, Identifiable {
+      let id: String
+      let description: String
+      let dueDate: Date
+      let priority: UrgencyLevel
+  }
+  
+  /// AI metadata attached to messages
+  struct AIMetadata: Codable, Equatable {
+      // Calendar Extraction (PR #15)
+      var extractedDates: [ExtractedDate]?
+      
+      // Decision Summarization (PR #16)
+      var isDecision: Bool?
+      var decision: Decision?
+      
+      // Priority Highlighting (PR #17)
+      var isUrgent: Bool?
+      var urgencyLevel: UrgencyLevel?
+      
+      // RSVP Tracking (PR #18)
+      var rsvpInfo: RSVPResponse?
+      
+      // Deadline Extraction (PR #19)
+      var deadlines: [Deadline]?
+      
+      // Common metadata
+      var processedAt: Date
+      var processingTimeMs: Int?
+      var modelUsed: String?
+      
+      init(processedAt: Date = Date()) {
+          self.processedAt = processedAt
+      }
+  }
+  ```
+
+- [ ] Build project to verify compilation
+  ```bash
+  # Open Xcode and build (⌘B)
+  ```
+
+**Checkpoint:** ✅ AIMetadata model compiles without errors
+
+**Commit:** `feat(pr14): add AIMetadata model for AI results`
+
+---
+
+### 4.2: Update Message Model (10 min)
+
 - [ ] Open `messAI/Models/Message.swift`
 
-#### Add Image Fields
-- [ ] Add properties to Message struct:
+- [ ] Add aiMetadata property
   ```swift
-  // Image support
-  var imageURL: String?
-  var thumbnailURL: String?
-  var imageWidth: Int?
-  var imageHeight: Int?
-  var imageSize: Int?
-  ```
-
-#### Add Computed Properties
-- [ ] Add computed properties after existing properties:
-  ```swift
-  var hasImage: Bool {
-      imageURL != nil
-  }
-  
-  var isImageOnly: Bool {
-      hasImage && (text.isEmpty || text.trimmingCharacters(in: .whitespaces).isEmpty)
-  }
-  
-  var aspectRatio: Double? {
-      guard let width = imageWidth, let height = imageHeight, height > 0 else { return nil }
-      return Double(width) / Double(height)
-  }
-  ```
-
-#### Update Initializer
-- [ ] Update `init()` to include image parameters (make them optional with defaults):
-  ```swift
-  init(
-      id: String = UUID().uuidString,
-      conversationId: String,
-      senderId: String,
-      text: String,
-      imageURL: String? = nil,           // NEW
-      thumbnailURL: String? = nil,       // NEW
-      imageWidth: Int? = nil,            // NEW
-      imageHeight: Int? = nil,           // NEW
-      imageSize: Int? = nil,             // NEW
-      sentAt: Date = Date(),
-      deliveredAt: Date? = nil,
-      readAt: Date? = nil,
-      status: MessageStatus = .sending,
-      deliveredTo: [String] = [],
-      readBy: [String] = []
-  ) {
-      self.id = id
-      self.conversationId = conversationId
-      self.senderId = senderId
-      self.text = text
-      self.imageURL = imageURL          // NEW
-      self.thumbnailURL = thumbnailURL  // NEW
-      self.imageWidth = imageWidth      // NEW
-      self.imageHeight = imageHeight    // NEW
-      self.imageSize = imageSize        // NEW
-      self.sentAt = sentAt
-      self.deliveredAt = deliveredAt
-      self.readAt = readAt
-      self.status = status
-      self.deliveredTo = deliveredTo
-      self.readBy = readBy
-  }
-  ```
-
-#### Update Firestore Conversion
-- [ ] Update `toDictionary()` method to include image fields:
-  ```swift
-  func toDictionary() -> [String: Any] {
-      var dict: [String: Any] = [
-          "id": id,
-          "conversationId": conversationId,
-          "senderId": senderId,
-          "text": text,
-          "sentAt": Timestamp(date: sentAt),
-          "status": status.rawValue,
-          "deliveredTo": deliveredTo,
-          "readBy": readBy
-      ]
+  struct Message: Identifiable, Codable, Equatable {
+      // ... existing properties ...
       
-      // Add optional fields
-      if let deliveredAt = deliveredAt {
-          dict["deliveredAt"] = Timestamp(date: deliveredAt)
-      }
-      if let readAt = readAt {
-          dict["readAt"] = Timestamp(date: readAt)
-      }
+      // AI metadata (PR #14+)
+      var aiMetadata: AIMetadata?
       
-      // Add image fields if present
-      if let imageURL = imageURL {
-          dict["imageURL"] = imageURL
-      }
-      if let thumbnailURL = thumbnailURL {
-          dict["thumbnailURL"] = thumbnailURL
-      }
-      if let imageWidth = imageWidth {
-          dict["imageWidth"] = imageWidth
-      }
-      if let imageHeight = imageHeight {
-          dict["imageHeight"] = imageHeight
-      }
-      if let imageSize = imageSize {
-          dict["imageSize"] = imageSize
-      }
-      
-      return dict
+      // ... existing methods ...
   }
   ```
 
-- [ ] Update `init?(dictionary:)` to parse image fields:
+- [ ] Update Firestore conversion to include aiMetadata
   ```swift
-  init?(dictionary: [String: Any]) {
+  // In toDictionary() method
+  var dict: [String: Any] = [
       // ... existing fields ...
-      
-      // Parse image fields
-      self.imageURL = dictionary["imageURL"] as? String
-      self.thumbnailURL = dictionary["thumbnailURL"] as? String
-      self.imageWidth = dictionary["imageWidth"] as? Int
-      self.imageHeight = dictionary["imageHeight"] as? Int
-      self.imageSize = dictionary["imageSize"] as? Int
+  ]
+  
+  // Add AI metadata if present
+  if let aiMetadata = aiMetadata {
+      if let data = try? JSONEncoder().encode(aiMetadata),
+         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+          dict["aiMetadata"] = json
+      }
+  }
+  
+  return dict
+  
+  // In init(dictionary:) initializer
+  if let aiMetadataDict = dictionary["aiMetadata"] as? [String: Any],
+     let jsonData = try? JSONSerialization.data(withJSONObject: aiMetadataDict),
+     let metadata = try? JSONDecoder().decode(AIMetadata.self, from: jsonData) {
+      self.aiMetadata = metadata
   }
   ```
 
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-- [ ] Verify Message model compiles
+- [ ] Build project
+  ```bash
+  # Build in Xcode (⌘B)
+  ```
 
-**Checkpoint:** Message model supports images ✓
+**Checkpoint:** ✅ Message model updated with AI metadata
 
-**Commit:** `git add . && git commit -m "feat(models): Add image fields to Message model"`
+**Commit:** `feat(pr14): add aiMetadata field to Message model`
 
 ---
 
-### 3.2: Update ChatService (15 minutes)
+### 4.3: Create AIService (20 min)
 
-#### Open ChatService
-- [ ] Open `messAI/Services/ChatService.swift`
-
-#### Update sendMessage Method
-- [ ] Verify `sendMessage()` already handles optional fields correctly
-- [ ] No changes needed - existing method will pass through image fields via `message.toDictionary()`
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Verify no compilation errors
-
-**Checkpoint:** ChatService supports image messages ✓
-
-**Commit:** `git add . && git commit -m "chore(services): Verify ChatService handles image messages"`
-
----
-
-## Phase 4: ViewModel Integration (45 minutes)
-
-### 4.1: Update ChatViewModel (30 minutes)
-
-#### Open ChatViewModel
-- [ ] Open `messAI/ViewModels/ChatViewModel.swift`
-
-#### Add Properties
-- [ ] Add image upload state properties:
+- [ ] Create `messAI/Services/AIService.swift`
   ```swift
-  // Image upload state
-  @Published var imageUploadProgress: Double = 0.0
-  @Published var isUploadingImage: Bool = false
-  @Published var uploadError: String?
-  ```
-
-#### Add StorageService Instance
-- [ ] Add StorageService property after authService:
-  ```swift
-  private let storageService = StorageService()
-  ```
-
-#### Implement sendImageMessage Method
-- [ ] Add new method after existing `sendMessage()`:
-  ```swift
-  /// Send image message with upload progress
-  func sendImageMessage(_ image: UIImage) {
-      isUploadingImage = true
-      uploadError = nil
-      imageUploadProgress = 0.0
+  import Foundation
+  import FirebaseFunctions
+  
+  /// AI features available through Cloud Functions
+  enum AIFeature: String, Codable {
+      case calendar
+      case decision
+      case urgency
+      case rsvp
+      case deadline
+      case agent
+  }
+  
+  /// Errors that can occur during AI processing
+  enum AIError: LocalizedError {
+      case unauthenticated
+      case rateLimitExceeded
+      case invalidResponse
+      case networkError
+      case serverError(String)
+      case unknownFeature
       
-      Task {
+      var errorDescription: String? {
+          switch self {
+          case .unauthenticated:
+              return "You must be logged in to use AI features."
+          case .rateLimitExceeded:
+              return "Too many AI requests. Please try again in an hour."
+          case .invalidResponse:
+              return "Received invalid response from AI service."
+          case .networkError:
+              return "Network error. Please check your connection."
+          case .serverError(let message):
+              return "Server error: \(message)"
+          case .unknownFeature:
+              return "Unknown AI feature requested."
+          }
+      }
+  }
+  
+  /// Service for calling AI Cloud Functions
+  @MainActor
+  class AIService {
+      static let shared = AIService()
+      private let functions = Functions.functions()
+      
+      // Cache for AI results (5 minutes)
+      private var cache: [String: (result: Any, timestamp: Date)] = [:]
+      private let cacheExpiration: TimeInterval = 300 // 5 minutes
+      
+      private init() {}
+      
+      /// Process a message with specified AI feature
+      func processMessage(
+          _ message: String,
+          feature: AIFeature,
+          context: [Message]? = nil,
+          conversationId: String? = nil
+      ) async throws -> [String: Any] {
+          
+          // Check cache
+          let cacheKey = "\(feature.rawValue):\(message.prefix(100))"
+          if let cached = cache[cacheKey],
+             Date().timeIntervalSince(cached.timestamp) < cacheExpiration {
+              print("✅ AIService: Cache hit for \(feature.rawValue)")
+              return cached.result as! [String: Any]
+          }
+          
+          // Prepare request data
+          var data: [String: Any] = [
+              "feature": feature.rawValue,
+              "message": message
+          ]
+          
+          if let context = context {
+              data["context"] = context.map { [
+                  "text": $0.text,
+                  "senderId": $0.senderId,
+                  "sentAt": $0.sentAt.timeIntervalSince1970
+              ]}
+          }
+          
+          if let conversationId = conversationId {
+              data["conversationId"] = conversationId
+          }
+          
+          print("📤 AIService: Calling Cloud Function for \(feature.rawValue)")
+          
+          // Call Cloud Function
+          let callable = functions.httpsCallable("processAI")
+          
           do {
-              // 1. Generate message ID
-              let messageId = UUID().uuidString
+              let result = try await callable.call(data)
               
-              // 2. Upload image with progress
-              let (imageURL, thumbnailURL) = try await storageService.uploadImage(
-                  image,
-                  conversationId: conversationId,
-                  messageId: messageId
-              ) { [weak self] progress in
-                  Task { @MainActor in
-                      self?.imageUploadProgress = progress
-                  }
+              guard let resultData = result.data as? [String: Any] else {
+                  throw AIError.invalidResponse
               }
               
-              // 3. Create message with image URLs
-              let message = Message(
-                  id: messageId,
-                  conversationId: conversationId,
-                  senderId: authService.currentUserId ?? "",
-                  text: "",  // Empty for image-only message
-                  imageURL: imageURL,
-                  thumbnailURL: thumbnailURL,
-                  imageWidth: Int(image.size.width),
-                  imageHeight: Int(image.size.height),
-                  sentAt: Date(),
-                  status: .sending
-              )
+              print("✅ AIService: Received response from \(feature.rawValue)")
               
-              // 4. Add to messages array immediately (optimistic UI)
-              await MainActor.run {
-                  messages.append(message)
-              }
+              // Cache result
+              cache[cacheKey] = (resultData, Date())
               
-              // 5. Send message to Firestore
-              try await chatService.sendMessage(message)
+              return resultData
               
-              // 6. Success
-              await MainActor.run {
-                  isUploadingImage = false
-                  imageUploadProgress = 0.0
-              }
-              
-          } catch {
-              await MainActor.run {
-                  isUploadingImage = false
-                  uploadError = error.localizedDescription
-                  // Remove optimistic message on failure
-                  if let index = messages.firstIndex(where: { $0.hasImage && $0.status == .sending }) {
-                      messages.remove(at: index)
-                  }
-              }
+          } catch let error as NSError {
+              print("❌ AIService: Error calling Cloud Function: \(error)")
+              throw mapFirebaseError(error)
           }
+      }
+      
+      /// Map Firebase errors to AIError
+      private func mapFirebaseError(_ error: NSError) -> AIError {
+          switch error.code {
+          case FunctionsErrorCode.unauthenticated.rawValue:
+              return .unauthenticated
+          case FunctionsErrorCode.resourceExhausted.rawValue:
+              return .rateLimitExceeded
+          case FunctionsErrorCode.unavailable.rawValue:
+              return .networkError
+          case FunctionsErrorCode.invalidArgument.rawValue:
+              return .serverError(error.localizedDescription)
+          default:
+              return .serverError(error.localizedDescription)
+          }
+      }
+      
+      /// Clear cache (useful for testing)
+      func clearCache() {
+          cache.removeAll()
+          print("🗑️ AIService: Cache cleared")
       }
   }
   ```
 
-#### Add Retry Method
-- [ ] Add retry method for failed uploads:
-  ```swift
-  /// Retry failed image upload
-  func retryImageUpload() {
-      uploadError = nil
-      // Note: Would need to store original UIImage to retry
-      // For MVP, user can select image again
-  }
+- [ ] Add to Xcode project
+  - [ ] Open Xcode
+  - [ ] Right-click `Services` folder
+  - [ ] Add Files to "messAI"
+  - [ ] Select `AIService.swift`
+  - [ ] Ensure target is checked
+
+- [ ] Build project
+  ```bash
+  # Build in Xcode (⌘B)
   ```
 
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
+**Checkpoint:** ✅ AIService compiles without errors
 
-**Checkpoint:** ChatViewModel can upload images ✓
-
-**Commit:** `git add . && git commit -m "feat(viewmodels): Add image upload to ChatViewModel"`
+**Commit:** `feat(pr14): implement iOS AIService for Cloud Function calls`
 
 ---
 
-### 4.2: Add Upload Progress UI (15 minutes)
+## Phase 5: Deployment & Testing (30 minutes)
 
-#### Update ChatViewModel Progress Tracking
-- [ ] Verify progress properties are @Published (done above)
-- [ ] Progress updates happen on @MainActor (done above)
+### 5.1: Deploy Cloud Functions (10 min)
 
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Verify no errors
+- [ ] Build TypeScript
+  ```bash
+  cd functions
+  npm run build
+  ```
 
-**Checkpoint:** Upload progress infrastructure ready ✓
+- [ ] Verify build output
+  ```bash
+  ls -la lib/
+  # Should see compiled .js files
+  ```
 
-**Commit:** `git add . && git commit -m "feat(viewmodels): Add upload progress tracking"`
+- [ ] Deploy to Firebase
+  ```bash
+  firebase deploy --only functions
+  ```
+
+- [ ] Wait for deployment to complete
+  - [ ] Watch console output
+  - [ ] Note the function URL
+  - [ ] Verify "Deploy complete" message
+
+- [ ] Verify in Firebase Console
+  - [ ] Open https://console.firebase.google.com
+  - [ ] Navigate to Functions
+  - [ ] Confirm `processAI` function is listed
+  - [ ] Check function logs
+
+**Checkpoint:** ✅ Cloud Function deployed successfully
+
+**Commit:** `feat(pr14): deploy AI Cloud Functions to Firebase`
 
 ---
 
-## Phase 5: UI Components (60 minutes)
+### 5.2: Test from iOS App (15 min)
 
-### 5.1: Update MessageBubbleView (30 minutes)
-
-#### Open MessageBubbleView
-- [ ] Open `messAI/Views/Chat/MessageBubbleView.swift`
-
-#### Add State for Full-Screen
-- [ ] Add state property at top of struct:
+- [ ] Create test view or add to existing view
   ```swift
-  @State private var showFullImage = false
-  ```
-
-#### Update Body to Show Images
-- [ ] Inside the VStack (after sender name, before text), add image display:
-  ```swift
-  // Image (if present)
-  if message.hasImage {
-      MessageImageView(message: message)
-          .onTapGesture {
-              showFullImage = true
-          }
-  }
-  ```
-
-- [ ] Update text display to only show if not empty:
-  ```swift
-  // Text (if present)
-  if !message.text.isEmpty {
-      Text(message.text)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 8)
-  }
-  ```
-
-#### Add Sheet Modifier
-- [ ] Add sheet modifier at end of main VStack:
-  ```swift
-  .sheet(isPresented: $showFullImage) {
-      if let imageURL = message.imageURL {
-          FullScreenImageView(imageURL: imageURL, message: message)
-      }
-  }
-  ```
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Note: Will have error about MessageImageView - creating next
-
-**Checkpoint:** MessageBubbleView structure updated ✓
-
----
-
-#### Create MessageImageView Component
-- [ ] Add new struct at bottom of MessageBubbleView.swift file:
-  ```swift
-  // MARK: - MessageImageView (Thumbnail in Bubble)
-
-  struct MessageImageView: View {
-      let message: Message
-      
-      var body: some View {
-          if let thumbnailURL = message.thumbnailURL {
-              AsyncImage(url: URL(string: thumbnailURL)) { phase in
-                  switch phase {
-                  case .empty:
-                      ProgressView()
-                          .frame(width: 200, height: 200)
-                  case .success(let image):
-                      image
-                          .resizable()
-                          .aspectRatio(message.aspectRatio ?? 1.0, contentMode: .fill)
-                          .frame(maxWidth: 250, maxHeight: 250)
-                          .clipped()
-                          .cornerRadius(12)
-                  case .failure:
-                      Image(systemName: "photo.fill")
-                          .foregroundColor(.secondary)
-                          .frame(width: 200, height: 200)
-                  @unknown default:
-                      EmptyView()
-                  }
-              }
-          }
-      }
-  }
-  ```
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Note: Will have error about FullScreenImageView - creating next
-
-**Checkpoint:** MessageImageView component complete ✓
-
-**Commit:** `git add . && git commit -m "feat(views): Add image display to MessageBubbleView"`
-
----
-
-### 5.2: Create FullScreenImageView (30 minutes)
-
-#### Create File
-- [ ] Create `messAI/Views/Chat/FullScreenImageView.swift`
-- [ ] Add to Xcode project (Views/Chat group)
-
-#### Add Imports
-- [ ] Add imports:
-  ```swift
-  import SwiftUI
-  ```
-
-#### Implement FullScreenImageView
-- [ ] Create view struct:
-  ```swift
-  struct FullScreenImageView: View {
-      let imageURL: String
-      let message: Message
-      
-      @Environment(\.dismiss) var dismiss
-      @State private var scale: CGFloat = 1.0
-      @State private var lastScale: CGFloat = 1.0
-      
-      var body: some View {
-          NavigationView {
-              ZStack {
-                  Color.black.ignoresSafeArea()
-                  
-                  AsyncImage(url: URL(string: imageURL)) { phase in
-                      switch phase {
-                      case .empty:
-                          ProgressView()
-                              .tint(.white)
-                      case .success(let image):
-                          image
-                              .resizable()
-                              .aspectRatio(contentMode: .fit)
-                              .scaleEffect(scale)
-                              .gesture(
-                                  MagnificationGesture()
-                                      .onChanged { value in
-                                          scale = lastScale * value
-                                      }
-                                      .onEnded { _ in
-                                          lastScale = scale
-                                          // Reset if too small/large
-                                          if scale < 1.0 {
-                                              withAnimation {
-                                                  scale = 1.0
-                                                  lastScale = 1.0
-                                              }
-                                          } else if scale > 5.0 {
-                                              withAnimation {
-                                                  scale = 5.0
-                                                  lastScale = 5.0
-                                              }
-                                          }
-                                      }
-                              )
-                      case .failure:
-                          VStack {
-                              Image(systemName: "exclamationmark.triangle")
-                                  .font(.largeTitle)
-                                  .foregroundColor(.white)
-                              Text("Failed to load image")
-                                  .foregroundColor(.white)
-                          }
-                      @unknown default:
-                          EmptyView()
-                      }
-                  }
-              }
-              .navigationBarTitleDisplayMode(.inline)
-              .toolbar {
-                  ToolbarItem(placement: .navigationBarTrailing) {
-                      Button("Done") {
-                          dismiss()
-                      }
-                      .foregroundColor(.white)
-                  }
-              }
-          }
+  // Add a test button somewhere (e.g., in ChatListView)
+  Button("Test AI") {
+      Task {
+          await testAIInfrastructure()
       }
   }
   
-  // MARK: - Preview
-  
-  #Preview {
-      FullScreenImageView(
-          imageURL: "https://via.placeholder.com/1920x1080",
-          message: Message(
-              conversationId: "test",
-              senderId: "user1",
-              text: "",
-              imageURL: "https://via.placeholder.com/1920x1080",
-              thumbnailURL: "https://via.placeholder.com/200"
+  func testAIInfrastructure() async {
+      print("🧪 Testing AI infrastructure...")
+      
+      do {
+          // Test calendar feature (placeholder)
+          let result = try await AIService.shared.processMessage(
+              "Soccer practice Thursday at 4pm",
+              feature: .calendar
           )
-      )
-  }
-  ```
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-- [ ] Test preview if possible
-
-**Checkpoint:** FullScreenImageView complete ✓
-
-**Commit:** `git add . && git commit -m "feat(views): Add FullScreenImageView with pinch-to-zoom"`
-
----
-
-## Phase 6: Input Updates (30 minutes)
-
-### 6.1: Update MessageInputView (20 minutes)
-
-#### Open MessageInputView
-- [ ] Open `messAI/Views/Chat/MessageInputView.swift`
-
-#### Update Signature
-- [ ] Add image callback parameter:
-  ```swift
-  struct MessageInputView: View {
-      @Binding var text: String
-      let onSend: () -> Void
-      let onImageSelect: (UIImage) -> Void  // NEW
-      
-      // ... rest of struct
-  }
-  ```
-
-#### Add State Properties
-- [ ] Add state properties after existing @State variables:
-  ```swift
-  @State private var showImagePicker = false
-  @State private var showActionSheet = false
-  @State private var selectedImage: UIImage?
-  @State private var imageSourceType: UIImagePickerController.SourceType = .photoLibrary
-  ```
-
-#### Update Body with Image Button
-- [ ] Add image button before text input in HStack:
-  ```swift
-  // Image button
-  Button(action: {
-      showActionSheet = true
-  }) {
-      Image(systemName: "photo.fill")
-          .font(.title3)
-          .foregroundColor(.blue)
-  }
-  ```
-
-#### Add Action Sheet
-- [ ] Add modifier after HStack closing:
-  ```swift
-  .confirmationDialog("Choose Image Source", isPresented: $showActionSheet) {
-      Button("Photo Library") {
-          imageSourceType = .photoLibrary
-          showImagePicker = true
-      }
-      if UIImagePickerController.isSourceTypeAvailable(.camera) {
-          Button("Camera") {
-              imageSourceType = .camera
-              showImagePicker = true
-          }
-      }
-      Button("Cancel", role: .cancel) { }
-  }
-  ```
-
-#### Add Image Picker Sheet
-- [ ] Add sheet modifier after confirmationDialog:
-  ```swift
-  .sheet(isPresented: $showImagePicker) {
-      ImagePicker(image: $selectedImage, sourceType: imageSourceType)
-  }
-  ```
-
-#### Add onChange Handler
-- [ ] Add onChange modifier after sheets:
-  ```swift
-  .onChange(of: selectedImage) { _, newImage in
-      if let image = newImage {
-          onImageSelect(image)
-          selectedImage = nil
+          print("✅ AI Test Success:", result)
+          print("📊 Processing time:", result["processingTimeMs"] ?? "N/A")
+          print("🤖 Model:", result["modelUsed"] ?? "N/A")
+          
+      } catch {
+          print("❌ AI Test Failed:", error.localizedDescription)
       }
   }
   ```
 
-#### Update Preview
-- [ ] Update preview to include image callback:
-  ```swift
-  #Preview {
-      MessageInputView(
-          text: .constant(""),
-          onSend: { print("Send tapped") },
-          onImageSelect: { image in print("Image selected: \(image.size)") }
-      )
-  }
+- [ ] Run app on simulator
+  ```bash
+  # Open Xcode and run (⌘R)
   ```
 
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
+- [ ] Tap "Test AI" button
 
-**Checkpoint:** MessageInputView supports image selection ✓
+- [ ] Verify in console:
+  - [ ] "Calling Cloud Function" message appears
+  - [ ] Response received from Cloud Function
+  - [ ] No errors in console
 
-**Commit:** `git add . && git commit -m "feat(views): Add image selection to MessageInputView"`
+- [ ] Verify in Firebase Console:
+  - [ ] Open Functions logs
+  - [ ] See "AI request received" log entry
+  - [ ] See "AI request completed" log entry
+  - [ ] No error logs
 
----
+**Checkpoint:** ✅ Can successfully call Cloud Function from iOS
 
-### 6.2: Update ChatView Integration (10 minutes)
-
-#### Open ChatView
-- [ ] Open `messAI/Views/Chat/ChatView.swift`
-
-#### Find MessageInputView Usage
-- [ ] Locate MessageInputView in body
-
-#### Update MessageInputView Call
-- [ ] Add onImageSelect parameter:
-  ```swift
-  MessageInputView(
-      text: $messageText,
-      onSend: {
-          viewModel.sendMessage(messageText)
-          messageText = ""
-      },
-      onImageSelect: { image in
-          viewModel.sendImageMessage(image)
-      }
-  )
-  ```
-
-#### Test Build
-- [ ] Build project (Cmd+B)
-- [ ] Fix any compilation errors
-
-**Checkpoint:** ChatView wired to send images ✓
-
-**Commit:** `git add . && git commit -m "feat(views): Wire image selection to ChatView"`
+**Commit:** `feat(pr14): verify AI infrastructure end-to-end`
 
 ---
 
-## Phase 7: Testing & Polish (30 minutes)
+### 5.3: Test Error Scenarios (5 min)
 
-### 7.1: Comprehensive Testing (20 minutes)
+- [ ] Test unauthenticated request
+  - [ ] Log out user
+  - [ ] Try to call AI
+  - [ ] Verify "must be logged in" error
 
-#### Build Test
-- [ ] Clean build folder (Cmd+Shift+K)
-- [ ] Build project (Cmd+B)
-- [ ] Verify 0 errors, 0 warnings
+- [ ] Test invalid feature
+  - [ ] Call with feature: "invalid"
+  - [ ] Verify "Unknown feature" error
 
-#### Functional Tests (on Device/Simulator)
-- [ ] Launch app
-- [ ] Navigate to a conversation
-- [ ] Test image button appears in input
-- [ ] Test action sheet appears on tap
-- [ ] Test photo library picker opens
-- [ ] Test camera picker opens (device only)
-- [ ] Select image from library
-- [ ] Verify image sends
-- [ ] Verify thumbnail appears in chat
-- [ ] Tap thumbnail
-- [ ] Verify full-screen view opens
-- [ ] Test pinch-to-zoom (1x to 5x)
-- [ ] Test Done button dismisses
-- [ ] Send another image
-- [ ] Verify multiple images display correctly
+- [ ] Test rate limiting (optional - takes time)
+  - [ ] Make 100+ rapid requests
+  - [ ] Verify rate limit error on 101st
 
-#### Cross-Device Test (if two devices available)
-- [ ] Device A: Send image
-- [ ] Device B: Verify receives image within 2-3 seconds
-- [ ] Device B: Tap to view full-screen
-- [ ] Verify works both directions
-
-#### Edge Case Tests
-- [ ] Try sending very large image (10MB+)
-  - Expected: Compresses to <2MB
-- [ ] Try sending while offline
-  - Expected: Queues for upload when online
-- [ ] Try tapping image with no imageURL
-  - Expected: Handles gracefully (shouldn't happen)
-
-**Checkpoint:** All tests passing ✓
-
----
-
-### 7.2: Error Handling & Polish (10 minutes)
-
-#### Test Error Scenarios
-- [ ] Deny photo library permission
-  - Expected: System alert with explanation
-- [ ] Deny camera permission
-  - Expected: System alert with explanation
-- [ ] Force upload failure (airplane mode)
-  - Expected: Error message in ChatView
-- [ ] Verify retry works (if implemented)
-
-#### Performance Check
-- [ ] Profile with Instruments (Time Profiler)
-- [ ] Check compression time (<2s for 4K image)
-- [ ] Check memory usage (reasonable)
-- [ ] Check for memory leaks
-
-#### UI Polish
-- [ ] Verify image bubbles look good
-- [ ] Verify full-screen animation smooth
-- [ ] Verify zoom gesture responsive
-- [ ] Check dark mode appearance
-- [ ] Check different device sizes
-
-**Checkpoint:** All polished and working ✓
-
----
-
-## Final Checks
-
-### Code Quality
-- [ ] No compiler warnings
-- [ ] No force unwraps (!) except where safe
-- [ ] Proper error handling throughout
-- [ ] Clean, readable code
-- [ ] Comments where needed
-
-### Documentation
-- [ ] Code comments added for complex logic
-- [ ] StorageService methods documented
-- [ ] ImageCompressor methods documented
-
-### Git Cleanup
-- [ ] All work committed
-- [ ] No leftover test files
-- [ ] Clean working directory
+**Checkpoint:** ✅ Error handling works correctly
 
 ---
 
 ## Completion Checklist
 
-- [ ] All phases complete (1-7)
-- [ ] All tests passing
-- [ ] Firebase Storage rules deployed
-- [ ] Zero compiler errors
-- [ ] Zero compiler warnings
-- [ ] Image selection works (library + camera)
-- [ ] Image compression works (<2MB)
-- [ ] Image upload works with progress
-- [ ] Images display in chat bubbles
-- [ ] Full-screen view works with zoom
-- [ ] Cross-device image sharing works
-- [ ] Documentation complete
-- [ ] Complete summary written
-- [ ] PR_PARTY README updated
-- [ ] Memory bank updated
-- [ ] Ready to merge! 🎉
+### Code Quality
+- [ ] All TypeScript compiles without errors
+- [ ] All Swift compiles without errors
+- [ ] No ESLint warnings in Cloud Functions
+- [ ] No Xcode warnings
+
+### Functionality
+- [ ] Cloud Function deployed to Firebase
+- [ ] Can call function from iOS app
+- [ ] Authentication is required and enforced
+- [ ] Rate limiting works (100 req/hour/user)
+- [ ] All 6 AI features route correctly
+- [ ] Placeholder functions return expected format
+- [ ] Error handling works for all error types
+
+### Security
+- [ ] API keys never in iOS app code
+- [ ] .env file in .gitignore
+- [ ] Firebase config uses environment variables
+- [ ] Authentication enforced on Cloud Function
+- [ ] Rate limiting prevents abuse
+
+### Documentation
+- [ ] Code comments added to complex functions
+- [ ] Function parameters documented
+- [ ] Error types documented
+
+### Git
+- [ ] All changes committed
+- [ ] Commit messages follow convention
+- [ ] Branch ready to merge
 
 ---
 
-**Final Commit:**
-```bash
-git add .
-git commit -m "feat(pr14): Complete image sharing implementation
+## Final Verification
 
-- StorageService for Firebase Storage
-- ImageCompressor for optimization
-- ImagePicker for selection
-- Message model image fields
-- ChatViewModel upload logic
-- MessageBubbleView image display
-- FullScreenImageView with zoom
-- MessageInputView image button
-- Firebase Storage security rules
+- [ ] Run full build in Xcode
+  ```bash
+  # Clean build folder: ⌘⇧K
+  # Build: ⌘B
+  # Result: Build Succeeded ✅
+  ```
 
-All tests passing, ready for production."
-```
+- [ ] Test on simulator
+  ```bash
+  # Run app: ⌘R
+  # Log in
+  # Call AI test function
+  # Result: Success ✅
+  ```
 
-**Push to GitHub:**
-```bash
-git push origin feature/pr14-image-sharing
-```
+- [ ] Check Firebase Console
+  - [ ] Functions deployed ✅
+  - [ ] Logs show requests ✅
+  - [ ] No errors ✅
 
-**Merge to Main:**
-```bash
-git checkout main
-git merge feature/pr14-image-sharing
-git push origin main
-```
+- [ ] Check git status
+  ```bash
+  git status
+  # Verify all files committed
+  ```
 
 ---
 
-**Status:** ✅ PR #14 COMPLETE! Image sharing fully implemented! 🎉
+## Success! 🎉
 
-**Next:** PR #15 - Offline Support & Network Monitoring (or continue with remaining MVP features)
+**Infrastructure Ready For:**
+- ✅ PR #15: Calendar Extraction
+- ✅ PR #16: Decision Summarization
+- ✅ PR #17: Priority Highlighting
+- ✅ PR #18: RSVP Tracking
+- ✅ PR #19: Deadline Extraction
+- ✅ PR #20: Multi-Step Event Planning Agent
 
+**Total Time:** ~2-3 hours  
+**Files Created:** 12 files  
+**Lines of Code:** ~800 lines  
+
+**Next Step:** Merge to main and start PR #15!

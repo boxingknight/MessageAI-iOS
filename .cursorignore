@@ -1,0 +1,30 @@
+# Environment variables (contains API keys)
+functions/.env
+functions/.env.local
+functions/.env.*.local
+**/.env
+**/.env.local
+
+# Node modules
+functions/node_modules/
+
+# Compiled JavaScript
+functions/lib/
+
+# Logs
+*.log
+npm-debug.log*
+
+# API keys and secrets
+**/GoogleService-Info.plist
+**/*-key.json
+**/*.p12
+
+# Build artifacts
+**/build/
+**/DerivedData/
+
+# Xcode user-specific files
+**/*.xcuserdata
+**/*.xcuserdatad
+**/xcuserdata/

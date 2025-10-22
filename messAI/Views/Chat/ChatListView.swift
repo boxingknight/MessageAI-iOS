@@ -123,26 +123,28 @@ struct ChatListView: View {
     }
     
     private var conversationList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(viewModel.sortedConversations) { conversation in
-                    NavigationLink(value: conversation) {
-                        ConversationRowView(
-                            conversation: conversation,
-                            conversationName: viewModel.getConversationName(conversation),
-                            photoURL: viewModel.getConversationPhotoURL(conversation),
-                            unreadCount: viewModel.getUnreadCount(conversation),
-                            isOnline: viewModel.getPresence(conversation)?.isOnline ?? false
-                        )
-                        .padding(.horizontal)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Divider()
-                        .padding(.leading, 80)
+        List {
+            ForEach(viewModel.sortedConversations) { conversation in
+                NavigationLink(value: conversation) {
+                    ConversationRowView(
+                        conversation: conversation,
+                        conversationName: viewModel.getConversationName(conversation),
+                        photoURL: viewModel.getConversationPhotoURL(conversation),
+                        unreadCount: viewModel.getUnreadCount(conversation),
+                        isOnline: viewModel.getPresence(conversation)?.isOnline ?? false
+                    )
                 }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        deleteConversation(conversation)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
             }
         }
+        .listStyle(.plain)
         .navigationDestination(for: Conversation.self) { conversation in
             ChatView(conversation: conversation)
         }
@@ -197,6 +199,13 @@ struct ChatListView: View {
                 print("[ChatListView] ❌ Error starting conversation: \(error)")
                 // TODO (PR #19): Show error alert to user
             }
+        }
+    }
+    
+    /// Deletes a conversation from both Firebase and local storage
+    private func deleteConversation(_ conversation: Conversation) {
+        Task {
+            await viewModel.deleteConversation(conversation)
         }
     }
 }

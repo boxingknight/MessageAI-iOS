@@ -1,4 +1,4 @@
-# PR#14: Image Sharing - Storage Integration
+# PR#23: Image Sharing - Storage Integration
 
 **Estimated Time:** 2-3 hours  
 **Complexity:** MEDIUM-HIGH  

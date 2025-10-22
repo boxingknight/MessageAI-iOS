@@ -1,16 +1,16 @@
-# PR#14: Image Sharing - Quick Start
+# PR#14: Cloud Functions Setup & AI Service Base - Quick Start
 
 ---
 
 ## TL;DR (30 seconds)
 
-**What:** Add image sharing to messaging—select from library/camera, compress automatically, upload to Firebase Storage, display thumbnails in chat, tap for full-screen with pinch-zoom.
+**What:** Set up Firebase Cloud Functions backend with OpenAI GPT-4 integration to enable all 5 AI features for busy parents.
 
-**Why:** Images are 55% of messages on WhatsApp. Visual communication is essential. Without images, app feels incomplete.
+**Why:** Secure API key management (server-side only), rate limiting (prevent abuse), flexible architecture (easy to add features). This is the foundation—nothing else works without it.
 
 **Time:** 2-3 hours estimated
 
-**Complexity:** MEDIUM-HIGH (Firebase Storage, image processing, UIKit integration)
+**Complexity:** MEDIUM-HIGH (Cloud Functions setup, TypeScript, environment config, iOS integration)
 
 **Status:** 📋 PLANNED (documentation complete, ready to implement!)
 
@@ -20,59 +20,57 @@
 
 ### Should You Build This?
 
-**Build it if:**
-- ✅ Have 2-3 hours available this session
-- ✅ PRs #4, #5, #9, #10, #11 complete (core messaging working)
-- ✅ Firebase project has Storage enabled
-- ✅ Excited about visual communication
-- ✅ Want feature-complete MVP messaging
+**Green Lights (Build it!):**
+- ✅ You have 2-3 hours available this session
+- ✅ OpenAI API account (or can create one in 5 min)
+- ✅ Firebase billing enabled (Blaze plan)
+- ✅ Core messaging complete (PRs 1-13)
+- ✅ Want to build AI features (PRs 15-20)
 
-**Skip it if:**
+**Red Lights (Skip/defer it!):**
 - ❌ Time-constrained (<2 hours available)
-- ❌ Core messaging not working yet (do PR #9-11 first)
-- ❌ Firebase Storage not configured
-- ❌ Other higher priorities
-- ❌ Prefer to polish existing features first
+- ❌ Can't get OpenAI API key
+- ❌ Firebase billing disabled (free tier)
+- ❌ Core messaging incomplete
+- ❌ Not interested in AI features
 
-**Decision Aid:** If you can send text messages reliably (PR #10 complete), you're ready for images. Images are relatively independent—they use the same messaging infrastructure. If messaging works, images will work.
+**Decision Aid:** This is CRITICAL infrastructure. If you're building AI features (calendar extraction, RSVP tracking, etc.), you MUST do this first. Without PR #14, PRs #15-20 cannot be built.
+
+**Can't be skipped if:** You want any AI functionality
 
 ---
 
 ## Prerequisites (5 minutes)
 
-### Required (Must Have)
-- [ ] **PR #4 complete:** Message model exists (will add image fields)
-- [ ] **PR #5 complete:** ChatService exists (already handles Message.toDictionary())
-- [ ] **PR #9 complete:** ChatView UI exists (will add image display)
-- [ ] **PR #10 complete:** Real-time messaging works (images use same flow)
-- [ ] **PR #11 complete:** Message status works (images get status too)
-- [ ] **Firebase Storage enabled:** In Firebase Console > Build > Storage
-- [ ] **Physical device available:** For camera testing (simulator has no camera)
+### Required
+- [x] **Core Messaging Complete** - PRs 1-13 done ✅
+- [ ] **Firebase Project Active** - messageai-95c8f ✅
+- [ ] **Firebase Billing Enabled** - Blaze plan (pay-as-you-go)
+  ```bash
+  # Check at: https://console.firebase.google.com/project/messageai-95c8f/usage
+  ```
+- [ ] **OpenAI API Account** - Get key from https://platform.openai.com
+  - [ ] Sign up (free, takes 2 minutes)
+  - [ ] Add payment method ($5 minimum)
+  - [ ] Create API key
+  - [ ] Copy key (starts with `sk-proj-...`)
+- [ ] **Firebase CLI Installed**
+  ```bash
+  npm install -g firebase-tools
+  firebase --version  # Should show v12.0.0 or higher
+  firebase login      # Log in to your account
+  ```
 
 ### Setup Commands
 ```bash
-# 1. Verify Firebase Storage enabled
-# Visit: https://console.firebase.google.com/project/[your-project]/storage
-# Should see Storage bucket created
+# 1. Navigate to project
+cd /Users/ijaramil/Documents/GauntletAI/Week2/messAI
 
-# 2. Create feature branch
-git checkout main
-git pull origin main
-git checkout -b feature/pr14-image-sharing
+# 2. Create branch
+git checkout -b feature/pr14-cloud-functions
 
-# 3. Open Xcode project
-open messAI.xcodeproj
-```
-
-### Verify Prerequisites
-```swift
-// In Xcode, verify these files exist:
-// - Models/Message.swift (PR #4)
-// - Services/ChatService.swift (PR #5)
-// - Views/Chat/ChatView.swift (PR #9)
-// - ViewModels/ChatViewModel.swift (PR #10)
-
-// Build project (Cmd+B) - should succeed with 0 errors
+# 3. Initialize Cloud Functions (will do this in implementation)
+# firebase init functions
 ```
 
 ---
@@ -80,396 +78,422 @@ open messAI.xcodeproj
 ## Getting Started (First Hour)
 
 ### Step 1: Read Documentation (45 minutes)
-- [ ] Read this quick start (10 min) ✓ You're here!
-- [ ] Read main specification (`PR14_IMAGE_SHARING.md`) (35 min)
-  - Focus on: Technical Design, Architecture Decisions
-  - Skim: Code examples (will reference during implementation)
-  - Note: Any questions or concerns
+- [ ] Read this quick start (10 min)
+- [ ] Read main specification: `PR14_CLOUD_FUNCTIONS_SETUP.md` (35 min)
+  - Architecture decisions
+  - Data model design
+  - Implementation details
+- [ ] Note any questions
 
-**Key concepts to understand:**
-- **Client-side compression:** Compress before upload (fast, free, good UX)
-- **Firebase Storage paths:** `/chat_images/{conversationId}/{messageId}.jpg`
-- **Thumbnail + Full:** Upload small thumbnail first, full image with progress
-- **Optimistic UI:** Show thumbnail immediately, upload in background
+### Step 2: Get OpenAI API Key (5 minutes)
+- [ ] Go to https://platform.openai.com
+- [ ] Sign up or log in
+- [ ] Navigate to API Keys
+- [ ] Create new key
+- [ ] **Copy key immediately** (only shown once!)
+- [ ] Store safely (will add to .env file)
 
-### Step 2: Set Up Environment (15 minutes)
-- [ ] Open Xcode with messAI project
-- [ ] Create feature branch (see Setup Commands above)
-- [ ] Build project (Cmd+B) - verify 0 errors
-- [ ] Open Firebase Console - verify Storage enabled
-- [ ] Have implementation checklist open in separate window
+### Step 3: Enable Firebase Billing (5 minutes)
+- [ ] Open https://console.firebase.google.com/project/messageai-95c8f/overview
+- [ ] Go to Usage & Billing
+- [ ] Upgrade to Blaze plan
+- [ ] Set budget alert ($50/month recommended)
+- [ ] Verify billing enabled
 
-### Step 3: Start Phase 1 (First Implementation)
-- [ ] Open `PR14_IMPLEMENTATION_CHECKLIST.md`
-- [ ] Begin Phase 1: Core Image Utilities (45 min)
-- [ ] Create ImageCompressor utility
-- [ ] Create ImagePicker wrapper
-- [ ] Commit when phase complete
+### Step 4: Start Implementation (5 minutes)
+- [ ] Open implementation checklist: `PR14_IMPLEMENTATION_CHECKLIST.md`
+- [ ] Begin Phase 1: Cloud Functions Initialization
+- [ ] Run `firebase init functions`
 
-**End of First Hour:** You'll have image compression and selection working!
+---
+
+## Implementation Overview
+
+### Phase 1: Cloud Functions Setup (30 min)
+**Goal:** Get Cloud Functions project initialized with TypeScript
+
+**Tasks:**
+- Initialize Firebase Cloud Functions
+- Install OpenAI SDK and dependencies
+- Configure environment variables (.env file)
+- Set Firebase config for production
+
+**Checkpoint:** `npm run build` succeeds
+
+---
+
+### Phase 2: Middleware (45 min)
+**Goal:** Implement authentication, rate limiting, validation
+
+**Tasks:**
+- Create auth middleware (require login)
+- Create rate limit middleware (100 req/hour/user)
+- Create validation middleware (check required fields)
+
+**Checkpoint:** All middleware compiles without errors
+
+---
+
+### Phase 3: AI Router (60 min)
+**Goal:** Create main AI function with feature routing
+
+**Tasks:**
+- Create 6 placeholder functions (one per AI feature)
+- Implement main `processAI` function
+- Add comprehensive error handling
+- Add logging for debugging
+
+**Checkpoint:** Can deploy to Firebase successfully
+
+---
+
+### Phase 4: iOS AIService (45 min)
+**Goal:** Create Swift wrapper for Cloud Function calls
+
+**Tasks:**
+- Create AIMetadata model
+- Update Message model with aiMetadata
+- Implement AIService class with caching
+- Add error mapping
+
+**Checkpoint:** iOS app compiles without errors
+
+---
+
+### Phase 5: Deploy & Test (30 min)
+**Goal:** Deploy and verify end-to-end
+
+**Tasks:**
+- Deploy Cloud Functions to Firebase
+- Test from iOS app
+- Verify authentication enforcement
+- Verify rate limiting
+- Check error handling
+
+**Checkpoint:** Can successfully call AI from iOS app
 
 ---
 
 ## Daily Progress Template
 
 ### Day 1 Goals (2-3 hours)
-- [ ] **Phase 1:** Image utilities (45 min)
-  - Create ImageCompressor
-  - Create ImagePicker
-  - Test compression/selection
+- [ ] **Phase 1:** Cloud Functions initialized (30 min)
+- [ ] **Phase 2:** Middleware implemented (45 min)
+- [ ] **Phase 3:** AI router created (60 min)
+- [ ] **Phase 4:** iOS AIService built (45 min)
+- [ ] **Phase 5:** Deployed and tested (30 min)
 
-- [ ] **Phase 2:** Storage service (60 min)
-  - Create StorageService
-  - Deploy Firebase Storage rules
-  - Test upload/download
-
-- [ ] **Phase 3:** Model updates (30 min)
-  - Update Message model with image fields
-  - Update Firestore conversion
-  - Test serialization
-
-**Checkpoint:** Images can compress and upload to Firebase Storage ✓
-
-### Day 2 Goals (if needed, 1-2 hours)
-- [ ] **Phase 4:** ViewModel integration (45 min)
-  - Add sendImageMessage() to ChatViewModel
-  - Upload progress tracking
-  - Error handling
-
-- [ ] **Phase 5:** UI components (60 min)
-  - Update MessageBubbleView with images
-  - Create FullScreenImageView
-  - Test display and zoom
-
-- [ ] **Phase 6:** Input updates (30 min)
-  - Add image button to MessageInputView
-  - Wire to ChatView
-  - Test end-to-end
-
-**Checkpoint:** Can send and view images end-to-end ✓
-
-### Final Testing (30 min)
-- [ ] **Phase 7:** Testing & polish
-  - Comprehensive functional tests
-  - Cross-device testing
-  - Error handling
-  - Performance check
-
-**Checkpoint:** All features working, polished, and tested ✓
+**End of Day Checkpoint:** Can call Cloud Function from iOS app successfully
 
 ---
 
 ## Common Issues & Solutions
 
-### Issue 1: "Firebase Storage bucket not found"
-**Symptoms:** Upload fails with "bucket not found" error  
-**Cause:** Storage not enabled in Firebase Console  
+### Issue 1: "Firebase billing not enabled"
+**Symptoms:** Deployment fails with billing error  
+**Cause:** Still on Spark (free) plan  
 **Solution:**
-1. Visit https://console.firebase.google.com/project/[your-project]/storage
-2. Click "Get Started"
-3. Accept default security rules
-4. Wait for bucket to provision (~30 seconds)
-5. Retry upload
+```bash
+# 1. Go to Firebase Console
+# 2. Navigate to Usage & Billing
+# 3. Upgrade to Blaze plan
+# 4. Set budget alert
+# 5. Try deployment again
+```
 
 ---
 
-### Issue 2: "Photo library permission denied"
-**Symptoms:** Image picker doesn't open, permission alert shows  
-**Cause:** Info.plist missing photo library usage description  
+### Issue 2: "OpenAI API key not found"
+**Symptoms:** Cloud Function fails with "API key missing"  
+**Cause:** Environment variable not set correctly  
 **Solution:**
-1. Open `messAI/Info.plist`
-2. Add key: `NSPhotoLibraryUsageDescription`
-3. Value: `"Select photos to send in messages"`
-4. Rebuild and run
-5. Permission alert will show correctly
+```bash
+# Verify .env file exists
+cat functions/.env
+
+# Should contain:
+# OPENAI_API_KEY=sk-proj-your-key-here
+
+# Set Firebase config
+firebase functions:config:set openai.key="sk-proj-your-key-here"
+
+# Verify
+firebase functions:config:get
+
+# Redeploy
+firebase deploy --only functions
+```
 
 ---
 
-### Issue 3: "Image too large, upload takes forever"
-**Symptoms:** Upload progress stuck at 10-20% for minutes  
-**Cause:** Image not compressed before upload  
+### Issue 3: "Rate limit exceeded" immediately
+**Symptoms:** First AI call returns rate limit error  
+**Cause:** Firestore counters not clearing properly  
 **Solution:**
-1. Verify `ImageCompressor.compress()` is called BEFORE upload
-2. Check compression settings: `maxSizeMB: 2.0`, `maxWidth: 1920`
-3. Test with `print("Compressed size: \(data.count / 1024 / 1024) MB")`
-4. Should be <2MB for any image
+```bash
+# Check Firestore console
+# Delete documents in rateLimits collection
+# Or wait 1 hour for counter to reset
+
+# Alternatively, increase limit temporarily in code:
+# functions/src/middleware/rateLimit.ts
+# Change RATE_LIMIT_PER_HOUR to 1000 for testing
+```
 
 ---
 
-### Issue 4: "Cannot resolve StorageService"
-**Symptoms:** Xcode error: "Cannot find 'StorageService' in scope"  
-**Cause:** StorageService file not added to Xcode project target  
+### Issue 4: "Function timed out"
+**Symptoms:** iOS app waits 30 seconds then fails  
+**Cause:** Cold start taking too long  
 **Solution:**
-1. Right-click `Services` folder in Xcode
-2. "New File" > Swift File
-3. Name: `StorageService.swift`
-4. Ensure "messAI" target is checked
-5. Add code from implementation checklist
+```bash
+# Check Firebase logs for actual error
+firebase functions:log
+
+# If OpenAI call is slow:
+# - Check OpenAI API status
+# - Try with shorter message
+# - Increase timeout in processAI.ts:
+#   timeoutSeconds: 60  # instead of 30
+```
 
 ---
 
-### Issue 5: "Image appears stretched or squished"
-**Symptoms:** Image aspect ratio incorrect in chat bubble  
-**Cause:** Missing or incorrect `aspectRatio` calculation  
+### Issue 5: "Unauthenticated" error from iOS
+**Symptoms:** Cloud Function rejects iOS request  
+**Cause:** User not logged in or auth token expired  
 **Solution:**
-1. Verify Message model has `imageWidth` and `imageHeight` fields
-2. Check `aspectRatio` computed property:
-   ```swift
-   var aspectRatio: Double? {
-       guard let width = imageWidth, let height = imageHeight, height > 0 else { return nil }
-       return Double(width) / Double(height)
-   }
-   ```
-3. Use in AsyncImage:
-   ```swift
-   .aspectRatio(message.aspectRatio ?? 1.0, contentMode: .fill)
-   ```
+```swift
+// Verify user is logged in
+if Auth.auth().currentUser == nil {
+    print("❌ User not logged in")
+    // Show login screen
+}
+
+// Get fresh token
+let token = try await Auth.auth().currentUser?.getIDToken()
+print("✅ Auth token:", token)
+```
 
 ---
 
-### Issue 6: "Upload progress doesn't update"
-**Symptoms:** Progress stays at 0%, then jumps to 100%  
-**Cause:** Progress handler not called on @MainActor  
+### Issue 6: TypeScript compilation errors
+**Symptoms:** `npm run build` fails  
+**Cause:** Missing type definitions or syntax errors  
 **Solution:**
-1. Verify progress callback uses Task/@MainActor:
-   ```swift
-   progressHandler: { [weak self] progress in
-       Task { @MainActor in
-           self?.imageUploadProgress = progress
-       }
-   }
-   ```
-2. Ensure ChatViewModel properties are @Published:
-   ```swift
-   @Published var imageUploadProgress: Double = 0.0
-   ```
+```bash
+cd functions
 
----
+# Install type definitions
+npm install @types/node --save-dev
 
-### Issue 7: "Pinch-zoom not working"
-**Symptoms:** Full-screen image doesn't zoom with pinch gesture  
-**Cause:** Gesture not attached or state not updating  
-**Solution:**
-1. Verify MagnificationGesture is attached to image:
-   ```swift
-   .gesture(
-       MagnificationGesture()
-           .onChanged { value in
-               scale = lastScale * value
-           }
-           .onEnded { _ in
-               lastScale = scale
-           }
-   )
-   ```
-2. Check `@State` variables exist:
-   ```swift
-   @State private var scale: CGFloat = 1.0
-   @State private var lastScale: CGFloat = 1.0
-   ```
+# Check for specific errors
+npm run build
+
+# Fix TypeScript errors shown in output
+```
 
 ---
 
 ## Quick Reference
 
-### Key Files
-- `Utilities/ImageCompressor.swift` - Compress and resize images
-- `Utilities/ImagePicker.swift` - UIKit picker wrapper
-- `Services/StorageService.swift` - Firebase Storage operations
-- `Models/Message.swift` - Image fields added
-- `ViewModels/ChatViewModel.swift` - Upload logic
-- `Views/Chat/MessageBubbleView.swift` - Image display
-- `Views/Chat/FullScreenImageView.swift` - Zoom viewer
-- `Views/Chat/MessageInputView.swift` - Image button
-- `firebase/storage.rules` - Security rules
+### Key Files Created
+- `functions/src/ai/processAI.ts` - Main AI router
+- `functions/src/middleware/auth.ts` - Authentication
+- `functions/src/middleware/rateLimit.ts` - Rate limiting
+- `functions/src/middleware/validation.ts` - Input validation
+- `Services/AIService.swift` - iOS wrapper
+- `Models/AIMetadata.swift` - AI result models
 
 ### Key Functions
-- `ImageCompressor.compress(_:maxSizeMB:maxWidth:)` - Compress image to target size
-- `ImageCompressor.createThumbnail(_:size:)` - Generate 200x200 thumbnail
-- `StorageService.uploadImage(_:conversationId:messageId:progressHandler:)` - Upload with progress
-- `ChatViewModel.sendImageMessage(_:)` - Complete upload + send flow
-- `MessageImageView` - Thumbnail display in bubble
-- `FullScreenImageView` - Full-screen viewer with zoom
+- `processAI()` - Main Cloud Function (routes AI requests)
+- `requireAuth()` - Middleware: check authentication
+- `checkRateLimit()` - Middleware: enforce 100 req/hour
+- `validateRequest()` - Middleware: check required fields
+- `AIService.processMessage()` - iOS: call Cloud Function
 
 ### Key Concepts
-- **Compression:** Always compress before upload (2MB max)
-- **Thumbnails:** Upload small thumbnail first (fast feedback)
-- **Progress:** Track upload 0-100%, update UI
-- **Storage Paths:** `/chat_images/{conversationId}/{messageId}.jpg`
-- **Security:** Only conversation participants can access images
-- **Optimistic UI:** Show thumbnail immediately, status updates later
+- **Cloud Functions**: Serverless backend (runs on Firebase)
+- **Rate Limiting**: Prevent abuse (100 requests/hour/user)
+- **Middleware**: Reusable logic (auth, rate limit, validation)
+- **Feature Router**: Route to appropriate AI function
+- **Placeholder Functions**: Return dummy data until PRs #15-20
 
 ### Useful Commands
 ```bash
-# Deploy Firebase Storage rules
-firebase deploy --only storage
+# Build TypeScript
+cd functions && npm run build
 
-# Check Firebase Storage usage
-firebase storage:usage
+# Deploy to Firebase
+firebase deploy --only functions
 
-# Clean Xcode build
-# Xcode > Product > Clean Build Folder (Cmd+Shift+K)
+# View logs
+firebase functions:log
 
-# Run on physical device (for camera)
-# Xcode > Select device > Run (Cmd+R)
+# Get Firebase config
+firebase functions:config:get
+
+# Set Firebase config
+firebase functions:config:set key="value"
 ```
 
 ---
 
 ## Success Metrics
 
-### You'll Know It's Working When:
-- [ ] **Compression:** 4K image becomes <2MB in <2 seconds
-- [ ] **Selection:** Photo library and camera pickers open correctly
-- [ ] **Upload:** Progress shows 0% → 100% smoothly over ~5-10 seconds
-- [ ] **Display:** Thumbnail appears in chat bubble immediately
-- [ ] **Tap:** Full-screen modal opens with full image
-- [ ] **Zoom:** Pinch gesture zooms 1x to 5x smoothly
-- [ ] **Cross-Device:** Send image from Device A, appears on Device B within 3 seconds
+**You'll know it's working when:**
+- [ ] Cloud Function shows as deployed in Firebase Console
+- [ ] Can call `AIService.processMessage()` from iOS
+- [ ] Request requires authentication (fails when logged out)
+- [ ] Rate limiting works (101st request fails)
+- [ ] Placeholder responses return with expected structure
+- [ ] Firebase logs show "AI request received" and "AI request completed"
+- [ ] No API keys visible in iOS app code
 
-### Performance Targets:
-- **Compression:** <2 seconds for 4K image
-- **Upload (WiFi):** <10 seconds for 2MB image
-- **Upload (4G):** <30 seconds for 2MB image
-- **Thumbnail gen:** <500ms
-- **Full-screen load:** <3 seconds (WiFi)
-
----
-
-## Help & Support
-
-### Stuck on Phase 1 (Image Utilities)?
-**Problem:** Compression not working correctly  
-**Debug:**
-1. Print image size before/after:
-   ```swift
-   print("Original size: \(image.size.width)x\(image.size.height)")
-   let compressed = ImageCompressor.compress(image)
-   print("Compressed bytes: \(compressed?.count ?? 0)")
-   ```
-2. Expected: Compressed bytes < 2,097,152 (2MB)
-3. Test with large image (4000x3000 from camera/web)
-4. If >2MB, check compression loop and quality reduction
+**Performance Targets:**
+- Cold start: < 3 seconds (first call)
+- Warm response: < 1 second (subsequent calls)
+- Total iOS → Cloud → iOS: < 2 seconds
+- Rate limit check: < 50ms
 
 ---
 
-### Stuck on Phase 2 (Storage Service)?
-**Problem:** Upload fails or doesn't complete  
-**Debug:**
-1. Check Firebase Storage is enabled (Console > Storage)
-2. Verify storage.rules deployed: `firebase deploy --only storage`
-3. Test with simple upload:
-   ```swift
-   let testData = "Test".data(using: .utf8)!
-   let ref = Storage.storage().reference().child("test.txt")
-   ref.putData(testData) { metadata, error in
-       print("Upload result: \(error?.localizedDescription ?? "Success")")
-   }
-   ```
-4. Check Firebase Console for uploaded file
+## Testing Your Implementation
+
+### Quick Test (2 minutes)
+```swift
+// Add to ChatListView or any view
+Button("Test AI Infrastructure") {
+    Task {
+        await testAI()
+    }
+}
+
+func testAI() async {
+    do {
+        let result = try await AIService.shared.processMessage(
+            "Soccer practice Thursday at 4pm",
+            feature: .calendar
+        )
+        print("✅ AI Test Success:", result)
+    } catch {
+        print("❌ AI Test Failed:", error)
+    }
+}
+```
+
+### Expected Output
+```
+📤 AIService: Calling Cloud Function for calendar
+✅ AIService: Received response from calendar
+✅ AI Test Success: [
+    "events": [],
+    "message": "Calendar extraction not yet implemented (PR #15)",
+    "processingTimeMs": 450,
+    "modelUsed": "gpt-4",
+    "processedAt": "2025-10-22T..."
+]
+```
+
+### If It Fails
+1. Check user is logged in
+2. Check Firebase Console for errors
+3. Check Firebase logs: `firebase functions:log`
+4. Verify API key is set
+5. Verify billing is enabled
 
 ---
 
-### Stuck on Phase 5 (UI Display)?
-**Problem:** Images don't show in chat  
-**Debug:**
-1. Check Message has valid URLs:
-   ```swift
-   print("Image URL: \(message.imageURL ?? "nil")")
-   print("Thumbnail URL: \(message.thumbnailURL ?? "nil")")
-   ```
-2. Test URL in browser - should download image
-3. Check AsyncImage phase:
-   ```swift
-   case .empty: print("Loading...")
-   case .success: print("Loaded!")
-   case .failure(let error): print("Failed: \(error)")
-   ```
-4. Verify MessageImageView added to MessageBubbleView
+## What Gets Built
+
+### Cloud Functions (TypeScript)
+- **Lines:** ~500 lines
+- **Files:** 11 files
+- **Features:** Auth, rate limiting, validation, 6 AI feature routers
+
+### iOS (Swift)
+- **Lines:** ~300 lines
+- **Files:** 3 files (AIService, AIMetadata, Message update)
+- **Features:** Type-safe wrapper, caching, error handling
+
+### Total Implementation
+- **Time:** 2-3 hours
+- **Lines of Code:** ~800 lines
+- **User-Visible Features:** 0 (pure infrastructure)
+- **AI Features Enabled:** 6 (via placeholders)
 
 ---
 
-### Want to Skip Optional Features?
-**Can Skip:**
-- Camera support (just use photo library) - Saves 5 min
-- Full-screen zoom (just show full image) - Saves 10 min
-- Upload progress (just show spinner) - Saves 15 min
+## What Comes After
 
-**Cannot Skip:**
-- Image compression (required for performance)
-- Firebase Storage (required for cloud sync)
-- Thumbnail generation (required for chat performance)
-- Message model updates (required for data structure)
+**Next PRs (each builds on this infrastructure):**
 
-**Impact:** Skipping camera reduces testing burden. Skipping zoom/progress reduces polish but core feature works.
+1. **PR #15: Calendar Extraction** (3-4h) 
+   - Implement `extractCalendarDates()`
+   - Detect dates/times in messages
+   - Display events in UI
 
----
+2. **PR #16: Decision Summarization** (3-4h)
+   - Implement `summarizeDecisions()`
+   - Summarize group chat decisions
+   - Show summaries in UI
 
-### Running Out of Time?
-**Priority Order:**
-1. **CRITICAL:** Compression + Upload + Display (Phases 1-3) - 75 min
-   - Without this: Images don't work at all
-2. **HIGH:** ViewModel + Basic Display (Phases 4-5) - 90 min
-   - Without this: Can't send or view images
-3. **MEDIUM:** Input + Full-screen (Phases 5-6) - 45 min
-   - Without this: Awkward UX but functional
-4. **LOW:** Testing + Polish (Phase 7) - 30 min
-   - Skip for MVP, test manually
+3. **PR #17: Priority Highlighting** (2-3h)
+   - Implement `detectUrgency()`
+   - Highlight urgent messages
+   - Color-code by priority
 
-**Minimum Viable:** Phases 1-5 = ~2 hours, gives working image sharing
+4. **PR #18: RSVP Tracking** (3-4h)
+   - Implement `extractRSVP()`
+   - Track event responses
+   - Show attendance lists
+
+5. **PR #19: Deadline Extraction** (3-4h)
+   - Implement `extractDeadlines()`
+   - Extract deadlines from messages
+   - Show deadline reminders
+
+6. **PR #20: Event Planning Agent** (5-6h) **+10 BONUS!**
+   - Implement `eventPlanningAgent()`
+   - Multi-step conversational AI
+   - Coordinate family events
 
 ---
 
 ## Motivation
 
-### You've Got This! 💪
+**Why This Matters:**
 
-**What's Already Built:**
-- ✅ Message model and Firestore conversion (PR #4)
-- ✅ ChatService infrastructure (PR #5)
-- ✅ Real-time messaging flow (PR #10)
-- ✅ Chat UI components (PR #9)
+This PR enables ALL AI features for busy parents. Without it:
+- ❌ Can't extract calendar dates from messages
+- ❌ Can't summarize group decisions
+- ❌ Can't highlight urgent messages
+- ❌ Can't track RSVPs
+- ❌ Can't extract deadlines
+- ❌ Can't build event planning agent
 
-**What You're Adding:**
-- 🎯 Image compression (45 min) - Straightforward utility
-- 🎯 Firebase Storage service (60 min) - Well-documented Firebase API
-- 🎯 UI components (60 min) - SwiftUI AsyncImage (easy!)
+With it:
+- ✅ Secure API key management (server-side only)
+- ✅ Cost control (rate limiting prevents abuse)
+- ✅ Flexible architecture (easy to add features)
+- ✅ Professional infrastructure (production-ready)
+- ✅ All AI features enabled (PRs #15-20 can proceed)
 
-**Why This PR is Achievable:**
-- Most code is straightforward utilities
-- Firebase Storage SDK handles complexity
-- SwiftUI AsyncImage makes display easy
-- Image picker is standard iOS component
-- Pattern follows existing messaging flow
-
-**Previous PR Success:**
-- PR #10 (Real-Time Messaging) estimated 2-3h, actual 1.5h ✓
-- PR #11 (Message Status) estimated 2-3h, actual 45 min ✓
-- PR #5 (Chat Service) estimated 3-4h, actual 1h ✓
-
-**You're experienced now!** This PR builds on what you know.
+**Think of it as:** Building the foundation before the house. Not exciting, but absolutely necessary.
 
 ---
 
-## Next Steps
+## Status
 
-**When ready to start:**
-1. ✅ Read this quick start (done!)
-2. Read main spec (`PR14_IMAGE_SHARING.md`) - 35 min
-3. Open implementation checklist (`PR14_IMPLEMENTATION_CHECKLIST.md`)
-4. Create feature branch: `git checkout -b feature/pr14-image-sharing`
-5. Start Phase 1: Image Utilities
-6. Check off tasks as you complete them
-7. Commit after each phase
-8. Celebrate when done! 🎉
+**Ready to build!** 🚀
 
-**Estimated Total Time:** 2-3 hours for complete, polished image sharing
-
-**What You'll Have After:** Users can select images from library or camera, automatically compress to <2MB, upload with progress tracking, view thumbnails in chat, tap for full-screen with pinch-zoom, and receive images from others in real-time. **Complete multimedia messaging!** 🚀
+**Next Step:** Open `PR14_IMPLEMENTATION_CHECKLIST.md` and start Phase 1.
 
 ---
 
-**Status:** 📋 PLANNED - Ready to build!
+*"The best infrastructure is invisible until you need it."*
 
-**Next After This:** PR #15 (Offline Support) or PR #13 (Group Chat) - both are independent features!
+**You've got this!** 💪
+
+---
 

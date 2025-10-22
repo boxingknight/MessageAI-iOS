@@ -1,16 +1,36 @@
 # MessageAI - Project Brief
 
-**Last Updated**: October 20, 2025  
+**Last Updated**: October 22, 2025  
 **Platform**: iOS (Swift + SwiftUI)  
-**Backend**: Firebase (Firestore, Auth, Storage, Cloud Messaging)  
-**Timeline**: 24-hour MVP, extensible to full feature set  
+**Backend**: Firebase (Firestore, Auth, Storage, Cloud Messaging) + **Cloud Functions + OpenAI**  
+**Timeline**: Core messaging complete (PRs 1-13), now building AI features (PRs 14-20)  
 **Developer**: Isaac Jaramillo
 
 ---
 
-## Mission Statement
+## 🎯 STRATEGIC PIVOT (October 22, 2025)
 
-Build a production-quality messaging application for iOS that demonstrates solid messaging infrastructure with real-time sync, offline support, and group chat capabilities. The MVP focuses on reliability over feature count, following the WhatsApp model of simple, fast, and dependable communication.
+### Original Mission: ✅ COMPLETE!
+Built a production-quality messaging application for iOS with solid messaging infrastructure, real-time sync, offline support, and group chat capabilities. The foundation follows the WhatsApp model of simple, fast, and dependable communication.
+
+**Status**: Core messaging complete (PRs 1-13)! 🎉
+
+### New Mission: AI-Powered Messaging for Busy Parents
+Now building on this solid foundation to add **5 required AI features + 1 advanced agent** that help busy parents manage family coordination:
+
+**5 Required AI Features:**
+1. 📅 **Calendar Extraction** - Auto-detect dates, times, events from messages
+2. 🎯 **Decision Summarization** - Summarize group decisions and action items
+3. ⚡ **Priority Highlighting** - Highlight urgent/important messages visually
+4. ✅ **RSVP Tracking** - Track who responded yes/no/maybe to events
+5. 📆 **Deadline Extraction** - Extract and track deadlines from conversations
+
+**Advanced Feature (+10 bonus points):**
+6. 🤖 **Multi-Step Event Planning Agent** - Conversational AI agent for coordinating family events
+
+**Target User**: Sarah, 34, working mom with 2 kids, manages 100+ messages/day across family, school, and work groups.
+
+**Success Metric**: Sarah can confidently manage all her group chats in 10 minutes per day instead of 45 minutes.
 
 ---
 
@@ -19,17 +39,27 @@ Build a production-quality messaging application for iOS that demonstrates solid
 ### Primary Goal
 Create a messaging app that **never loses messages** and delivers them reliably under any network conditions—the foundation of trust in a messaging platform.
 
-### Success Criteria (MVP - 24 Hours)
-1. ✅ One-on-one chat with real-time delivery (1-2 seconds)
-2. ✅ Group chat with 3+ participants
-3. ✅ Messages persist through app restarts and force quits
-4. ✅ Optimistic UI (messages appear instantly)
-5. ✅ Online/offline presence indicators
-6. ✅ Typing indicators
-7. ✅ Message read receipts (sent/delivered/read)
-8. ✅ Basic image sharing
-9. ✅ Push notifications (foreground minimum)
+### Success Criteria
+
+**Core Messaging (PRs 1-13):** ✅ **COMPLETE!**
+1. ✅ User authentication with Firebase Auth
+2. ✅ One-on-one chat with real-time delivery (1-2 seconds)
+3. ✅ Group chat with 3+ participants
+4. ✅ Messages persist through app restarts and force quits
+5. ✅ Optimistic UI (messages appear instantly)
+6. ✅ Online/offline presence indicators
+7. ✅ Typing indicators
+8. ✅ Message read receipts (sent/delivered/read)
+9. ✅ WhatsApp-quality status indicators
 10. ✅ Offline message queuing with automatic sync
+
+**AI Features (PRs 14-20):** ⏳ **IN PROGRESS**
+1. ⏳ Calendar Extraction (Date/time/event detection from messages)
+2. ⏳ Decision Summarization (Group decision and action item summaries)
+3. ⏳ Priority Highlighting (Urgent/important message detection)
+4. ⏳ RSVP Tracking (Yes/no/maybe response tracking for events)
+5. ⏳ Deadline Extraction (Deadline detection and tracking)
+6. ⏳ Multi-Step Event Planning Agent (Advanced conversational agent) **+10 bonus!**
 
 ### Technical Requirements
 - **Real-Time Messaging**: Messages deliver within 1-2 seconds for online users
@@ -56,10 +86,19 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 - Local persistence with SwiftData
 - Profile management (display name, profile picture)
 
-### Out of Scope (Future/AI Features)
+### Now In Scope (AI Features - PRs 14-20)
+- ✅ Calendar extraction (dates, times, events)
+- ✅ Decision summarization (group decisions & action items)
+- ✅ Priority highlighting (urgent/important visual indicators)
+- ✅ RSVP tracking (yes/no/maybe for events)
+- ✅ Deadline extraction and tracking
+- ✅ Multi-step event planning agent (advanced conversational AI) **+10 bonus!**
+- ✅ Cloud Functions for AI processing
+- ✅ OpenAI GPT-4 integration
+- ✅ RAG pipeline for conversation context
+
+### Out of Scope (Future Features)
 - Message translation
-- Conversation summarization
-- AI-powered message suggestions
 - Voice/video calling
 - Message reactions/emojis
 - Message editing/deletion
@@ -67,6 +106,7 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 - Stories/status updates
 - Location sharing
 - Contact sync from phone
+- Image sharing (deferred)
 
 ---
 
@@ -125,27 +165,38 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 
 ---
 
-## Project Phases
+## Project Phases (REVISED)
 
-### Phase 1: Foundation (Hours 0-8)
-- **PR #1-3**: Project setup, Firebase config, authentication UI
+### Phase 1: Foundation ✅ **COMPLETE** (PRs #1-3)
+- **PRs**: Project setup, Firebase config, authentication UI
 - **Goal**: Users can sign up and log in
-- **Deliverable**: Working auth flow
+- **Status**: ✅ Complete - Working auth flow
 
-### Phase 2: Core Messaging (Hours 8-16)
-- **PR #4-11**: Models, chat service, UI, real-time delivery, message status
-- **Goal**: Two users can message each other in real-time
-- **Deliverable**: Working one-on-one chat
+### Phase 2: Core Messaging ✅ **COMPLETE** (PRs #4-13)
+- **PRs**: Models, chat service, UI, real-time delivery, message status, presence, typing, group chat
+- **Goal**: Two users can message each other in real-time with full features
+- **Status**: ✅ Complete - WhatsApp-quality messaging
 
-### Phase 3: Enhanced Features (Hours 16-20)
-- **PR #12-15**: Presence, typing, group chat, images, offline support
-- **Goal**: Feature-complete MVP
-- **Deliverable**: Group chat, images, offline queue
+### Phase 3: AI Features ⏳ **IN PROGRESS** (PRs #14-20) **NEW!**
+- **PR #14**: Cloud Functions Setup & AI Service Base (2-3h)
+- **PR #15**: Calendar Extraction Feature (3-4h)
+- **PR #16**: Decision Summarization Feature (3-4h)
+- **PR #17**: Priority Highlighting Feature (2-3h)
+- **PR #18**: RSVP Tracking Feature (3-4h)
+- **PR #19**: Deadline Extraction Feature (3-4h)
+- **PR #20**: Multi-Step Event Planning Agent (5-6h) **+10 bonus!**
+- **Goal**: AI-powered messaging for busy parents with advanced agent
+- **Status**: ⏳ Next phase
 
-### Phase 4: Polish & Deploy (Hours 20-24)
-- **PR #16-22**: Profile, notifications, error handling, testing, docs
-- **Goal**: Production-ready app
-- **Deliverable**: Deployed, documented, demo-ready
+### Phase 4: Essential Polish (PRs #21-25)
+- **PRs**: Offline support, push notifications, image sharing, profile, error handling
+- **Goal**: Complete core app features
+- **Status**: ⏳ Pending
+
+### Phase 5: Final Polish & Deploy (PRs #26-28)
+- **PRs**: UI polish, testing, documentation, demo video
+- **Goal**: Production-ready app ready for submission
+- **Status**: ⏳ Pending
 
 ---
 
@@ -159,12 +210,22 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 - **Image Handling**: AsyncImage, UIImagePickerController
 - **Networking**: Built into Firebase SDK
 
-### Backend (Firebase)
+### Backend (Firebase + AI) **ENHANCED!**
 - **Authentication**: Firebase Auth (email/password)
 - **Database**: Cloud Firestore (real-time NoSQL)
 - **Storage**: Firebase Storage (images/media)
 - **Messaging**: Firebase Cloud Messaging (push notifications)
-- **Functions**: Cloud Functions (notification triggers)
+- **Functions**: Cloud Functions (Node.js 18+) - **Enhanced for AI!**
+  - Notification triggers
+  - **AI service endpoints** (summarize, replies, action items, importance)
+  - **RAG pipeline** (conversation context retrieval)
+  - **OpenAI integration** (GPT-4)
+
+### AI Infrastructure **NEW!**
+- **OpenAI API**: GPT-4 for AI features
+- **Cloud Functions**: Serverless AI endpoints
+- **RAG Pipeline**: Conversation context for AI
+- **iOS AIService**: Type-safe Swift wrapper
 
 ### Development Tools
 - **IDE**: Xcode 15+
@@ -227,23 +288,34 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 
 ## Current Status
 
-**Project Stage**: 🟢 INITIALIZED  
-**Code State**: Fresh Xcode project created, no implementation yet  
-**Next Action**: Begin PR #1 - Project Setup & Firebase Configuration
+**Project Stage**: 🚀 **AI INTEGRATION PHASE** (PRs 1-13 complete!)  
+**Code State**: Core messaging complete, ready for AI features  
+**Next Action**: PR #14 - AI Infrastructure Setup (Cloud Functions + OpenAI)
 
 **Date Started**: October 20, 2025  
-**Target MVP Completion**: October 21, 2025 (24 hours)
+**Core Messaging Complete**: October 21, 2025 (PRs 1-13)  
+**Strategic Revision**: October 22, 2025 (New AI direction)  
+**Current Phase**: Building AI features (PRs 14-20)
+
+**Completed PRs**: 13/28 (46%)  
+**Lines of Code**: ~4,000+ Swift, 100+ Firestore rules  
+**Documentation**: ~250,000+ words in PR_PARTY  
+**Next PR**: #14 - Cloud Functions Setup & AI Service Base
 
 ---
 
 ## Key Decisions
 
-### Why Firebase?
-- Real-time sync built-in (saves weeks of development)
-- Offline persistence out-of-the-box
-- Authentication is 10 lines of code
-- Scales to production usage
-- Cloud Functions ready for future AI features
+### Why Firebase + Cloud Functions + OpenAI?
+- Real-time sync built-in (saves weeks of development) ✅
+- Offline persistence out-of-the-box ✅
+- Authentication is 10 lines of code ✅
+- Scales to production usage ✅
+- Cloud Functions perfect for AI processing **✅ NOW USING!**
+- Secure API key management (server-side)
+- Serverless architecture (no server maintenance)
+- RAG pipeline with Firestore integration
+- OpenAI for state-of-the-art AI features
 
 ### Why SwiftUI?
 - Fastest development for iOS
@@ -263,9 +335,20 @@ Create a messaging app that **never loses messages** and delivers them reliably 
 
 ## Reference Documents
 
-- **PRD**: `/messageai_prd.md` - Complete product requirements (811 lines)
-- **Task List**: `/messageai_task_list.md` - PR breakdown with 23 PRs (1601 lines)
+### Original Documents
+- **Original PRD**: `/messageai_prd.md` - Complete product requirements (811 lines)
+- **Original Task List**: `/messageai_task_list.md` - PR breakdown with 23 PRs (1601 lines)
+
+### Revised Documents **NEW!**
+- **Revised PRD**: `/REVISED_PRD.md` - Updated with busy parent persona and AI features
+- **Revised Task List**: `/REVISED_TASK_LIST.md` - Reorganized PRs 14-20 for AI integration
+- **Revision Summary**: `/REVISION_SUMMARY.md` - Detailed explanation of strategic changes
+- **Quick Start Guide**: `/QUICK_START_GUIDE.md` - Visual implementation guide
+- **README Revision**: `/README_REVISION.md` - Final summary document
+
+### Project Files
 - **Xcode Project**: `/messAI.xcodeproj` - iOS project configuration
+- **PR Documentation**: `/PR_PARTY/` - 92 comprehensive planning documents (~250K+ words)
 
 ---
 

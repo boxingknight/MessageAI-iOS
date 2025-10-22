@@ -1,6 +1,48 @@
 # MessageAI - Technical Context
 
-**Last Updated**: October 20, 2025
+**Last Updated**: October 22, 2025
+
+---
+
+## 🎯 NEW: AI Technology Stack (October 22, 2025)
+
+### AI Backend Infrastructure
+
+#### Cloud Functions (Node.js 18+)
+- **Purpose**: Serverless AI endpoints and RAG pipeline
+- **Runtime**: Node.js 18+ on Firebase Cloud Functions
+- **Features**:
+  - AI service endpoints (summarize, replies, action items)
+  - RAG pipeline (conversation context retrieval)
+  - OpenAI API integration
+  - Authentication and authorization
+  - Error handling and retries
+
+#### OpenAI API
+- **Model**: GPT-4 (or GPT-3.5-turbo for cost optimization)
+- **Purpose**: AI-powered features
+- **Features**:
+  - Conversation summarization
+  - Quick reply generation
+  - Action item extraction
+  - Importance classification
+  - Context-aware responses
+
+#### iOS AI Service Layer
+- **AIService.swift**: Client-side wrapper for AI features
+- **Purpose**: Type-safe Swift interface to Cloud Functions
+- **Features**:
+  - Async/await API calls
+  - Result caching
+  - Loading state management
+  - Error handling
+
+### AI Feature Set (5 Required Features)
+1. **Smart Message Summaries** - GPT-4 conversation summarization
+2. **Intelligent Notifications** - ML-based importance detection
+3. **Quick Reply Suggestions** - Context-aware reply generation
+4. **Action Item Extraction** - NLP entity extraction
+5. **Message Importance Detection** - Priority classification
 
 ---
 
@@ -179,13 +221,17 @@ Messaging.messaging().token { token, error in
 }
 ```
 
-#### 5. Cloud Functions (Node.js)
-- **Purpose**: Server-side logic (notifications, automation)
+#### 5. Cloud Functions (Node.js) **ENHANCED!**
+- **Purpose**: Server-side logic (notifications, AI features)
 - **Runtime**: Node.js 18+
-- **Triggers**: Firestore document events
+- **Triggers**: Firestore document events, HTTP callable functions
+- **Dependencies**: 
+  - `firebase-functions` - Cloud Functions SDK
+  - `firebase-admin` - Firebase Admin SDK
+  - `openai` - OpenAI Node.js SDK
 
 ```javascript
-// Cloud Function Example
+// Cloud Function Example: Push Notifications
 exports.sendNotification = functions.firestore
   .document('conversations/{conversationId}/messages/{messageId}')
   .onCreate(async (snap, context) => {
@@ -211,6 +257,157 @@ exports.sendNotification = functions.firestore
       }
     }
   });
+
+// **NEW!** AI Cloud Functions
+exports.summarizeConversation = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+  }
+  
+  const { conversationId } = data;
+  
+  // Fetch conversation messages (RAG pipeline)
+  const messages = await admin.firestore()
+    .collection('conversations')
+    .doc(conversationId)
+    .collection('messages')
+    .orderBy('sentAt', 'desc')
+    .limit(50)
+    .get();
+  
+  // Build context
+  const messageTexts = messages.docs
+    .reverse()
+    .map(doc => `${doc.data().senderName}: ${doc.data().text}`)
+    .join('\n');
+  
+  // Call OpenAI
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content: "Summarize conversations for busy parents. Highlight dates, times, action items, and decisions."
+      },
+      {
+        role: "user",
+        content: `Summarize:\n\n${messageTexts}`
+      }
+    ],
+    max_tokens: 200
+  });
+  
+  return {
+    summary: completion.choices[0].message.content,
+    messageCount: messages.size
+  };
+});
+
+exports.generateReplies = functions.https.onCall(async (data, context) => {
+  // Similar pattern for quick reply suggestions
+});
+
+exports.extractActionItems = functions.https.onCall(async (data, context) => {
+  // Similar pattern for action item extraction
+});
+
+exports.detectImportance = functions.https.onCall(async (data, context) => {
+  // Similar pattern for importance detection
+});
+```
+
+---
+
+### OpenAI Integration (NEW!)
+
+#### OpenAI SDK Setup
+```javascript
+// functions/index.js
+const OpenAI = require('openai');
+
+const openai = new OpenAI({
+  apiKey: functions.config().openai.key
+});
+```
+
+#### Environment Configuration
+```bash
+# Set OpenAI API key
+firebase functions:config:set openai.key="sk-xxxxxxxxxxxxx"
+
+# View current config
+firebase functions:config:get
+```
+
+#### iOS Service Layer
+```swift
+// Services/AIService.swift
+class AIService {
+    private let functionsURL = "https://us-central1-messageai.cloudfunctions.net"
+    
+    // AI Feature 1: Smart Summaries
+    func summarizeConversation(conversationId: String) async throws -> ConversationSummary {
+        let url = URL(string: "\(functionsURL)/summarizeConversation")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = ["conversationId": conversationId]
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(ConversationSummary.self, from: data)
+    }
+    
+    // AI Feature 2: Quick Replies
+    func generateReplies(conversationId: String) async throws -> [String] {
+        // Similar pattern...
+    }
+    
+    // AI Feature 3: Action Items
+    func extractActionItems(conversationId: String) async throws -> [ActionItem] {
+        // Similar pattern...
+    }
+    
+    // AI Feature 4: Importance Detection
+    func detectImportance(messageText: String, conversationContext: String) async throws -> ImportanceLevel {
+        // Similar pattern...
+    }
+}
+```
+
+#### Data Models for AI Features
+```swift
+// Models/AI/ConversationSummary.swift
+struct ConversationSummary: Codable {
+    let summary: String
+    let messageCount: Int
+    let timestamp: Date
+    let keyTopics: [String]?
+    let actionItems: [String]?
+}
+
+// Models/AI/ActionItem.swift
+struct ActionItem: Codable, Identifiable {
+    let id: String
+    let text: String
+    let extractedFrom: String // message ID
+    let dueDate: Date?
+    let priority: Priority
+    
+    enum Priority: String, Codable {
+        case high, medium, low
+    }
+}
+
+// Models/AI/ImportanceLevel.swift
+enum ImportanceLevel: String, Codable {
+    case urgent      // Needs immediate attention
+    case high        // Important, respond soon
+    case normal      // Regular message
+    case low         // FYI, can wait
+}
 ```
 
 ---

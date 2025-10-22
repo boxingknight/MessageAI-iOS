@@ -1206,6 +1206,42 @@ class ChatService {
         print("[ChatService] Demoted \(userId) from admin in group: \(conversationId)")
     }
     
+    // MARK: - Conversation Deletion
+    
+    /// Deletes a conversation and all its messages from Firebase
+    /// - Parameter conversationId: The ID of the conversation to delete
+    func deleteConversation(conversationId: String) async throws {
+        do {
+            print("🗑️ Deleting conversation: \(conversationId)")
+            
+            // Delete all messages in this conversation
+            let messagesSnapshot = try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .getDocuments()
+            
+            // Use batch to delete messages efficiently
+            let messageBatch = db.batch()
+            for messageDoc in messagesSnapshot.documents {
+                messageBatch.deleteDocument(messageDoc.reference)
+            }
+            try await messageBatch.commit()
+            
+            print("   Deleted \(messagesSnapshot.documents.count) messages")
+            
+            // Delete the conversation document
+            try await db.collection("conversations")
+                .document(conversationId)
+                .delete()
+            
+            print("✅ Successfully deleted conversation: \(conversationId)")
+            
+        } catch {
+            print("❌ Error deleting conversation: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Cleanup
     
     /// Removes all active listeners
