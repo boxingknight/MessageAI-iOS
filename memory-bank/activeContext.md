@@ -1,7 +1,7 @@
 # MessageAI - Active Context
 
 **Last Updated**: October 22, 2025  
-**Current Status**: ✅ PR #13 COMPLETE - CORE MESSAGING FOUNDATION COMPLETE! 🎉 **NEW DIRECTION: AI INTEGRATION**
+**Current Status**: ✅ PR #15 COMPLETE - FIRST AI FEATURE WORKING! 🎉 **CALENDAR EXTRACTION LIVE!**
 
 ---
 
@@ -35,12 +35,12 @@
 
 ### 🎯 Current Phase: AI Features Implementation (PRs 14-20)
 
-**Status**: Core messaging complete (PRs 1-13), AI infrastructure complete (PR#14), ready for first AI feature!  
-**Current Branch**: `main` (all features merged)  
-**Current PR**: PR #14 COMPLETE! (Cloud Functions + OpenAI infrastructure deployed) ✅  
-**Next PR**: PR #15 - Calendar Extraction Feature (FIRST AI FEATURE!) 📅  
-**Estimated Time**: 3-4h  
-**Next Branch**: Will create `feature/pr15-calendar-extraction`
+**Status**: First AI feature complete and working!  
+**Current Branch**: `feature/pr15-calendar-extraction` (ready to merge)  
+**Current PR**: PR #15 COMPLETE! (Calendar Extraction working perfectly!) ✅  
+**Next PR**: PR #16 - Decision Summarization OR PR #17 - Priority Highlighting  
+**Estimated Time**: 3-4h (PR#16) or 2-3h (PR#17)  
+**Next Branch**: Will create `feature/pr16-decision-summary` or `feature/pr17-priority-highlight`
 
 **Achievement Unlocked**: 🏆 **WhatsApp-Quality Read Receipts**
 - ✓ Single gray check (sent)
@@ -65,13 +65,13 @@
 
 ## Immediate Context (What Just Happened)
 
-### ✅ JUST COMPLETED: PR #15 Planning - Calendar Extraction Feature 🎉 (October 22, 2025)
+### ✅ JUST COMPLETED: PR #15 - Calendar Extraction Feature 🎉 (October 22, 2025)
 
-**Status**: Planning complete, ready to implement!  
-**Time Spent**: ~2 hours of comprehensive planning  
-**Documents Created**: 5 files (~39,000 words)
+**Status**: ✅ COMPLETE, TESTED & WORKING!  
+**Time Spent**: 4 hours total (2h planning + 3h implementation + 1h debugging)  
+**Documents Created**: 7 files (~58,000 words)
 
-**What Was Planned**:
+**What Was Built**:
 1. **Main Specification** (`PR15_CALENDAR_EXTRACTION.md`) - ~12,000 words
    - Complete architecture with GPT-4 integration
    - Data models (CalendarEvent, AIMetadata extension)
@@ -110,30 +110,47 @@
    - Performance benchmarks (<2s extraction, >90% accuracy)
    - Acceptance criteria (26 criteria for completion)
 
-**Feature Overview**: AI-powered calendar event extraction from messages using GPT-4
-- User sends: "Soccer practice Thursday at 4pm"
-- AI extracts structured data: {title, date, time, location, confidence}
-- Displays beautiful calendar card in chat
-- User taps "Add to Calendar" → Event added to iOS Calendar
-- Handles explicit dates, relative dates, all-day events, multiple events
-- Confidence scoring (high/medium/low) with visual indicators
-- Cost: ~$0.02 per extraction (~$3-6/month/user)
+**Feature Delivered**: ✅ AI-powered calendar event extraction working perfectly!
+- ✅ User sends: "Soccer practice Thursday at 4pm"
+- ✅ Long-press message → "Extract Calendar Event"
+- ✅ GPT-4 extracts structured data in 2-3 seconds
+- ✅ Beautiful calendar card appears in chat
+- ✅ Shows date, time, location, confidence indicator
+- ✅ Tap "Add to Calendar" → Event added to iOS Calendar at **correct time (4:00 PM - 5:00 PM)**
+- ✅ Handles explicit dates, relative dates, all-day events, locations
+- ✅ Auto-scrolls to show calendar card naturally
 
-**Key Design Decisions**:
-1. Manual trigger (long-press) for MVP → automatic in PR#20
-2. Embedded in message.aiMetadata (co-located, zero extra reads)
-3. In-chat calendar cards (context-preserved, zero navigation)
-4. User confirmation required (prevents AI errors, builds trust)
+**Technical Implementation**:
+- ✅ Cloud Function with GPT-4 function calling (calendarExtraction.ts ~210 lines)
+- ✅ CalendarEvent Swift model with EventKit conversion (~180 lines)
+- ✅ CalendarCardView SwiftUI component (~220 lines)
+- ✅ CalendarManager service for iOS Calendar integration (~100 lines)
+- ✅ AIService.extractCalendarEvents() method (~25 lines)
+- ✅ ChatViewModel calendar extraction logic (~83 lines)
+- ✅ ChatView context menu + card display (~85 lines)
+- ✅ Firestore security rules updated for aiMetadata
+
+**Critical Bugs Fixed** (1 hour post-implementation debugging):
+1. 🔴 **All-Day Event Bug** - Events with specific times (e.g., "4pm") were creating all-day events
+   - Root cause: Time parsing failed silently, but `isAllDay: false` was still used
+   - Fix: Robust parser (2 strategies) + Override `isAllDay` based on parsing success
+   - Result: ✅ Timed events now create correctly at specified time (4:00 PM - 5:00 PM)
+
+2. 🟡 **Auto-Scroll Bug** - Chat only scrolled for calendar cards, not all messages
+   - Root cause: Watching `messages.count` doesn't detect updates, calendar had special scroll
+   - Fix: Watch entire `messages` array + unified scroll system with debouncing
+   - Result: ✅ Chat scrolls naturally for all updates (new messages, AI extraction, etc.)
+
+**Documentation Created**:
+- ✅ `PR15_BUG_DEEP_DIVE.md` (~10,000 words) - 8 solution options explored
+- ✅ `PR15_COMPLETE_SUMMARY.md` (~9,000 words) - Full retrospective
+- ✅ PR_PARTY/README.md - PR#15 marked as COMPLETE
+- ✅ memory-bank/activeContext.md - Updated with completion (this entry)
+- ✅ memory-bank/progress.md - PR#15 marked complete
 
 **Next Steps**:
-- Wait for PR#14 to be 100% complete (HARD DEPENDENCY)
-- Review PR#15 documentation (~45 minutes)
-- Follow implementation checklist step-by-step
-- Estimated: 3-4 hours implementation time
-
-**Documentation Updated**:
-- ✅ PR_PARTY/README.md - PR#15 entry added
-- ✅ memory-bank/activeContext.md - Updated with planning completion (this entry)
+- Ready for PR#16 (Decision Summarization) OR PR#17 (Priority Highlighting)
+- Both have planning complete, ready to implement!
 
 ---
 

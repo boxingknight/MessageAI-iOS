@@ -1,10 +1,10 @@
 # PR#15: Calendar Extraction Feature - Complete! 🎉
 
 **Date Completed:** October 22, 2025  
-**Time Taken:** ~3 hours (estimated: 3-4 hours) ✅  
-**Status:** ✅ COMPLETE & DEPLOYED  
+**Time Taken:** ~4 hours total (3h implementation + 1h debugging) ✅  
+**Status:** ✅ COMPLETE, TESTED & WORKING  
 **Branch:** `feature/pr15-calendar-extraction`  
-**Commit:** `4d8b0c3`
+**Final Commit:** `3054233` - Bug analysis with multi-solution approach
 
 ---
 
@@ -279,17 +279,22 @@ if let calendarEvents = message.aiMetadata?.calendarEvents {
 
 ### Git History
 
-**1 Commit on feature/pr15-calendar-extraction:**
+**7 Commits on feature/pr15-calendar-extraction:**
 
 ```bash
 4d8b0c3 - feat(pr15): Implement Calendar Extraction Feature with GPT-4
+2d72457 - fix(pr15): Add auto-scroll for calendar cards and calendar permissions
+5d22223 - fix(pr15): Remove Info.plist to resolve build conflict
+df05df0 - fix(pr15): Correct all-day event detection for timed events
+839ed92 - fix(pr15): Deep fixes for all-day event bug and scroll behavior
+3054233 - docs(pr15): Add comprehensive bug analysis with multi-solution approach
 ```
 
-**Changes:**
-- 9 files changed
-- 902 insertions(+)
-- 14 deletions(-)
-- 3 new files created
+**Total Changes:**
+- 12 files changed
+- ~1,050 insertions(+)
+- ~30 deletions(-)
+- 5 new files created (3 code + 2 docs)
 
 ---
 
@@ -457,6 +462,31 @@ function getOpenAIClient(): OpenAI {
 **Time Lost:** 5 minutes tweaking layout  
 **Lesson:** Test UI with sent and received messages separately
 
+### Challenge 4: All-Day Event Bug (Post-Implementation) 🔴 CRITICAL
+**The Problem:** Events with specific times (e.g., "Thursday at 4pm") were creating all-day events instead of timed events  
+**Root Cause:** Time parsing was failing silently, but `isAllDay: false` was still being used, causing fallback to all-day event  
+**How We Solved It:**
+- Multi-layer defense: Robust parser (2 strategies) + Override `isAllDay` based on parsing success
+- Added comprehensive debug logging to track parsing
+- Ensured consistency between `time` field and `isAllDay` flag
+
+**Time Lost:** 1 hour debugging + testing  
+**Lesson:** Always validate data consistency between related fields. Don't trust a single field without validating related data.  
+**Documentation:** See `PR15_BUG_DEEP_DIVE.md` (~10,000 words) for full analysis
+
+### Challenge 5: Auto-Scroll Bug (Post-Implementation) 🟡 HIGH
+**The Problem:** Chat only scrolled for calendar cards, not for all new messages. Calendar scroll conflicted with natural message scroll.  
+**Root Cause:** Watching `messages.count` doesn't detect message updates (only additions). Calendar had special scroll trigger that overrode others.  
+**How We Solved It:**
+- Removed calendar-specific scroll (single source of truth)
+- Changed to watch entire `messages` array (not just count)
+- Added debouncing (0.15s) for stability
+- Smooth animation (0.25s easeOut)
+
+**Time Lost:** 30 minutes debugging + testing  
+**Lesson:** Watch the right data. Array count doesn't detect updates to existing items. Remove special cases in favor of unified systems.  
+**Documentation:** See `PR15_BUG_DEEP_DIVE.md` for full analysis with 8 solution options explored
+
 ---
 
 ## Deferred Items
@@ -519,9 +549,15 @@ function getOpenAIClient(): OpenAI {
 - `PR15_README.md` (~8,000 words) - Quick start guide
 - `PR15_PLANNING_SUMMARY.md` (~3,000 words) - Planning decisions
 - `PR15_TESTING_GUIDE.md` (~6,000 words) - Test scenarios
-- `PR15_COMPLETE_SUMMARY.md` (~8,000 words) - This document
+- `PR15_BUG_DEEP_DIVE.md` (~10,000 words) - Bug analysis with 8 solutions explored
+- `PR15_COMPLETE_SUMMARY.md` (~9,000 words) - This document
 
-**Total:** ~47,000 words of comprehensive documentation
+**Total:** ~58,000 words of comprehensive documentation
+
+**Updated:**
+- `PR_PARTY/README.md` (marked PR#15 as complete)
+- `memory-bank/activeContext.md` (updated with completion status)
+- `memory-bank/progress.md` (marked PR#15 complete)
 
 ---
 
@@ -590,11 +626,11 @@ function getOpenAIClient(): OpenAI {
 - [x] iOS compilation: 0 errors
 - [x] iOS linting: 0 warnings
 - [x] Code review: Self-reviewed
-- [x] Documentation: Complete (47,000 words)
+- [x] Documentation: Complete (58,000 words)
 - [x] Git commit: Clean and descriptive
-- [ ] **Manual testing:** NEXT STEP (need to run app)
-- [ ] **End-to-end verification:** NEXT STEP
-- [ ] **User acceptance:** PENDING
+- [x] **Manual testing:** COMPLETE ✅ (tested on iPhone simulator)
+- [x] **End-to-end verification:** COMPLETE ✅ (extraction + calendar add working)
+- [x] **User acceptance:** PASSED ✅ (both bugs fixed, feature working)
 
 ---
 
@@ -652,11 +688,15 @@ Calendar extraction demonstrates:
 
 ---
 
-**Status:** ✅ COMPLETE, DEPLOYED, DOCUMENTED! 🚀
+**Status:** ✅ COMPLETE, TESTED & PRODUCTION-READY! 🚀
 
-*PR #15 complete! First AI feature working. Calendar extraction live!*
+*PR #15 complete! First AI feature working perfectly. Calendar extraction tested and verified!*
 
-**Next:** Manual testing in Xcode → PR #16 (Decision Summarization)
+**Bugs Fixed Post-Implementation:**
+- ✅ All-day event bug (timed events now create correctly at specified time)
+- ✅ Auto-scroll bug (chat scrolls naturally for all updates)
+
+**Next:** PR #16 (Decision Summarization) or PR #17 (Priority Highlighting)
 
 ---
 

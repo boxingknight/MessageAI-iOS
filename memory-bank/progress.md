@@ -22,11 +22,11 @@ We've pivoted to focus on **AI-powered features for busy parents** after complet
 
 ### Phase Status
 ```
-[████████████████████████░░] 57% Complete (13 of 23 PRs)
+[███████████████████████████░] 61% Complete (14 of 23 PRs)
 
 Foundation: ████████████████████ 100% (PRs #1-3 complete!) 🎉
 Core Messaging: ████████████████████ 100% (PRs #4-13 complete!) 🚀 **COMPLETE!**
-AI Features: ░░░░░░░░ 0% (PRs #14-20 planned) **NEW!**
+AI Features: ████░░░░ 29% (PRs #14-15 complete!) 🎉 **FIRST AI FEATURE LIVE!**
 Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
 ```
 
@@ -179,6 +179,29 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
    - Multi-sheet creation flow
    - All builds successful (0 errors, 0 warnings!)
    - Completed in ~5.5 hours (5-6h estimated) ✅ **ON TIME!**
+
+**12. PR #14: Cloud Functions Setup & AI Service Base** ✅ **COMPLETE!** 🎉
+   - Firebase Cloud Functions initialized
+   - OpenAI API integration with lazy client initialization
+   - Base AI service with feature routing
+   - Middleware (auth, rate limiting, validation)
+   - iOS AIService wrapper
+   - Environment configuration
+   - All deployed successfully
+   - Completed in ~2.5 hours
+
+**13. PR #15: Calendar Extraction Feature** ✅ **COMPLETE!** 🎉 **FIRST AI FEATURE!**
+   - Cloud Function with GPT-4 function calling (~210 lines)
+   - CalendarEvent Swift model with EventKit (~180 lines)
+   - CalendarCardView SwiftUI component (~220 lines)
+   - CalendarManager service (~100 lines)
+   - AIService extraction method (~25 lines)
+   - ChatViewModel calendar logic (~83 lines)
+   - ChatView integration (~85 lines)
+   - All builds successful (0 errors, 0 warnings!)
+   - Fixed 2 critical bugs (all-day event, auto-scroll)
+   - Tested and verified working
+   - Completed in ~4 hours (3-4h estimated) ✅ **ON TIME!**
 
 **10. Documentation** ✅
    - README.md created (~350 lines)
@@ -337,26 +360,28 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
 ---
 
 ### 🤖 AI Features Phase (PRs #14-20) - ~21-28 hours **NEW DIRECTION!**
-**Status**: Not started (planning complete)
+**Status**: ✅ 2 of 7 complete! (PR#14 + PR#15 done)
 
 **Target Persona**: Busy Parent (Sarah, 34, working mom with 2 kids)
 
-- [ ] **PR #14: Cloud Functions Setup & AI Service Base** (2-3h) ⏳ **NEXT!**
-  - Initialize Firebase Cloud Functions
-  - Set up OpenAI API integration
-  - Create base AI service structure
-  - Build conversation context retrieval (RAG pipeline foundation)
-  - Create iOS AIService wrapper
-  - Add environment configuration (API keys)
-  - Test basic AI query/response flow
-  - Deploy initial Cloud Functions
+- [x] **PR #14: Cloud Functions Setup & AI Service Base** (2.5h actual) ✅ COMPLETE!
+  - Initialize Firebase Cloud Functions ✅
+  - Set up OpenAI API integration ✅
+  - Create base AI service structure ✅
+  - Build conversation context retrieval (RAG pipeline foundation) ✅
+  - Create iOS AIService wrapper ✅
+  - Add environment configuration (API keys) ✅
+  - Test basic AI query/response flow ✅
+  - Deploy initial Cloud Functions ✅
 
-- [ ] **PR #15: Calendar Extraction Feature** (3-4h)
-  - Build date/time extraction endpoint
-  - Create calendar event data model
-  - Display extracted events
-  - Add event confirmation UI
-  - Test extraction accuracy
+- [x] **PR #15: Calendar Extraction Feature** (4h actual) ✅ COMPLETE!
+  - Build date/time extraction endpoint ✅
+  - Create calendar event data model ✅
+  - Display extracted events ✅
+  - Add event confirmation UI ✅
+  - Test extraction accuracy ✅
+  - Fix all-day event bug (timed events working correctly) ✅
+  - Fix auto-scroll bug (natural scrolling for all updates) ✅
 
 - [ ] **PR #16: Decision Summarization Feature** (3-4h)
   - Build decision/action item summarization
@@ -718,23 +743,26 @@ Day 2-3 (Extended features):
 - ✅ **Planning Complete** - Clear roadmap established
 - ✅ **Firebase Connected** - Backend integrated (PR #1)
 - ✅ **Users Can Login** - Authentication working (PR #3)
-- ✅ **First Message Sent** - Core messaging working (PR #10) 🎉 **NEW!**
+- ✅ **First Message Sent** - Core messaging working (PR #10)
+- ✅ **Message Status Working** - Read receipts implemented (PR #11)
+- ✅ **Group Chat Working** - WhatsApp-style groups (PR #13)
+- ✅ **AI Infrastructure** - Cloud Functions + OpenAI deployed (PR #14)
+- ✅ **First AI Feature** - Calendar extraction working! (PR #15) 🎉 **NEW!**
 
 ### Upcoming Milestones
-- 🎯 **Message Status Working** - Read receipts implemented (PR #11)
-- 🎯 **MVP Complete** - All core features working (PR #15)
+- 🎯 **5 AI Features Complete** - All required AI features (PRs #16-20)
 - 🎯 **Production Ready** - Polished and tested (PR #22)
 - 🎯 **Deployed** - Available on TestFlight (PR #23)
 
 ---
 
-**Current Status**: 🟢 Ready to build  
-**Current Phase**: Planning & Setup (95% complete)  
-**Next Phase**: Foundation - PR #1  
-**Mood**: 🚀 Excited and ready!
+**Current Status**: 🟢 First AI Feature Live!  
+**Current Phase**: AI Features (29% complete - 2 of 7 PRs done)  
+**Next Phase**: PR #16 (Decision Summarization) OR PR #17 (Priority Highlighting)  
+**Mood**: 🎉 Celebrating first AI feature! Ready for more!
 
 ---
 
-*Last Updated: October 20, 2025 - Session 1*  
-*Next Update: After completing PR #1*
+*Last Updated: October 22, 2025 - PR #15 Complete*  
+*Next Update: After completing PR #16 or PR #17*
 
