@@ -41,6 +41,7 @@ export function validateFeature(feature: string): void {
     'calendar',
     'decision',
     'urgency',
+    'priority',  // PR#17: Priority Highlighting
     'rsvp',
     'deadline',
     'agent'
