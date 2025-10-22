@@ -385,5 +385,31 @@ class ChatListViewModel: ObservableObject {
         print("[ChatListViewModel] Created and saved conversation: \(newConversation.id)")
         return newConversation
     }
+    
+    // MARK: - Conversation Deletion
+    
+    /// Deletes a conversation from both Firebase and local storage
+    /// - Parameter conversation: The conversation to delete
+    func deleteConversation(_ conversation: Conversation) async {
+        do {
+            // Delete from Firebase
+            try await chatService.deleteConversation(conversationId: conversation.id)
+            print("✅ Deleted conversation from Firebase: \(conversation.id)")
+            
+            // Delete from local storage
+            try localDataManager.deleteConversation(id: conversation.id)
+            print("✅ Deleted conversation from local storage: \(conversation.id)")
+            
+            // Remove from in-memory list
+            conversations.removeAll { $0.id == conversation.id }
+            
+            print("🎉 Conversation deleted successfully: \(conversation.id)")
+            
+        } catch {
+            print("❌ Error deleting conversation: \(error)")
+            errorMessage = "Failed to delete conversation: \(error.localizedDescription)"
+            showError = true
+        }
+    }
 }
 

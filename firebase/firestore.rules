@@ -56,9 +56,11 @@ service cloud.firestore {
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'admins', 'groupName', 'groupPhotoURL']))
                      );
       
-      // Can delete if you created it
+      // Can delete if you're a participant
+      // Note: In production, consider implementing soft-delete instead
+      // (marking conversation as deleted per user rather than hard delete)
       allow delete: if isAuthenticated() && 
-                       request.auth.uid == resource.data.createdBy;
+                       request.auth.uid in resource.data.participants;
       
       // Messages subcollection
       match /messages/{messageId} {
@@ -77,9 +79,10 @@ service cloud.firestore {
         // Can update message if you're the sender OR updating status/tracking fields
         // PR #11: Added deliveredTo and readBy for recipient tracking
         // PR #11 Fix: Use diff().affectedKeys() to check only changed fields, not all fields
+        // PR #15: Added aiMetadata and updatedAt for AI features (calendar extraction, etc.)
         allow update: if isParticipant(conversationId) &&
                          (request.auth.uid == resource.data.senderId || 
-                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'deliveredAt', 'readAt', 'deliveredTo', 'readBy']));
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'deliveredAt', 'readAt', 'deliveredTo', 'readBy', 'aiMetadata', 'updatedAt']));
         
         // Can delete if you're the sender
         allow delete: if isParticipant(conversationId) &&

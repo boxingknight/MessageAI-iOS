@@ -1,12 +1,12 @@
 # MessageAI - System Patterns & Architecture
 
-**Last Updated**: October 20, 2025
+**Last Updated**: October 22, 2025
 
 ---
 
-## Architecture Overview
+## 🎯 NEW: AI-Enhanced Architecture (October 22, 2025)
 
-### High-Level System Design
+### Updated High-Level System Design
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -19,12 +19,20 @@
 │                           │                     │            │
 │                           ▼                     ▼            │
 │                    ┌──────────────┐    ┌────────────────┐  │
-│                    │  SwiftData   │    │  Firebase SDK  │  │
+│                    │  Core Data   │    │  Firebase SDK  │  │
 │                    │ (Local Store)│    │  (Network)     │  │
 │                    └──────────────┘    └────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
+│                                              │               │
+│                    ┌─────────────────────────┘               │
+│                    │  **NEW: AI Service**                    │
+│                    │  - Summary requests                     │
+│                    │  - Quick reply requests                 │
+│                    │  - Action item extraction               │
+│                    └─────────┬───────────────────────────────┘
+│                              │                               │
+└──────────────────────────────┼───────────────────────────────┘
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Firebase Backend                          │
 │                                                              │
@@ -33,12 +41,36 @@
 │  └──────────┘  └──────────┘  └──────────┘  └────────────┘ │
 │                       │                                      │
 │                       ▼                                      │
-│              ┌─────────────────┐                            │
-│              │ Cloud Functions │                            │
-│              │  (Notifications)│                            │
-│              └─────────────────┘                            │
+│              ┌─────────────────────────────┐                │
+│              │ Cloud Functions (Node.js)   │ **ENHANCED!**  │
+│              ├─────────────────────────────┤                │
+│              │ • Push Notifications        │                │
+│              │ • AI Service Endpoints      │ **NEW!**       │
+│              │   - summarizeConversation   │                │
+│              │   - generateReplies         │                │
+│              │   - extractActionItems      │                │
+│              │   - detectImportance        │                │
+│              │ • RAG Pipeline              │ **NEW!**       │
+│              │   - Conversation retrieval  │                │
+│              │   - Context building        │                │
+│              └────────────┬────────────────┘                │
+│                           │                                  │
+│                           ▼                                  │
+│              ┌─────────────────────────────┐ **NEW!**       │
+│              │ OpenAI API (GPT-4)          │                │
+│              │ • Text generation           │                │
+│              │ • Summarization             │                │
+│              │ • Classification            │                │
+│              │ • Entity extraction         │                │
+│              └─────────────────────────────┘                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Architecture Overview
+
+### Original Messaging Architecture (✅ Complete)
 
 ---
 
@@ -597,8 +629,243 @@ struct ChatListView: View {
 5. **Observable Everything**: Use @Published for all mutable state
 6. **Test at Boundaries**: Mock services, test ViewModels, snapshot Views
 7. **Separation of Concerns**: Views present, ViewModels coordinate, Services execute
+8. **AI on Server**: Keep API keys secure, process AI on Cloud Functions (not client)
+9. **Context-Aware AI**: Use RAG pipeline to provide conversation context to AI
+10. **Async AI**: All AI operations are async with loading states
 
 ---
 
-*This architecture supports reliable, testable, maintainable messaging at scale.*
+## 🤖 NEW: AI Architecture Patterns (October 22, 2025)
+
+### Pattern 4: AI Service Integration
+
+**Purpose**: Secure AI processing with conversation context
+
+```
+iOS App                Cloud Functions               OpenAI API
+   │                          │                          │
+   │──AI Request (convId)────▶│                          │
+   │  (e.g., summarize)       │                          │
+   │                          │──Fetch Messages──────▶   │
+   │                          │◀─Messages (Firestore)    │
+   │                          │                          │
+   │                          │──Build Context───────▶   │
+   │                          │  (last 50 messages)      │
+   │                          │                          │
+   │                          │──GPT-4 Request──────────▶│
+   │                          │  + conversation context  │
+   │                          │◀─AI Response─────────────│
+   │                          │                          │
+   │◀────AI Result────────────│                          │
+   │   (summary/replies/etc)  │                          │
+   │                          │                          │
+```
+
+**iOS Service Layer** (AIService.swift):
+```swift
+class AIService {
+    private let functionsURL = "https://us-central1-messageai.cloudfunctions.net"
+    
+    func summarizeConversation(conversationId: String) async throws -> ConversationSummary {
+        let url = URL(string: "\(functionsURL)/summarizeConversation")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = ["conversationId": conversationId]
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        return try JSONDecoder().decode(ConversationSummary.self, from: data)
+    }
+    
+    func generateReplies(conversationId: String, messageCount: Int = 3) async throws -> [String] {
+        // Similar pattern...
+    }
+    
+    func extractActionItems(conversationId: String) async throws -> [ActionItem] {
+        // Similar pattern...
+    }
+}
+```
+
+**Cloud Function** (functions/summarizeConversation.js):
+```javascript
+exports.summarizeConversation = functions.https.onCall(async (data, context) => {
+    // 1. Verify authentication
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+    }
+    
+    const { conversationId } = data;
+    const userId = context.auth.uid;
+    
+    // 2. Verify user is participant
+    const conversation = await admin.firestore()
+        .collection('conversations')
+        .doc(conversationId)
+        .get();
+    
+    if (!conversation.data().participants.includes(userId)) {
+        throw new functions.https.HttpsError('permission-denied', 'Not a participant');
+    }
+    
+    // 3. Fetch recent messages (RAG pipeline)
+    const messages = await admin.firestore()
+        .collection('conversations')
+        .doc(conversationId)
+        .collection('messages')
+        .orderBy('sentAt', 'desc')
+        .limit(50)
+        .get();
+    
+    // 4. Build context for AI
+    const messageTexts = messages.docs
+        .reverse()
+        .map(doc => `${doc.data().senderName}: ${doc.data().text}`)
+        .join('\n');
+    
+    // 5. Call OpenAI
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+            {
+                role: "system",
+                content: "You are a helpful assistant that summarizes conversations for busy parents. Be concise and highlight important information like dates, times, action items, and decisions."
+            },
+            {
+                role: "user",
+                content: `Summarize this conversation:\n\n${messageTexts}`
+            }
+        ],
+        max_tokens: 200
+    });
+    
+    // 6. Return summary
+    return {
+        summary: completion.choices[0].message.content,
+        messageCount: messages.size,
+        timestamp: Date.now()
+    };
+});
+```
+
+### Pattern 5: RAG (Retrieval-Augmented Generation)
+
+**Purpose**: Provide conversation context to AI for accurate responses
+
+```
+┌─────────────────────────────────────────┐
+│ Step 1: Retrieve Relevant Messages     │
+│ - Query Firestore for conversation     │
+│ - Fetch last N messages (e.g., 50)     │
+│ - Filter by participant if needed      │
+└────────────┬────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────┐
+│ Step 2: Build Context                  │
+│ - Format messages as conversation       │
+│ - Include sender names                  │
+│ - Preserve chronological order          │
+│ - Add metadata (timestamps, etc.)       │
+└────────────┬────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────┐
+│ Step 3: Augment AI Prompt               │
+│ - System prompt (role definition)       │
+│ - Conversation context (retrieved)      │
+│ - User query (task to perform)          │
+└────────────┬────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────┐
+│ Step 4: Generate Response               │
+│ - Send to OpenAI API                    │
+│ - Receive AI-generated result           │
+│ - Parse and validate response           │
+└────────────┬────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────┐
+│ Step 5: Return to Client                │
+│ - Format for iOS consumption            │
+│ - Cache result if appropriate           │
+│ - Update UI with AI response            │
+└─────────────────────────────────────────┘
+```
+
+**Benefits of RAG**:
+- AI has accurate, up-to-date conversation context
+- No need to fine-tune models
+- Works with any conversation
+- Privacy-preserving (data stays in Firestore)
+- Cost-effective (only send relevant messages)
+
+### Pattern 6: Caching AI Results
+
+**Purpose**: Reduce API costs and improve response times
+
+```swift
+class AISummaryCache {
+    private var cache: [String: CachedSummary] = [:]
+    
+    struct CachedSummary {
+        let summary: String
+        let messageCount: Int
+        let timestamp: Date
+    }
+    
+    func getSummary(conversationId: String, messageCount: Int) -> String? {
+        guard let cached = cache[conversationId] else { return nil }
+        
+        // Cache valid if message count hasn't changed and <5 min old
+        let isValid = cached.messageCount == messageCount && 
+                     Date().timeIntervalSince(cached.timestamp) < 300
+        
+        return isValid ? cached.summary : nil
+    }
+    
+    func cacheSummary(conversationId: String, summary: String, messageCount: Int) {
+        cache[conversationId] = CachedSummary(
+            summary: summary,
+            messageCount: messageCount,
+            timestamp: Date()
+        )
+    }
+}
+```
+
+### AI Service Pattern: Loading States
+
+```swift
+enum AIState<T> {
+    case idle
+    case loading
+    case success(T)
+    case error(Error)
+}
+
+class ChatViewModel: ObservableObject {
+    @Published var summaryState: AIState<String> = .idle
+    
+    func requestSummary() {
+        summaryState = .loading
+        
+        Task {
+            do {
+                let summary = try await aiService.summarizeConversation(conversationId)
+                summaryState = .success(summary)
+            } catch {
+                summaryState = .error(error)
+            }
+        }
+    }
+}
+```
+
+---
+
+*This architecture supports reliable, testable, maintainable messaging with intelligent AI features at scale.*
 

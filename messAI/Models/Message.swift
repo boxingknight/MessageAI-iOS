@@ -37,6 +37,9 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
     let senderName: String?
     let senderPhotoURL: String?
     
+    // MARK: - AI Metadata (PR #14)
+    var aiMetadata: AIMetadata?
+    
     // MARK: - Initializers
     
     /// Full initializer with all properties
@@ -53,7 +56,8 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
         deliveredTo: [String] = [],
         readBy: [String] = [],
         senderName: String? = nil,
-        senderPhotoURL: String? = nil
+        senderPhotoURL: String? = nil,
+        aiMetadata: AIMetadata? = nil
     ) {
         self.id = id
         self.conversationId = conversationId
@@ -68,6 +72,7 @@ struct Message: Identifiable, Codable, Equatable, Hashable {
         self.readBy = readBy
         self.senderName = senderName
         self.senderPhotoURL = senderPhotoURL
+        self.aiMetadata = aiMetadata
     }
     
     /// Convenience initializer for creating new messages
@@ -254,6 +259,14 @@ extension Message {
             dict["senderPhotoURL"] = senderPhotoURL
         }
         
+        // PR #14: AI metadata
+        if let aiMetadata = aiMetadata {
+            if let data = try? JSONEncoder().encode(aiMetadata),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                dict["aiMetadata"] = json
+            }
+        }
+        
         return dict
     }
     
@@ -288,6 +301,15 @@ extension Message {
         self.readAt = (dictionary["readAt"] as? Timestamp)?.dateValue()
         self.senderName = dictionary["senderName"] as? String
         self.senderPhotoURL = dictionary["senderPhotoURL"] as? String
+        
+        // PR #14: AI metadata
+        if let aiMetadataDict = dictionary["aiMetadata"] as? [String: Any],
+           let jsonData = try? JSONSerialization.data(withJSONObject: aiMetadataDict),
+           let metadata = try? JSONDecoder().decode(AIMetadata.self, from: jsonData) {
+            self.aiMetadata = metadata
+        } else {
+            self.aiMetadata = nil
+        }
     }
 }
 

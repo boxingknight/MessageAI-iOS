@@ -1206,6 +1206,42 @@ class ChatService {
         print("[ChatService] Demoted \(userId) from admin in group: \(conversationId)")
     }
     
+    // MARK: - Conversation Deletion
+    
+    /// Deletes a conversation and all its messages from Firebase
+    /// - Parameter conversationId: The ID of the conversation to delete
+    func deleteConversation(conversationId: String) async throws {
+        do {
+            print("🗑️ Deleting conversation: \(conversationId)")
+            
+            // Delete all messages in this conversation
+            let messagesSnapshot = try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .getDocuments()
+            
+            // Use batch to delete messages efficiently
+            let messageBatch = db.batch()
+            for messageDoc in messagesSnapshot.documents {
+                messageBatch.deleteDocument(messageDoc.reference)
+            }
+            try await messageBatch.commit()
+            
+            print("   Deleted \(messagesSnapshot.documents.count) messages")
+            
+            // Delete the conversation document
+            try await db.collection("conversations")
+                .document(conversationId)
+                .delete()
+            
+            print("✅ Successfully deleted conversation: \(conversationId)")
+            
+        } catch {
+            print("❌ Error deleting conversation: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Cleanup
     
     /// Removes all active listeners
@@ -1227,6 +1263,39 @@ class ChatService {
     func detachConversationsListener(userId: String) {
         listeners["conversations-\(userId)"]?.remove()
         listeners.removeValue(forKey: "conversations-\(userId)")
+    }
+    
+    // MARK: - AI Metadata Updates (PR #15)
+    
+    /// Update message with AI metadata (calendar events, decisions, etc.)
+    func updateMessageAIMetadata(
+        conversationId: String,
+        messageId: String,
+        aiMetadata: AIMetadata
+    ) async throws {
+        print("📝 [ChatService] Updating message \(messageId) with AI metadata")
+        
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+        
+        // Encode AI metadata to dictionary
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(aiMetadata)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+            
+            try await messageRef.updateData([
+                "aiMetadata": json,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("✅ [ChatService] Updated message with AI metadata")
+        } catch {
+            print("❌ [ChatService] Failed to update message AI metadata: \(error)")
+            throw mapFirestoreError(error)
+        }
     }
     
     // MARK: - Error Mapping

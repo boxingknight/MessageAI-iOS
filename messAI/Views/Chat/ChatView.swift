@@ -155,32 +155,70 @@ struct ChatView: View {
                             let isFirst = isFirstInGroup(at: index)
                             let isLast = isLastInGroup(at: index)
                             
-                            MessageBubbleView(
-                                message: message,
-                                isFromCurrentUser: message.senderId == viewModel.currentUserId,
-                                isFirstInGroup: isFirst,
-                                isLastInGroup: isLast,
-                                conversation: conversation, // PR #13: Pass conversation for group support
-                                users: userCache // PR #13: Pass users for sender names
-                            )
+                            VStack(alignment: .leading, spacing: 8) {
+                                MessageBubbleView(
+                                    message: message,
+                                    isFromCurrentUser: message.senderId == viewModel.currentUserId,
+                                    isFirstInGroup: isFirst,
+                                    isLastInGroup: isLast,
+                                    conversation: conversation, // PR #13: Pass conversation for group support
+                                    users: userCache // PR #13: Pass users for sender names
+                                )
+                                .contextMenu {
+                                    // PR #15: Calendar extraction context menu
+                                    Button {
+                                        Task {
+                                            await viewModel.extractCalendarEvents(from: message)
+                                        }
+                                    } label: {
+                                        Label("Extract Calendar Event", systemImage: "calendar.badge.plus")
+                                    }
+                                }
+                                
+                                // PR #15: Display calendar cards if events exist
+                                if let calendarEvents = message.aiMetadata?.calendarEvents,
+                                   !calendarEvents.isEmpty {
+                                    ForEach(calendarEvents) { event in
+                                        CalendarCardView(event: event) { event in
+                                            print("📅 [ChatView] Add to Calendar button tapped for event: \(event.title)")
+                                            Task {
+                                                let success = await viewModel.addEventToCalendar(event)
+                                                if success {
+                                                    print("✅ [ChatView] Successfully added event to calendar")
+                                                } else {
+                                                    print("❌ [ChatView] Failed to add event to calendar")
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+                                    }
+                                }
+                            }
                             .id(message.id)
                         }
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
-                .onChange(of: viewModel.messages.count) { oldValue, newValue in
-                    // Auto-scroll to bottom when new message arrives
-                    if let lastMessage = viewModel.messages.last {
-                        withAnimation {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                .onChange(of: viewModel.messages) { oldMessages, newMessages in
+                    // Scroll to bottom whenever messages change (new message, update, AI extraction, etc.)
+                    // Small delay ensures message is fully rendered before scrolling
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        if let lastMessage = newMessages.last {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                            print("📜 [ChatView] Auto-scrolled to latest message: \(lastMessage.id)")
                         }
                     }
                 }
                 .onAppear {
-                    // Scroll to bottom on first load
-                    if let lastMessage = viewModel.messages.last {
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    // Scroll to bottom on first load (instant, no animation)
+                    DispatchQueue.main.async {
+                        if let lastMessage = viewModel.messages.last {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            print("📜 [ChatView] Initial scroll to bottom")
+                        }
                     }
                 }
     }

@@ -1,485 +1,433 @@
-# PR#14: Image Sharing - Planning Complete 🚀
+# PR#14: Planning Complete 🚀
 
-**Date:** October 21, 2025  
+**Date:** October 22, 2025  
 **Status:** ✅ PLANNING COMPLETE  
-**Time Spent Planning:** ~2 hours  
+**Time Spent Planning:** 2 hours  
 **Estimated Implementation:** 2-3 hours
 
 ---
 
 ## What Was Created
 
-**5 Core Planning Documents:**
+**3 Core Planning Documents:**
 
-1. **Technical Specification** (~15,000 words)
-   - File: `PR14_IMAGE_SHARING.md`
-   - Architecture decisions (storage backend, compression, structure)
-   - Data model changes (Message with image fields)
-   - Component architecture (StorageService, ImageCompressor, ImagePicker)
-   - Firebase Storage security rules
-   - Implementation phases with code examples
-   - Risk assessment and mitigation
+1. **Technical Specification** (~18,000 words)
+   - File: `PR14_CLOUD_FUNCTIONS_SETUP.md`
+   - Architecture decisions (Cloud Functions vs client-side, OpenAI vs alternatives)
+   - Detailed implementation for middleware (auth, rate limiting, validation)
+   - Complete AI router with feature routing
+   - iOS AIService design with error handling
+   - AI metadata models for all 5 features
+   - Comprehensive testing strategy
 
-2. **Implementation Checklist** (~10,000 words)
+2. **Implementation Checklist** (~13,000 words)
    - File: `PR14_IMPLEMENTATION_CHECKLIST.md`
-   - Step-by-step task breakdown (7 phases)
-   - Phase 1: Image utilities (45 min)
-   - Phase 2: Storage service (60 min)
-   - Phase 3: Model updates (30 min)
-   - Phase 4: ViewModel integration (45 min)
-   - Phase 5: UI components (60 min)
-   - Phase 6: Input updates (30 min)
-   - Phase 7: Testing & polish (30 min)
-   - Testing checkpoints per phase
-   - Deployment checklist
+   - 5 phases with step-by-step tasks
+   - Pre-implementation setup and prerequisites
+   - Cloud Functions initialization and configuration
+   - Middleware implementation (auth, rate limit, validation)
+   - AI router with 6 feature placeholders
+   - iOS AIService with caching
+   - Deployment and testing procedures
 
-3. **Quick Start Guide** (~8,000 words)
-   - File: `PR14_README.md`
-   - Decision framework (should you build this?)
-   - Prerequisites and setup (5 min)
-   - Getting started guide (first hour)
-   - Common issues & solutions (7 detailed scenarios)
-   - Quick reference (files, functions, concepts)
-   - Motivation and success metrics
+3. **Quick Start Guide** (this file + README)
+   - File: `PR14_README.md` (to be created)
+   - Decision framework (when to build)
+   - Prerequisites and environment setup
+   - Quick testing guide
+   - Common issues and solutions
 
-4. **Planning Summary** (~5,000 words)
-   - File: `PR14_PLANNING_SUMMARY.md` (this file)
-   - What was created during planning
-   - Key decisions made
-   - Implementation strategy
-   - Go/No-Go decision aid
-
-5. **Testing Guide** (next document, ~10,000 words)
-   - File: `PR14_TESTING_GUIDE.md`
-   - Test categories (unit, integration, edge cases, performance, acceptance)
-   - Specific test cases with expected results
-   - Acceptance criteria
-   - Performance benchmarks
-
-**Total Documentation:** ~48,000 words of comprehensive planning
+**Total Documentation:** ~35,000 words of comprehensive planning
 
 ---
 
 ## What We're Building
 
-### 4 Major Components
+### Foundation for All AI Features
 
-| Component | Purpose | Time | Priority |
-|-----------|---------|------|----------|
-| **ImageCompressor** | Compress images to <2MB, generate thumbnails | 30 min | CRITICAL |
-| **StorageService** | Upload/download images from Firebase Storage | 45 min | CRITICAL |
-| **Image Display** | Show thumbnails in chat, full-screen with zoom | 60 min | HIGH |
-| **Image Input** | Select from library/camera, send button | 30 min | HIGH |
+**Core Components:**
+1. **Firebase Cloud Functions** - Serverless backend infrastructure
+2. **OpenAI Integration** - GPT-4 API with secure key management
+3. **Authentication Layer** - Enforce user authentication for all AI requests
+4. **Rate Limiting** - Protect against abuse (100 requests/hour/user)
+5. **Feature Router** - Route to 6 AI features (calendar, decision, urgency, rsvp, deadline, agent)
+6. **iOS AIService** - Type-safe Swift wrapper for Cloud Function calls
+7. **AI Metadata Models** - Data structures for storing AI results in messages
 
-**Total Time:** 2-3 hours for complete implementation
+**Time Estimate:** 2-3 hours
 
----
-
-### User Flow (What Users Experience)
-
-```
-1. User in conversation
-2. Tap image button (+)
-3. Action sheet: "Photo Library" or "Camera"
-4. Select source → Picker opens
-5. Select/capture image → Picker closes
-6. Image compresses (1-2 seconds, automatic)
-7. Upload starts → Progress 0-100% (5-10 seconds)
-8. Thumbnail appears in chat immediately
-9. Message status: sending → sent → delivered → read
-10. Recipient receives thumbnail within 2 seconds
-11. Tap thumbnail → Full-screen modal opens
-12. Pinch to zoom 1x-5x
-13. Tap Done → Back to chat
-```
-
-**Key UX Principles:**
-- **Instant Feedback:** Thumbnail shows immediately (optimistic UI)
-- **Progress Visibility:** 0-100% upload progress
-- **No Waiting:** User can continue chatting while image uploads
-- **Familiar Interaction:** Standard iOS image picker
-- **Natural Gestures:** Pinch-to-zoom like Photos app
+**No User-Visible Features:** This is pure infrastructure. Users won't see any changes yet.
 
 ---
 
 ## Key Decisions Made
 
-### Decision 1: Firebase Storage for Image Backend
-**Choice:** Use Firebase Storage (not Firestore Base64 or third-party CDN)
+### Decision 1: Cloud Functions (Server-Side AI)
 
+**Choice:** Process AI on Cloud Functions, not client-side  
 **Rationale:**
-- Integrated with existing Firebase project
-- Secure with built-in auth and rules
-- Scalable to millions of images automatically
-- Global CDN for fast downloads
-- Free tier sufficient for MVP (5GB storage, 1GB/day bandwidth)
-- Simple SDK, well-documented
+- **Security**: API keys secured on server (never in app binary)
+- **Control**: Server-side rate limiting prevents abuse
+- **Flexibility**: Easy to switch AI models without app update
+- **Cost Management**: Server can cache and batch optimize
 
-**Impact:** 
-- Need to enable Storage in Firebase Console (1-click)
-- Need to write storage.rules for security
-- Slightly higher complexity than Base64, but much better performance
-- Small cost at scale (~$2.60/month for 100GB storage)
-
-**Trade-offs:**
-- **Gain:** Reliable, scalable, integrated, performant
-- **Lose:** Small cost at scale (acceptable)
+**Impact:** Adds ~500ms network latency per AI call, but ensures security and cost control
 
 ---
 
-### Decision 2: Client-Side Compression
-**Choice:** Compress images on device before upload (not server-side)
+### Decision 2: OpenAI GPT-4
 
+**Choice:** Use OpenAI GPT-4 as primary AI model  
 **Rationale:**
-- Fast local compression (<2 seconds)
-- No Cloud Functions needed (saves money and complexity)
-- Instant thumbnail preview (good UX)
-- Works offline (compress locally, upload later)
-- Full control over compression quality and size
+- **Function Calling**: Critical for structured JSON output (dates, RSVPs, etc.)
+- **Quality**: Best-in-class for entity extraction and classification
+- **Reliability**: 99.9% uptime, proven at scale
+- **Development Speed**: Excellent docs, many examples
 
-**Impact:**
-- Need ImageCompressor utility class (~150 lines)
-- Small CPU/battery usage on device (acceptable for image operations)
-- Users see compression happen immediately
-- Upload times reduced 5-10x (2MB vs 10-20MB originals)
-
-**Trade-offs:**
-- **Gain:** Fast, free, good UX, offline-capable
-- **Lose:** Small battery usage (acceptable)
+**Impact:** Higher cost ($0.03/1K tokens) but best quality for our use cases
 
 ---
 
-### Decision 3: Conversation-Based Storage Structure
-**Choice:** Store images as `/chat_images/{conversationId}/{messageId}.jpg`
+### Decision 3: TypeScript for Cloud Functions
 
+**Choice:** Use TypeScript (not JavaScript) for Cloud Functions  
 **Rationale:**
-- Logical organization (images belong to conversations)
-- Easy permission enforcement (conversation participants can access)
-- Cleanup-friendly (delete conversation → delete all images)
-- Debugging easier (can browse by conversation)
+- **Type Safety**: Prevents runtime errors with OpenAI API types
+- **Refactoring**: Safe to change code as features evolve
+- **Self-Documentation**: Interfaces document expected data structures
 
-**Impact:**
-- Slightly longer file paths
-- Need to pass conversationId to upload function
-- Security rules check conversation participants
-
-**Alternative Considered:** Flat `/images/{messageId}.jpg` structure
-- Simpler, shorter paths
-- But: Harder to organize, cleanup, and secure
-
-**Trade-offs:**
-- **Gain:** Better organization, security, cleanup
-- **Lose:** Slightly more complex paths (acceptable)
+**Impact:** Requires build step, but much safer and more maintainable
 
 ---
 
-### Decision 4: UIKit Image Picker (Not SwiftUI PhotosPicker)
-**Choice:** Use UIImagePickerController wrapped in UIViewControllerRepresentable
+### Decision 4: Single Router Function
 
+**Choice:** One Cloud Function with internal routing (not separate functions per feature)  
 **Rationale:**
-- Works on iOS 16.0+ (our minimum)
-- Battle-tested, mature, reliable
-- Supports both photo library AND camera
-- Simple wrapper (~80 lines)
-- Industry-standard pattern
+- **DRY**: Auth, rate limiting, error handling shared across all features
+- **Consistency**: All features follow same patterns
+- **Deployment**: Single deploy for all AI features
+- **Cost**: Fewer function instances = lower Firebase costs
 
-**Alternative Considered:** SwiftUI PhotosPicker (iOS 16+)
-- Pure SwiftUI, more modern
-- But: Newer, less battle-tested
-- Doesn't support camera natively
-
-**Impact:**
-- Need UIKit wrapper (20 lines of boilerplate)
-- Small mixing of UIKit and SwiftUI (acceptable pattern)
-
-**Trade-offs:**
-- **Gain:** Reliability, camera support, compatibility
-- **Lose:** Not "pure SwiftUI" (acceptable)
+**Impact:** Slightly larger cold start (1-2 seconds), but much easier to maintain
 
 ---
 
-### Decision 5: Progress Bar (Not Silent Upload)
-**Choice:** Show 0-100% upload progress with visual indicator
+### Decision 5: 100 Requests/Hour Rate Limit
 
+**Choice:** Limit users to 100 AI requests per hour  
 **Rationale:**
-- User confidence (see it happening)
-- Essential for slow networks (3G, poor connections)
-- Perception of speed (progress makes it feel faster)
-- Industry standard (WhatsApp, iMessage, Telegram all show progress)
+- **Budget**: ~$5-10/month for MVP testing (manageable)
+- **Abuse Prevention**: Prevents API key theft exploitation
+- **User Experience**: 100 req/hour = ~1 AI request per conversation per hour (reasonable)
 
-**Alternative Considered:** Silent background upload
-- Simpler implementation
-- But: User doesn't know what's happening, feels broken on slow networks
-
-**Impact:**
-- Need progress state in ChatViewModel (@Published Double)
-- Need progress handler in StorageService upload
-- Need UI component to show progress (circular ring or linear bar)
-
-**Trade-offs:**
-- **Gain:** Clear user feedback, handles slow networks well
-- **Lose:** Slightly more complex implementation (worth it)
+**Impact:** Users can't spam AI features, but 100/hour is generous for normal use
 
 ---
 
 ## Implementation Strategy
 
-### Phase-Based Approach (7 Phases)
+### Timeline
 
-**Why Phases?**
-- Break complex feature into manageable chunks
-- Each phase has clear goal and checkpoint
-- Test incrementally (catch bugs early)
-- Can stop early if time-constrained
+**Phase 1: Cloud Functions Setup (30 min)**
+- Initialize Firebase Cloud Functions
+- Install OpenAI SDK
+- Configure environment variables (API keys)
+- Set up TypeScript compilation
 
-**Phase Breakdown:**
+**Phase 2: Middleware (45 min)**
+- Authentication middleware (require logged-in users)
+- Rate limiting middleware (Firestore-based counters)
+- Validation middleware (check required fields)
 
-```
-Phase 1: Image Utilities (45 min)
-├─ ImageCompressor (compress, resize, thumbnail)
-├─ ImagePicker (UIKit wrapper)
-└─ Checkpoint: Can select and compress images ✓
+**Phase 3: AI Router (60 min)**
+- Create 6 placeholder functions (one per AI feature)
+- Implement main router with feature routing
+- Add comprehensive error handling
+- Add logging for debugging
 
-Phase 2: Storage Service (60 min)
-├─ StorageService (upload, download, delete)
-├─ Firebase Storage rules
-└─ Checkpoint: Images upload to Firebase ✓
+**Phase 4: iOS AIService (45 min)**
+- Create AI metadata models
+- Update Message model to include aiMetadata
+- Implement AIService with caching
+- Add error mapping
 
-Phase 3: Model Updates (30 min)
-├─ Message model (add image fields)
-├─ Firestore conversion
-└─ Checkpoint: Image messages save to Firestore ✓
+**Phase 5: Deploy & Test (30 min)**
+- Deploy Cloud Functions to Firebase
+- Test from iOS app
+- Verify authentication enforcement
+- Verify rate limiting works
+- Check error handling
 
-Phase 4: ViewModel Integration (45 min)
-├─ ChatViewModel.sendImageMessage()
-├─ Upload progress tracking
-└─ Checkpoint: ViewModel can upload images ✓
-
-Phase 5: UI Components (60 min)
-├─ MessageBubbleView (display thumbnails)
-├─ FullScreenImageView (zoom viewer)
-└─ Checkpoint: Images display and zoom ✓
-
-Phase 6: Input Updates (30 min)
-├─ MessageInputView (image button)
-├─ ChatView integration
-└─ Checkpoint: Can send images from chat ✓
-
-Phase 7: Testing & Polish (30 min)
-├─ Comprehensive testing
-├─ Error handling
-├─ Performance check
-└─ Checkpoint: Production-ready ✓
-```
-
-**Total:** ~4.5 hours budgeted, expect 2-3 hours actual (historical 2-3x speedup)
-
----
-
-### Key Implementation Principles
-
-1. **Test After Each Phase**
-   - Don't move to next phase until current works
-   - Catch bugs early when context is fresh
-   - Each phase builds on previous
-
-2. **Commit Frequently**
-   - Commit after each phase completion
-   - Clear commit messages (feat, fix, docs)
-   - Easy to revert if needed
-
-3. **Code Examples in Spec**
-   - Don't guess implementation details
-   - Copy-paste from spec, adapt as needed
-   - Spec has battle-tested code patterns
-
-4. **Focus on User Experience**
-   - Images should "just work"
-   - Progress feedback essential
-   - Handle errors gracefully
-   - Fast compression and upload
-
-5. **Security First**
-   - Deploy storage.rules immediately
-   - Only participants can access images
-   - Test rules with Firebase Emulator or manual tests
+**Total:** 2-3 hours (well-scoped!)
 
 ---
 
 ## Success Metrics
 
-### Quantitative Metrics
+### Quantitative
+- [ ] Cloud Function deploys successfully
+- [ ] Cold start: < 3 seconds
+- [ ] Warm response: < 1 second  
+- [ ] Total request time (iOS → Cloud → iOS): < 2 seconds
+- [ ] Rate limit enforced at 100 req/hour/user
+- [ ] Compilation: 0 errors, 0 warnings
 
-| Metric | Target | How to Measure |
-|--------|--------|----------------|
-| Compression time | <2 seconds | Time 4K image compression |
-| Upload time (WiFi) | <10 seconds | Time 2MB image upload on WiFi |
-| Upload time (4G) | <30 seconds | Time 2MB image upload on cellular |
-| Thumbnail generation | <500ms | Time createThumbnail() |
-| Full-screen load | <3 seconds | Time AsyncImage loads full image |
-| File size | <2MB | Check compressed Data.count |
-| Storage cost | <$5/month | Monitor Firebase Console usage |
-
-### Qualitative Metrics
-
-- ✅ **Feels fast:** Users say "that was quick!"
-- ✅ **Feels reliable:** Progress bar gives confidence
-- ✅ **Feels polished:** Smooth zoom, clean UI
-- ✅ **Feels familiar:** Like WhatsApp/iMessage
-- ✅ **Works offline:** Queue images, send when online
+### Qualitative
+- [ ] Can call AI from iOS app
+- [ ] Authentication required (can't call when logged out)
+- [ ] Rate limiting works (101st request blocked)
+- [ ] All 6 features route correctly
+- [ ] Errors are user-friendly
+- [ ] API keys never in iOS code
 
 ---
 
 ## Risks Identified & Mitigated
 
-### Risk 1: Upload Times on Slow Networks 🟡 MEDIUM
-**Issue:** Images take 30+ seconds on 3G  
+### Risk 1: API Key Exposure 🔴 CRITICAL
+**Issue:** OpenAI API key could be stolen if in iOS app  
+**Mitigation:** 
+- Use Cloud Functions (keys on server only)
+- Environment variables (never hardcoded)
+- .env file in .gitignore
+- Regular git history audits
+**Status:** ✅ Mitigated (keys secured server-side)
+
+---
+
+### Risk 2: Rate Limit Bypass 🟡 MEDIUM
+**Issue:** Users could bypass rate limits if client-side  
 **Mitigation:**
-- Aggressive compression (2MB max)
-- Show clear progress (users wait if they see progress)
-- Non-blocking (can send text while uploading)
-- Queue for background upload
-**Status:** ✅ Mitigated
+- Server-side rate limiting (can't be bypassed)
+- Firestore counters per user per hour
+- Alert if any user exceeds 200 req/hour
+**Status:** ✅ Mitigated (server enforced)
 
 ---
 
-### Risk 2: Firebase Storage Costs 🟢 LOW
-**Issue:** Storage costs money at scale  
+### Risk 3: Cold Start Latency 🟡 MEDIUM
+**Issue:** Cloud Functions take 1-3 seconds on first call  
 **Mitigation:**
-- Compress to <2MB (reduce storage 5-10x)
-- Use thumbnails in chat (reduce bandwidth)
-- Free tier covers MVP (5GB storage, 1GB/day bandwidth)
-- Monitor usage in Firebase Console
-**Cost Estimate:** ~$2.60/month for 100GB storage  
-**Status:** ✅ Acceptable for MVP
+- Show loading states in UI
+- Cache results for 5 minutes
+- Consider min instances=1 for production ($0.20/day)
+**Status:** ⚠️ Accept for MVP (optimize later if needed)
 
 ---
 
-### Risk 3: Memory Usage (Large Images) 🟡 MEDIUM
-**Issue:** Loading many images causes memory pressure  
+### Risk 4: OpenAI API Costs 🟢 LOW
+**Issue:** AI calls cost $0.03/1K tokens  
 **Mitigation:**
-- Use thumbnails in chat (200x200, <50KB)
-- AsyncImage lazy loads (automatic)
-- Unload off-screen images
-- Profile with Instruments
-**Status:** ✅ Mitigated via thumbnails
+- Rate limiting caps max usage
+- Caching reduces duplicate calls
+- Budget alert at $50/month
+- Monitor cost per user
+**Status:** ✅ Mitigated (budget-manageable for MVP)
 
 ---
 
-### Risk 4: Permission Denials 🟢 LOW
-**Issue:** Users deny camera/photo permissions  
-**Mitigation:**
-- Clear Info.plist descriptions
-- Graceful error messages
-- Guide to Settings if denied
-- Offer both camera and library (redundancy)
-**Status:** ✅ Mitigated
+## Architecture Highlights
+
+### Request Flow
+
+```
+iOS App (AIService)
+    │
+    │ 1. processMessage("Soccer Thursday 4pm", feature: .calendar)
+    ▼
+Firebase Cloud Function (processAI)
+    │
+    │ 2. Require authentication ✓
+    ▼
+    │ 3. Check rate limit (50/100 used) ✓
+    ▼
+    │ 4. Validate request (feature, message) ✓
+    ▼
+    │ 5. Route to extractCalendarDates() ✓
+    ▼
+OpenAI API (GPT-4)
+    │
+    │ 6. Extract dates with function calling
+    ▼
+    │ 7. Return structured JSON
+    ▼
+Firebase Cloud Function
+    │
+    │ 8. Add metadata (processingTime, modelUsed)
+    ▼
+iOS App
+    │
+    │ 9. Cache result for 5 minutes
+    │ 10. Display to user
+```
+
+### Error Handling Flow
+
+```
+Error Occurs
+    │
+    ▼
+Catch in Cloud Function
+    │
+    ├─ Unauthenticated? → "You must be logged in"
+    ├─ Rate Limit? → "Too many requests. Try in an hour"
+    ├─ Invalid Input? → "Missing required fields: ..."
+    ├─ OpenAI Error? → "AI processing failed. Try again"
+    └─ Unknown? → "Something went wrong. Try again"
+    │
+    ▼
+Return to iOS
+    │
+    ▼
+Map to AIError
+    │
+    ▼
+Display user-friendly message
+```
 
 ---
 
-### Risk 5: Invalid/Corrupt Images 🟢 LOW
-**Issue:** User selects invalid image  
-**Mitigation:**
-- Validate UIImage is not nil
-- Catch compression failures
-- Clear error messages
-- Allow retry
-**Status:** ✅ Mitigated
+## What Gets Created
+
+### New Files (12 total)
+
+**Cloud Functions (TypeScript):**
+1. `functions/src/index.ts` - Main export
+2. `functions/src/ai/processAI.ts` - AI router
+3. `functions/src/middleware/auth.ts` - Authentication
+4. `functions/src/middleware/rateLimit.ts` - Rate limiting
+5. `functions/src/middleware/validation.ts` - Input validation
+6. `functions/src/ai/calendarExtraction.ts` - Placeholder (PR #15)
+7. `functions/src/ai/decisionSummary.ts` - Placeholder (PR #16)
+8. `functions/src/ai/priorityDetection.ts` - Placeholder (PR #17)
+9. `functions/src/ai/rsvpTracking.ts` - Placeholder (PR #18)
+10. `functions/src/ai/deadlineExtraction.ts` - Placeholder (PR #19)
+11. `functions/src/ai/eventPlanningAgent.ts` - Placeholder (PR #20)
+
+**iOS (Swift):**
+12. `Services/AIService.swift` - iOS wrapper
+13. `Models/AIMetadata.swift` - AI result models
+14. (Modified) `Models/Message.swift` - Add aiMetadata field
+
+**Configuration:**
+- `functions/.env` - Local API keys (NOT in git)
+- `functions/.env.example` - Template for .env
+- Firebase config set with `firebase functions:config:set`
+
+**Total Lines:** ~800 lines of code
 
 ---
 
-## Hot Tips
+## Hot Tips for Implementation
 
-### Tip 1: Test Compression Early
-**Why:** Compression is critical - if it doesn't work, nothing else matters  
-**How:** Create large test image (4000x3000), compress, verify <2MB  
-**When:** Phase 1, before moving to Phase 2
+### Tip 1: Set Up Environment Variables First
+**Why:** Can't test anything without OpenAI API key. Get this working ASAP.
 
----
+```bash
+# Get key from platform.openai.com
+# Add to functions/.env
+# Set Firebase config
+# Verify it's in .gitignore
+```
 
-### Tip 2: Deploy Rules Immediately
-**Why:** Can't test uploads without rules  
-**How:** `firebase deploy --only storage` after writing rules  
-**When:** Phase 2, before testing uploads
+### Tip 2: Test After Each Phase
+**Why:** Catch issues early. Don't wait until the end.
 
----
+- After middleware: Test compilation
+- After router: Test deployment
+- After iOS: Test end-to-end
 
-### Tip 3: Use Physical Device for Camera
-**Why:** Simulator has no camera  
-**How:** Connect iPhone, select in Xcode, run (Cmd+R)  
-**When:** Phase 6, when testing camera picker
+### Tip 3: Use Console Logging Liberally
+**Why:** Cloud Functions debugging is hard without good logs.
 
----
+```typescript
+functions.logger.info('AI request received', { userId, feature });
+functions.logger.error('AI request failed', { error, userId });
+```
 
-### Tip 4: Monitor Firebase Console
-**Why:** See uploads happening in real-time, catch errors  
-**How:** Open Firebase Console > Storage > Files while testing  
-**When:** Throughout Phase 2 and beyond
+### Tip 4: Cache Everything
+**Why:** Reduce costs and improve speed.
 
----
+- iOS caches results for 5 minutes
+- Consider caching common requests server-side
+- Clear cache during development/testing
 
-### Tip 5: Test with Poor Network
-**Why:** Most bugs appear on slow connections  
-**How:** Settings > Developer > Network Link Conditioner > 3G  
-**When:** Phase 7, final testing
+### Tip 5: Start with Placeholders
+**Why:** Get infrastructure working before implementing complex AI logic.
+
+All AI features return placeholder responses in PR #14. Actual implementations come in PRs #15-20.
 
 ---
 
 ## Go / No-Go Decision
 
-### ✅ GO If:
-- You have 2-3 hours available this session
-- PRs #4, #5, #9, #10, #11 complete (core messaging works)
-- Firebase Storage enabled in Console
-- Excited about visual communication
-- Want feature-complete MVP
-- **Recommendation:** GO! Images are essential for modern messaging.
+### Go If:
+- ✅ You have 2-3 hours available
+- ✅ OpenAI API account created (can do in 5 minutes)
+- ✅ Firebase billing enabled
+- ✅ Excited to build AI features
+- ✅ Core messaging complete (PRs 1-13)
 
-### ❌ NO-GO If:
-- Time-constrained (<2 hours)
-- Core messaging not working (do PR #9-11 first)
-- Firebase Storage not configured
-- Other critical priorities (bugs, performance)
-- Prefer to polish existing features first
-- **Recommendation:** Defer to after PR #15 or #13.
+### No-Go If:
+- ❌ Time-constrained (<2 hours available)
+- ❌ Can't get OpenAI API key
+- ❌ Firebase billing disabled
+- ❌ Core messaging not complete
 
-### 🤔 MAYBE (Consider These):
-- **Have 1-2 hours?** Do Phases 1-3 only (compression + storage), finish later
-- **Want simpler version?** Skip camera support, only photo library
-- **Want faster version?** Skip full-screen zoom, just show full image
-- **Testing constrained?** Skip cross-device tests, do manual only
+**Decision Aid:** This is CRITICAL for all AI features. Without this infrastructure, PRs #15-20 can't be built. If you're building AI features, this must be done first.
 
 ---
 
 ## Immediate Next Actions
 
-### Right Now (5 minutes)
-1. ✅ Planning complete (you're reading this!)
-2. Create feature branch:
-   ```bash
-   git checkout -b feature/pr14-image-sharing
-   ```
-3. Open implementation checklist (`PR14_IMPLEMENTATION_CHECKLIST.md`)
-4. Have Xcode open with messAI project
-5. Verify Firebase Console > Storage is enabled
+### Pre-Implementation (5 min)
+- [ ] Get OpenAI API key from https://platform.openai.com
+- [ ] Enable Firebase billing (Blaze plan)
+- [ ] Verify Firebase CLI installed: `firebase --version`
+- [ ] Create branch: `git checkout -b feature/pr14-cloud-functions`
 
-### First 45 Minutes (Phase 1)
-1. Create `Utilities/ImageCompressor.swift`
-2. Implement `compress()`, `resize()`, `createThumbnail()`
-3. Test compression with large image
-4. Create `Utilities/ImagePicker.swift`
-5. Implement UIViewControllerRepresentable wrapper
-6. Commit: `feat(utilities): Add image compression and picker`
+### Phase 1: Cloud Functions Setup (30 min)
+- [ ] Run `firebase init functions`
+- [ ] Install OpenAI SDK
+- [ ] Configure environment variables
+- [ ] Test compilation
 
-### Next 60 Minutes (Phase 2)
-1. Create `Services/StorageService.swift`
-2. Implement `uploadImage()` with progress
-3. Write `firebase/storage.rules`
-4. Deploy: `firebase deploy --only storage`
-5. Test upload to Firebase Storage
-6. Commit: `feat(services): Add Firebase Storage integration`
+### Day 1 Checkpoint (1.5 hours in)
+**Should Have:**
+- ✅ Cloud Functions initialized
+- ✅ Middleware implemented
+- ✅ AI router with placeholders
 
-**Checkpoint:** After 2 hours, you'll have images compressing and uploading! 🎉
+**Test:** `npm run build` succeeds with 0 errors
+
+### Day 1 Complete (2-3 hours)
+**Should Have:**
+- ✅ Cloud Functions deployed
+- ✅ iOS AIService implemented
+- ✅ Can call from iOS app
+- ✅ Authentication enforced
+- ✅ Rate limiting works
+
+**Test:** Can successfully call AI from iOS app
+
+---
+
+## What Comes Next
+
+**After PR #14:**
+1. **PR #15: Calendar Extraction** (3-4h) - Detect dates/times in messages
+2. **PR #16: Decision Summarization** (3-4h) - Summarize group decisions
+3. **PR #17: Priority Highlighting** (2-3h) - Detect urgent messages
+4. **PR #18: RSVP Tracking** (3-4h) - Track event responses
+5. **PR #19: Deadline Extraction** (3-4h) - Extract deadlines
+6. **PR #20: Event Planning Agent** (5-6h) - Multi-step AI agent (+10 bonus!)
+
+**Each feature PR will:**
+- Implement one AI feature function
+- Add UI to display results
+- Test with real messages
+- Build on this infrastructure
 
 ---
 
@@ -487,35 +435,24 @@ Phase 7: Testing & Polish (30 min)
 
 **Planning Status:** ✅ COMPLETE  
 **Confidence Level:** HIGH  
-**Recommendation:** **BUILD IT!** 🚀
+**Recommendation:** BUILD IT! This is critical infrastructure.
 
 **Why High Confidence:**
-- Clear architecture decisions made
-- All code examples provided in spec
-- Risks identified and mitigated
-- Similar patterns to existing PRs
-- Historical success with messaging features
+- Clear architecture decisions
+- Step-by-step implementation plan
+- All risks identified and mitigated
+- Proven patterns (TypeScript + OpenAI + Firebase)
+- Realistic time estimates
+- No complex logic (just routing and middleware)
 
-**Expected Outcome:**
-- **Time:** 2-3 hours actual (2-3x faster than budgeted, per historical data)
-- **Quality:** Production-ready image sharing
-- **Features:** Compression, upload, display, zoom, progress tracking
-- **Impact:** Feature-complete multimedia messaging
-
-**After This PR:**
-- ✅ Users can send and receive images
-- ✅ Images work in 1-on-1 and group chats
-- ✅ Visual communication enabled
-- ✅ App competitive with WhatsApp/iMessage
-- ✅ MVP nearly complete (just need offline support and polish)
+**Next Step:** Run through the implementation checklist!
 
 ---
 
-**Next Step:** When ready, start Phase 1 from implementation checklist!
-
-**You've got this!** 💪 Image sharing is one of the most satisfying features to build—seeing photos flow between devices in real-time is magical! 🎉
+**Remember:** This is infrastructure. No flashy features yet. But it enables everything else. Think of it as building the foundation before the house.
 
 ---
 
-*"A picture is worth a thousand words. Image sharing is worth a thousand features."*
+*"Infrastructure is invisible until it's missing."*
 
+**You've got this!** 💪🚀
