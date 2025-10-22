@@ -11,6 +11,7 @@
 		E3E34ABE2EA6D65D00F0FDBE /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34ABD2EA6D65D00F0FDBE /* FirebaseFirestore */; };
 		E3E34AC02EA6D66300F0FDBE /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34ABF2EA6D66300F0FDBE /* FirebaseStorage */; };
 		E3E34AC22EA6D66A00F0FDBE /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34AC12EA6D66A00F0FDBE /* FirebaseMessaging */; };
+		E3E34B912EA89A0000F0FDBE /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34B902EA89A0000F0FDBE /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 			files = (
 				E3E34AC22EA6D66A00F0FDBE /* FirebaseMessaging in Frameworks */,
 				E3E34ABC2EA6D65500F0FDBE /* FirebaseAuth in Frameworks */,
+				E3E34B912EA89A0000F0FDBE /* FirebaseFunctions in Frameworks */,
 				E3E34ABE2EA6D65D00F0FDBE /* FirebaseFirestore in Frameworks */,
 				E3E34AC02EA6D66300F0FDBE /* FirebaseStorage in Frameworks */,
 			);
@@ -88,6 +90,7 @@
 				E3E34ABD2EA6D65D00F0FDBE /* FirebaseFirestore */,
 				E3E34ABF2EA6D66300F0FDBE /* FirebaseStorage */,
 				E3E34AC12EA6D66A00F0FDBE /* FirebaseMessaging */,
+				E3E34B902EA89A0000F0FDBE /* FirebaseFunctions */,
 			);
 			productName = messAI;
 			productReference = E3E34AA92EA6944C00F0FDBE /* messAI.app */;
@@ -409,6 +412,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E3E34AB92EA6D5CA00F0FDBE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		E3E34B902EA89A0000F0FDBE /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E3E34AB92EA6D5CA00F0FDBE /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
