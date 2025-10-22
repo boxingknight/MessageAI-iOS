@@ -6,6 +6,7 @@ enum AIFeature: String, Codable {
     case calendar
     case decision
     case urgency
+    case priority   // PR#17: Priority Highlighting
     case rsvp
     case deadline
     case agent
@@ -242,6 +243,78 @@ class AIService {
             cache[cacheKey] = (summary, Date())
             
             return summary
+            
+        } catch let error as NSError {
+            print("❌ AIService: Error calling Cloud Function: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
+    
+    // MARK: - Priority Highlighting (PR #17)
+    
+    /// Detect priority level of a message using hybrid AI approach
+    /// Returns PriorityDetectionResult with level, confidence, and reasoning
+    func detectPriority(
+        messageText: String,
+        conversationId: String
+    ) async throws -> PriorityDetectionResult {
+        print("🎯 AIService: Detecting priority for message in conversation \(conversationId)")
+        
+        // Prepare request data
+        let data: [String: Any] = [
+            "feature": AIFeature.priority.rawValue,
+            "messageText": messageText,
+            "conversationId": conversationId
+        ]
+        
+        print("📤 AIService: Calling Cloud Function for priority detection")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                print("❌ AIService: Invalid response format")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse priority detection result
+            guard let levelString = resultData["level"] as? String,
+                  let level = PriorityLevel(rawValue: levelString),
+                  let confidence = resultData["confidence"] as? Double,
+                  let methodString = resultData["method"] as? String,
+                  let method = PriorityDetectionResult.DetectionMethod(rawValue: methodString),
+                  let reasoning = resultData["reasoning"] as? String,
+                  let processingTimeMs = resultData["processingTimeMs"] as? Int,
+                  let usedGPT4 = resultData["usedGPT4"] as? Bool else {
+                print("❌ AIService: Failed to parse priority detection response")
+                print("   Response: \(resultData)")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse optional keywords array
+            let keywords = resultData["keywords"] as? [String]
+            
+            let priorityResult = PriorityDetectionResult(
+                level: level,
+                confidence: confidence,
+                method: method,
+                keywords: keywords,
+                reasoning: reasoning,
+                processingTimeMs: processingTimeMs,
+                usedGPT4: usedGPT4
+            )
+            
+            print("✅ AIService: Priority detected successfully")
+            print("   - Level: \(level.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", confidence))")
+            print("   - Method: \(method.rawValue)")
+            print("   - Used GPT-4: \(usedGPT4)")
+            print("   - Processing Time: \(processingTimeMs)ms")
+            
+            return priorityResult
             
         } catch let error as NSError {
             print("❌ AIService: Error calling Cloud Function: \(error)")
