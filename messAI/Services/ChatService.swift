@@ -1265,6 +1265,39 @@ class ChatService {
         listeners.removeValue(forKey: "conversations-\(userId)")
     }
     
+    // MARK: - AI Metadata Updates (PR #15)
+    
+    /// Update message with AI metadata (calendar events, decisions, etc.)
+    func updateMessageAIMetadata(
+        conversationId: String,
+        messageId: String,
+        aiMetadata: AIMetadata
+    ) async throws {
+        print("📝 [ChatService] Updating message \(messageId) with AI metadata")
+        
+        let messageRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+        
+        // Encode AI metadata to dictionary
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(aiMetadata)
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+            
+            try await messageRef.updateData([
+                "aiMetadata": json,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("✅ [ChatService] Updated message with AI metadata")
+        } catch {
+            print("❌ [ChatService] Failed to update message AI metadata: \(error)")
+            throw mapFirestoreError(error)
+        }
+    }
+    
     // MARK: - Error Mapping
     
     /// Maps Firestore errors to ChatError

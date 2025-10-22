@@ -436,5 +436,89 @@ class ChatViewModel: ObservableObject {
             // Don't show error to user (non-critical operation)
         }
     }
+    
+    // MARK: - Calendar Extraction (PR #15)
+    
+    @Published var isExtractingCalendar = false
+    @Published var calendarExtractionError: String?
+    
+    /// Extract calendar events from a message using AI
+    func extractCalendarEvents(from message: Message) async {
+        guard !isExtractingCalendar else { return }
+        
+        isExtractingCalendar = true
+        calendarExtractionError = nil
+        
+        do {
+            print("📅 Extracting calendar events from message: \(message.id)")
+            
+            // Call AI service to extract calendar events
+            let events = try await AIService.shared.extractCalendarEvents(from: message.text)
+            
+            if events.isEmpty {
+                print("⚠️ No calendar events found in message")
+                calendarExtractionError = "No calendar events detected in this message."
+                isExtractingCalendar = false
+                return
+            }
+            
+            print("✅ Extracted \(events.count) calendar events")
+            
+            // Update message with extracted events
+            await updateMessageWithCalendarEvents(message: message, events: events)
+            
+            isExtractingCalendar = false
+            
+        } catch {
+            print("❌ Calendar extraction failed: \(error)")
+            calendarExtractionError = error.localizedDescription
+            isExtractingCalendar = false
+        }
+    }
+    
+    /// Update message with extracted calendar events
+    private func updateMessageWithCalendarEvents(message: Message, events: [CalendarEvent]) async {
+        do {
+            // Create or update AI metadata
+            var aiMetadata = message.aiMetadata ?? AIMetadata()
+            aiMetadata.calendarEvents = events
+            
+            // Update message in Firestore
+            try await chatService.updateMessageAIMetadata(
+                conversationId: conversationId,
+                messageId: message.id,
+                aiMetadata: aiMetadata
+            )
+            
+            // Update local message
+            if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                var updatedMessage = messages[index]
+                updatedMessage.aiMetadata = aiMetadata
+                messages[index] = updatedMessage
+                
+                // Save to local storage
+                try? localDataManager.saveMessage(updatedMessage, conversationId: conversationId)
+            }
+            
+            print("✅ Updated message with calendar events")
+            
+        } catch {
+            print("❌ Failed to update message with calendar events: \(error)")
+            calendarExtractionError = "Failed to save calendar events: \(error.localizedDescription)"
+        }
+    }
+    
+    /// Add calendar event to iOS Calendar
+    func addEventToCalendar(_ event: CalendarEvent) async -> Bool {
+        do {
+            let eventId = try await CalendarManager.shared.addEvent(event)
+            print("✅ Added event to calendar: \(eventId)")
+            return true
+        } catch {
+            print("❌ Failed to add event to calendar: \(error)")
+            calendarExtractionError = error.localizedDescription
+            return false
+        }
+    }
 }
 

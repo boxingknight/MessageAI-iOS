@@ -130,5 +130,30 @@ class AIService {
         cache.removeAll()
         print("🗑️ AIService: Cache cleared")
     }
+    
+    // MARK: - Calendar Extraction (PR #15)
+    
+    /// Extract calendar events from a message
+    /// Returns structured CalendarEvent objects ready for display
+    func extractCalendarEvents(from message: String) async throws -> [CalendarEvent] {
+        print("📅 AIService: Extracting calendar events from message")
+        
+        let result = try await processMessage(message, feature: .calendar)
+        
+        // Parse events array from response
+        guard let eventsArray = result["events"] as? [[String: Any]] else {
+            print("⚠️ AIService: No events array in response")
+            return []
+        }
+        
+        // Convert each event dictionary to CalendarEvent
+        let calendarEvents = eventsArray.compactMap { eventDict -> CalendarEvent? in
+            return CalendarEvent(from: eventDict)
+        }
+        
+        print("✅ AIService: Extracted \(calendarEvents.count) calendar events")
+        
+        return calendarEvents
+    }
 }
 

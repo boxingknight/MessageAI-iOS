@@ -63,6 +63,7 @@ struct Deadline: Codable, Equatable, Identifiable, Hashable {
 struct AIMetadata: Codable, Equatable, Hashable {
     // Calendar Extraction (PR #15)
     var extractedDates: [ExtractedDate]?
+    var calendarEvents: [CalendarEvent]? // New structured calendar events
     
     // Decision Summarization (PR #16)
     var isDecision: Bool?

@@ -155,14 +155,42 @@ struct ChatView: View {
                             let isFirst = isFirstInGroup(at: index)
                             let isLast = isLastInGroup(at: index)
                             
-                            MessageBubbleView(
-                                message: message,
-                                isFromCurrentUser: message.senderId == viewModel.currentUserId,
-                                isFirstInGroup: isFirst,
-                                isLastInGroup: isLast,
-                                conversation: conversation, // PR #13: Pass conversation for group support
-                                users: userCache // PR #13: Pass users for sender names
-                            )
+                            VStack(alignment: .leading, spacing: 8) {
+                                MessageBubbleView(
+                                    message: message,
+                                    isFromCurrentUser: message.senderId == viewModel.currentUserId,
+                                    isFirstInGroup: isFirst,
+                                    isLastInGroup: isLast,
+                                    conversation: conversation, // PR #13: Pass conversation for group support
+                                    users: userCache // PR #13: Pass users for sender names
+                                )
+                                .contextMenu {
+                                    // PR #15: Calendar extraction context menu
+                                    Button {
+                                        Task {
+                                            await viewModel.extractCalendarEvents(from: message)
+                                        }
+                                    } label: {
+                                        Label("Extract Calendar Event", systemImage: "calendar.badge.plus")
+                                    }
+                                }
+                                
+                                // PR #15: Display calendar cards if events exist
+                                if let calendarEvents = message.aiMetadata?.calendarEvents,
+                                   !calendarEvents.isEmpty {
+                                    ForEach(calendarEvents) { event in
+                                        CalendarCardView(event: event) { event in
+                                            Task {
+                                                let success = await viewModel.addEventToCalendar(event)
+                                                if !success {
+                                                    // Show error if needed
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+                                    }
+                                }
+                            }
                             .id(message.id)
                         }
                     }
