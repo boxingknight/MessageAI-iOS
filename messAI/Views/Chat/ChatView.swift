@@ -127,6 +127,18 @@ struct ChatView: View {
             }
             .disabled(viewModel.isSummarizing)
             
+            // PR #17: Priority Detection Test Button (DEBUG)
+            #if DEBUG
+            Button(action: {
+                Task {
+                    await testPriorityDetection()
+                }
+            }) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+            }
+            #endif
+            
             if conversation.isGroup {
                 // Group chat: Show group info button
                 Button(action: {
@@ -339,6 +351,41 @@ struct ChatView: View {
             }
         }
     }
+    
+    // MARK: - Testing Helpers (PR #17)
+    
+    #if DEBUG
+    /// Test priority detection on the last message
+    private func testPriorityDetection() async {
+        guard let lastMessage = viewModel.messages.last else {
+            print("⚠️ No messages to test priority detection")
+            return
+        }
+        
+        print("🧪 Testing priority detection on message: \(lastMessage.id)")
+        print("   Text: \(lastMessage.text)")
+        
+        let result = await viewModel.detectMessagePriority(
+            for: lastMessage.id,
+            messageText: lastMessage.text
+        )
+        
+        if let result = result {
+            print("✅ Priority Detection Test Complete:")
+            print("   Level: \(result.level.rawValue)")
+            print("   Confidence: \(String(format: "%.2f", result.confidence))")
+            print("   Method: \(result.method.rawValue)")
+            print("   Used GPT-4: \(result.usedGPT4)")
+            print("   Processing Time: \(result.processingTimeMs)ms")
+            if let keywords = result.keywords, !keywords.isEmpty {
+                print("   Keywords: \(keywords.joined(separator: ", "))")
+            }
+            print("   Reasoning: \(result.reasoning)")
+        } else {
+            print("❌ Priority detection failed")
+        }
+    }
+    #endif
 }
 
 #Preview("Chat with Messages") {
