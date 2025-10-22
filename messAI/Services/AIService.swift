@@ -148,7 +148,26 @@ class AIService {
         
         // Convert each event dictionary to CalendarEvent
         let calendarEvents = eventsArray.compactMap { eventDict -> CalendarEvent? in
-            return CalendarEvent(from: eventDict)
+            print("🔍 [AIService] Raw event dict from Cloud Function:")
+            print("  - title: \(eventDict["title"] ?? "nil")")
+            print("  - date: \(eventDict["date"] ?? "nil")")
+            print("  - time: \(eventDict["time"] ?? "nil")")
+            print("  - isAllDay: \(eventDict["isAllDay"] ?? "nil")")
+            print("  - confidence: \(eventDict["confidence"] ?? "nil")")
+            
+            let calendarEvent = CalendarEvent(from: eventDict)
+            
+            if let event = calendarEvent {
+                print("✅ [AIService] Successfully parsed CalendarEvent:")
+                print("   - title: \(event.title)")
+                print("   - date: \(event.date)")
+                print("   - time: \(event.time?.description ?? "nil")")
+                print("   - isAllDay: \(event.isAllDay)")
+            } else {
+                print("❌ [AIService] Failed to parse CalendarEvent from dict")
+            }
+            
+            return calendarEvent
         }
         
         print("✅ AIService: Extracted \(calendarEvents.count) calendar events")

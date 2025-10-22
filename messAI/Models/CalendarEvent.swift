@@ -52,16 +52,42 @@ struct CalendarEvent: Identifiable, Codable, Equatable, Hashable {
             return nil
         }
         
-        // Parse optional time
+        // Parse optional time with robust handling
         var time: Date?
         if let timeString = dictionary["time"] as? String,
            !timeString.isEmpty,
            timeString != "null" {
-            // Combine date and time
+            
+            print("🕒 [CalendarEvent] Attempting to parse time: '\(timeString)' for date: '\(dateString)'")
+            
+            // Strategy 1: Try ISO8601 format (e.g., "16:00:00")
             let fullDateTimeString = "\(dateString)T\(timeString)"
             let fullFormatter = ISO8601DateFormatter()
             fullFormatter.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
             time = fullFormatter.date(from: fullDateTimeString)
+            
+            // Strategy 2: Manual parsing if ISO8601 fails
+            if time == nil {
+                print("⚠️ [CalendarEvent] ISO8601 parsing failed, trying manual parsing")
+                let timeComponents = timeString.split(separator: ":")
+                if timeComponents.count >= 2,
+                   let hour = Int(timeComponents[0]),
+                   let minute = Int(timeComponents[1]) {
+                    var calendar = Calendar.current
+                    calendar.timeZone = TimeZone.current
+                    var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+                    dateComponents.hour = hour
+                    dateComponents.minute = minute
+                    dateComponents.second = timeComponents.count > 2 ? Int(timeComponents[2]) : 0
+                    time = calendar.date(from: dateComponents)
+                }
+            }
+            
+            if time != nil {
+                print("✅ [CalendarEvent] Successfully parsed time: \(time!)")
+            } else {
+                print("❌ [CalendarEvent] Failed to parse time: '\(timeString)'")
+            }
         }
         
         // Parse optional end time
@@ -77,6 +103,23 @@ struct CalendarEvent: Identifiable, Codable, Equatable, Hashable {
         
         let location = dictionary["location"] as? String
         
+        // CRITICAL FIX: Override isAllDay based on whether we successfully parsed time
+        // This ensures consistency between time field and isAllDay flag
+        let finalIsAllDay: Bool
+        if time != nil {
+            // Successfully parsed time → NOT all-day
+            finalIsAllDay = false
+            print("✅ [CalendarEvent] Time parsed successfully → isAllDay = false")
+        } else if dictionary["time"] != nil && dictionary["time"] as? String != "null" {
+            // Backend said there's a time but we couldn't parse it → all-day fallback
+            print("⚠️ [CalendarEvent] Time parsing failed, falling back to all-day event")
+            finalIsAllDay = true
+        } else {
+            // No time provided at all → use backend's isAllDay value
+            finalIsAllDay = isAllDay
+            print("ℹ️ [CalendarEvent] No time provided, using backend isAllDay: \(isAllDay)")
+        }
+        
         self.init(
             id: id,
             title: title,
@@ -84,7 +127,7 @@ struct CalendarEvent: Identifiable, Codable, Equatable, Hashable {
             time: time,
             endTime: endTime,
             location: location,
-            isAllDay: isAllDay,
+            isAllDay: finalIsAllDay, // ← Use computed value instead of backend value
             confidence: confidence,
             rawText: rawText
         )

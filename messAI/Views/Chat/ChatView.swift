@@ -191,15 +191,6 @@ struct ChatView: View {
                                             }
                                         }
                                         .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
-                                        .onAppear {
-                                            print("📅 [ChatView] Displaying calendar card for: \(event.title)")
-                                            // Auto-scroll to show the calendar card
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                                withAnimation {
-                                                    proxy.scrollTo(message.id, anchor: .bottom)
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -209,18 +200,25 @@ struct ChatView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
-                .onChange(of: viewModel.messages.count) { oldValue, newValue in
-                    // Auto-scroll to bottom when new message arrives
-                    if let lastMessage = viewModel.messages.last {
-                        withAnimation {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                .onChange(of: viewModel.messages) { oldMessages, newMessages in
+                    // Scroll to bottom whenever messages change (new message, update, AI extraction, etc.)
+                    // Small delay ensures message is fully rendered before scrolling
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        if let lastMessage = newMessages.last {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                            print("📜 [ChatView] Auto-scrolled to latest message: \(lastMessage.id)")
                         }
                     }
                 }
                 .onAppear {
-                    // Scroll to bottom on first load
-                    if let lastMessage = viewModel.messages.last {
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    // Scroll to bottom on first load (instant, no animation)
+                    DispatchQueue.main.async {
+                        if let lastMessage = viewModel.messages.last {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            print("📜 [ChatView] Initial scroll to bottom")
+                        }
                     }
                 }
     }
