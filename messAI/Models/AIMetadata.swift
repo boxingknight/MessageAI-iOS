@@ -32,18 +32,6 @@ struct Decision: Codable, Equatable, Hashable {
     let timestamp: Date
 }
 
-/// RSVP response status
-enum RSVPStatus: String, Codable {
-    case yes, no, maybe, pending
-}
-
-/// RSVP response info
-struct RSVPResponse: Codable, Equatable, Hashable {
-    let eventId: String
-    let response: RSVPStatus
-    let respondedAt: Date
-}
-
 /// Deadline extracted from message
 struct Deadline: Codable, Equatable, Identifiable, Hashable {
     let id: String
@@ -79,7 +67,12 @@ struct AIMetadata: Codable, Equatable, Hashable {
     var priorityReasoning: String?     // Why this priority was assigned
     
     // RSVP Tracking (PR #18)
-    var rsvpInfo: RSVPResponse?
+    var rsvpResponse: RSVPResponse?     // Detected RSVP response
+    var rsvpStatus: RSVPStatus?         // Quick access to status
+    var rsvpEventId: String?            // Linked event ID
+    var rsvpConfidence: Double?         // 0.0-1.0 confidence score
+    var rsvpMethod: String?             // Detection method: keyword, gpt4, hybrid
+    var rsvpReasoning: String?          // Why this classification was made
     
     // Deadline Extraction (PR #19)
     var deadlines: [Deadline]?

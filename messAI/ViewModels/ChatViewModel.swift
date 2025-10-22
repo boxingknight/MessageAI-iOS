@@ -322,6 +322,12 @@ class ChatViewModel: ObservableObject {
                     await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
                 }
                 
+                // PR #18: Automatically track RSVP for new messages (async, non-blocking)
+                // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
+                Task {
+                    await trackMessageRSVP(for: firebaseMessage.id, message: firebaseMessage)
+                }
+                
                 // PR #11 Fix: WhatsApp-style delivery tracking
                 if firebaseMessage.senderId != currentUserId {
                     // Step 1: ALWAYS mark as delivered (message arrived on device)
@@ -661,6 +667,159 @@ class ChatViewModel: ObservableObject {
             
         } catch {
             print("❌ Failed to update message priority in Firestore: \(error)")
+        }
+    }
+    
+    // MARK: - RSVP Tracking (PR #18)
+    
+    /// Track RSVP responses in a message (called automatically on new messages)
+    /// Updates the message's AIMetadata with RSVP information if detected
+    @discardableResult
+    func trackMessageRSVP(for messageId: String, message: Message) async -> RSVPResponse? {
+        print("🎯 Tracking RSVP for message: \(messageId)")
+        
+        // Get sender info
+        let senderId = message.senderId
+        let senderName = message.senderName ?? "Unknown"
+        
+        // Get recent event IDs from messages with calendar events (last 5)
+        let recentEventIds = messages
+            .compactMap { $0.aiMetadata?.calendarEvents }
+            .flatMap { $0 }
+            .suffix(5)
+            .map { $0.id }
+        
+        do {
+            // Call AI service to track RSVP
+            let result = try await AIService.shared.trackRSVP(
+                messageText: message.text,
+                messageId: messageId,
+                senderId: senderId,
+                senderName: senderName,
+                conversationId: conversationId,
+                recentEventIds: Array(recentEventIds)
+            )
+            
+            // If no RSVP detected, return nil
+            guard let rsvp = result else {
+                print("✅ No RSVP detected in message")
+                return nil
+            }
+            
+            print("✅ RSVP detected: \(rsvp.status.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", rsvp.confidence))")
+            print("   - Event ID: \(rsvp.eventId ?? "none")")
+            print("   - Method: \(rsvp.method.rawValue)")
+            
+            // Update message's AIMetadata in Firestore
+            await updateMessageRSVP(messageId: messageId, rsvp: rsvp)
+            
+            // Update local message object
+            if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                var updatedMessage = messages[index]
+                
+                // Create or update AIMetadata
+                if updatedMessage.aiMetadata == nil {
+                    updatedMessage.aiMetadata = AIMetadata()
+                }
+                
+                updatedMessage.aiMetadata?.rsvpResponse = rsvp
+                updatedMessage.aiMetadata?.rsvpStatus = rsvp.status
+                updatedMessage.aiMetadata?.rsvpEventId = rsvp.eventId
+                updatedMessage.aiMetadata?.rsvpConfidence = rsvp.confidence
+                updatedMessage.aiMetadata?.rsvpMethod = rsvp.method.rawValue
+                updatedMessage.aiMetadata?.rsvpReasoning = rsvp.reasoning
+                
+                messages[index] = updatedMessage
+                
+                print("✅ Updated local message with RSVP: \(rsvp.status.rawValue)")
+            }
+            
+            // If linked to an event, update event RSVP tracking in Firestore
+            if let eventId = rsvp.eventId {
+                await updateEventRSVP(
+                    eventId: eventId,
+                    userId: senderId,
+                    userName: senderName,
+                    status: rsvp.status,
+                    messageId: messageId
+                )
+            }
+            
+            return rsvp
+            
+        } catch let error as AIError {
+            print("❌ RSVP tracking failed: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("❌ RSVP tracking failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Update message RSVP metadata in Firestore
+    private func updateMessageRSVP(messageId: String, rsvp: RSVPResponse) async {
+        do {
+            // Update aiMetadata field in Firestore
+            var aiMetadata: [String: Any] = [
+                "rsvpStatus": rsvp.status.rawValue,
+                "rsvpConfidence": rsvp.confidence,
+                "rsvpMethod": rsvp.method.rawValue
+            ]
+            
+            if let eventId = rsvp.eventId {
+                aiMetadata["rsvpEventId"] = eventId
+            }
+            
+            if let reasoning = rsvp.reasoning {
+                aiMetadata["rsvpReasoning"] = reasoning
+            }
+            
+            // Directly update Firestore document
+            try await Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+                .updateData(["aiMetadata": aiMetadata])
+            
+            print("✅ Updated Firestore with RSVP metadata")
+            
+        } catch {
+            print("❌ Failed to update message RSVP in Firestore: \(error)")
+        }
+    }
+    
+    /// Update event RSVP tracking in Firestore (subcollection pattern)
+    /// Stores RSVP in /events/{eventId}/rsvps/{userId} for scalability
+    private func updateEventRSVP(
+        eventId: String,
+        userId: String,
+        userName: String,
+        status: RSVPStatus,
+        messageId: String
+    ) async {
+        do {
+            let rsvpData: [String: Any] = [
+                "userId": userId,
+                "userName": userName,
+                "status": status.rawValue,
+                "respondedAt": Timestamp(date: Date()),
+                "messageId": messageId
+            ]
+            
+            // Store RSVP in subcollection
+            try await Firestore.firestore()
+                .collection("events")
+                .document(eventId)
+                .collection("rsvps")
+                .document(userId)
+                .setData(rsvpData, merge: true)
+            
+            print("✅ Updated event RSVP tracking: \(eventId) → \(status.rawValue)")
+            
+        } catch {
+            print("❌ Failed to update event RSVP: \(error)")
         }
     }
 }
