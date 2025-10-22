@@ -79,9 +79,10 @@ service cloud.firestore {
         // Can update message if you're the sender OR updating status/tracking fields
         // PR #11: Added deliveredTo and readBy for recipient tracking
         // PR #11 Fix: Use diff().affectedKeys() to check only changed fields, not all fields
+        // PR #15: Added aiMetadata and updatedAt for AI features (calendar extraction, etc.)
         allow update: if isParticipant(conversationId) &&
                          (request.auth.uid == resource.data.senderId || 
-                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'deliveredAt', 'readAt', 'deliveredTo', 'readBy']));
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'deliveredAt', 'readAt', 'deliveredTo', 'readBy', 'aiMetadata', 'updatedAt']));
         
         // Can delete if you're the sender
         allow delete: if isParticipant(conversationId) &&
