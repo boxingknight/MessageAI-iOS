@@ -497,7 +497,7 @@ class ChatViewModel: ObservableObject {
                 messages[index] = updatedMessage
                 
                 // Save to local storage
-                try? localDataManager.saveMessage(updatedMessage, conversationId: conversationId)
+                try? localDataManager.saveMessage(updatedMessage)
             }
             
             print("✅ Updated message with calendar events")

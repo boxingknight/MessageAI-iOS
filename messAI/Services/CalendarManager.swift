@@ -1,5 +1,6 @@
 import Foundation
 import EventKit
+import Combine
 
 /// Manager for handling iOS Calendar integration
 @MainActor

@@ -1082,6 +1082,64 @@ MessageAI - A production-quality iOS messaging application with:
 
 ---
 
+### PR #16: Decision Summarization Feature
+**Status:** 📋 PLANNED (Documentation complete, ready to implement!) 🎉 **NEW!**  
+**Branch**: `feature/pr16-decision-summarization` (to be created)  
+**Timeline**: 3-4 hours estimated  
+**Priority**: 🟡 HIGH - Second AI feature for busy parents  
+**Depends on**: PR#14 (Cloud Functions Setup) COMPLETE, PR#15 (Calendar Extraction) RECOMMENDED  
+**Created**: October 22, 2025
+
+**Documents**:
+- Main Spec: `PR16_DECISION_SUMMARIZATION.md` (~12,000 words)
+- Implementation Checklist: `PR16_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
+- Quick Start: `PR16_README.md` (~8,000 words)
+- Planning Summary: `PR16_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR16_TESTING_GUIDE.md` (~7,000 words)
+- **Total Documentation**: ~40,000 words
+
+**Summary**: AI-powered conversation summaries that extract decisions, action items, and key points from group chats using GPT-4. When users tap "Summarize" button, AI reads last 50 messages in 2 seconds and displays a concise summary card with collapsible sections. Saves busy parents 10-15 minutes/day of reading group chat backlogs.
+
+**Key Decisions**:
+- Trigger: **Manual (button in toolbar)** - User controls when to summarize
+- Storage: **Separate /summaries collection** - One summary per conversation
+- Scope: **Last 50 messages (fixed)** - Predictable performance and cost
+- UI: **Inline card at top of chat** - Always visible, context-preserved
+
+**What This Enables**:
+- 🎯 High-value feature (directly saves time, reduces stress)
+- 🎯 Viral potential ("This app read 50 messages in 2 seconds!")
+- 🎯 Differentiator (WhatsApp/iMessage don't have this)
+- 🎯 Foundation for PR#20 (Multi-Step Event Planning Agent)
+
+**Files to Create** (3 new files, ~600 lines):
+- `functions/src/ai/decisionSummary.ts` - GPT-4 summarization logic (~250 lines)
+- `messAI/Models/ConversationSummary.swift` - Summary data structure (~150 lines)
+- `messAI/Models/ActionItem.swift` - Action item with priority (~100 lines)
+- `messAI/Views/Chat/DecisionSummaryCardView.swift` - Summary card UI (~250 lines)
+
+**Files to Modify** (+~320 lines):
+- `functions/src/ai/processAI.ts` (+20 lines) - Add decision_summary route
+- `messAI/Services/AIService.swift` (+120 lines) - Add summarizeConversation()
+- `messAI/ViewModels/ChatViewModel.swift` (+100 lines) - Summary state management
+- `messAI/Views/Chat/ChatView.swift` (+80 lines) - Display summary card
+
+**Success Metrics**:
+- Generation time: <5 seconds (cold), <1 second (cached)
+- Accuracy: >80% relevant information extraction
+- Cost: ~$0.06 per summary (50 messages with GPT-4)
+- Cache hit rate: >60% (5-minute TTL)
+
+**Risks & Mitigation**:
+- 🟡 Low AI accuracy → Use GPT-4, clear prompts, confidence scoring
+- 🟢 High API costs → Manual trigger, 5-min cache, rate limiting
+- 🟡 Slow GPT-4 → 30s timeout, progress indicator, aggressive caching
+- 🟢 Privacy concerns → Secure HTTPS, OpenAI data retention policy
+
+**Prerequisites**: PR#14 (Cloud Functions) MUST BE 100% COMPLETE
+
+---
+
 ## Project Status
 
 ### Completed (~31.5 hours) 🎉
@@ -1182,8 +1240,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **16 PRs documented** (PR #1-15, PR #17, PR #17.1, PR #23) 🎉 **PR #15: FIRST AI FEATURE!**
-- **~640,000 words** of planning and documentation (+39K from PR#15!)
+- **17 PRs documented** (PR #1-16, PR #17, PR #17.1, PR #23) 🎉 **PR #16: SECOND AI FEATURE!**
+- **~680,000 words** of planning and documentation (+40K from PR#16!)
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -1194,11 +1252,12 @@ Each PR follows this documentation standard:
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~24K (with complete summary) ✅ **COMPLETE!**
   - PR #15: ~39K (planning complete) 🎉 **FIRST AI FEATURE READY!**
+  - PR #16: ~40K (planning complete) 🎉 **SECOND AI FEATURE READY!** **NEW!**
   - PR #23: ~48K (planning complete - image sharing)
   - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
   - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
-- **94 planning documents** (5-7 per PR, +5 from PR#15)
-- **~37 hours** spent on planning + debugging documentation total (+2h from PR#15)
+- **99 planning documents** (5-7 per PR, +5 from PR#16)
+- **~39 hours** spent on planning + debugging documentation total (+2h from PR#16)
 - **~4,850+ lines** of production code written (13 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
