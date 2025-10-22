@@ -281,7 +281,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = messAI/Info.plist;
+				INFOPLIST_FILE = "";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "messAI needs full calendar access to add events extracted from your conversations.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "messAI needs access to your calendar to save extracted event dates from your messages.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "messAI may need access to reminders for event management.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -327,7 +330,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = messAI/Info.plist;
+				INFOPLIST_FILE = "";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "messAI needs full calendar access to add events extracted from your conversations.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "messAI needs access to your calendar to save extracted event dates from your messages.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "messAI may need access to reminders for event management.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

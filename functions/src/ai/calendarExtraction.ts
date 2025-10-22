@@ -72,7 +72,7 @@ RULES:
 4. Mark events as "high" confidence if date AND time are explicit (e.g., "Thursday at 4pm")
 5. Mark as "medium" if date is clear but time is vague or missing
 6. Mark as "low" if date is ambiguous (e.g., "sometime next week")
-7. For all-day events (no specific time), set isAllDay to true
+7. **CRITICAL**: Set isAllDay to FALSE if a specific time is mentioned (e.g., "at 4pm", "3:00"). Only set isAllDay to TRUE if NO specific time is mentioned.
 8. Extract location if mentioned (e.g., "at the park", "Main Street")
 9. Create descriptive titles (e.g., "Soccer practice" not just "practice")
 10. Return empty array if no calendar events detected
@@ -159,17 +159,23 @@ Current time: ${new Date().toISOString()}`
     const result = JSON.parse(functionCall.arguments);
     
     // Add IDs and raw text to events
-    const eventsWithIds: CalendarEvent[] = result.events.map((event: any) => ({
-      id: generateEventId(),
-      title: event.title,
-      date: event.date,
-      time: event.time || null,
-      endTime: event.endTime || null,
-      location: event.location || null,
-      isAllDay: event.isAllDay,
-      confidence: event.confidence,
-      rawText: message
-    }));
+    const eventsWithIds: CalendarEvent[] = result.events.map((event: any) => {
+      // Fix: If time is provided, it's NOT an all-day event
+      const hasTime = event.time && event.time !== 'null' && event.time.trim() !== '';
+      const isAllDay = hasTime ? false : event.isAllDay;
+      
+      return {
+        id: generateEventId(),
+        title: event.title,
+        date: event.date,
+        time: hasTime ? event.time : null,
+        endTime: event.endTime || null,
+        location: event.location || null,
+        isAllDay: isAllDay,
+        confidence: event.confidence,
+        rawText: message
+      };
+    });
     
     functions.logger.info('Calendar extraction successful', {
       eventCount: eventsWithIds.length,
