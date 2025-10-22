@@ -72,6 +72,11 @@ struct AIMetadata: Codable, Equatable, Hashable {
     // Priority Highlighting (PR #17)
     var isUrgent: Bool?
     var urgencyLevel: UrgencyLevel?
+    var priorityLevel: PriorityLevel?  // New priority system
+    var priorityConfidence: Double?    // 0.0-1.0 confidence score
+    var priorityMethod: String?        // Detection method: keyword, gpt4, hybrid
+    var priorityKeywords: [String]?    // Keywords that triggered detection
+    var priorityReasoning: String?     // Why this priority was assigned
     
     // RSVP Tracking (PR #18)
     var rsvpInfo: RSVPResponse?

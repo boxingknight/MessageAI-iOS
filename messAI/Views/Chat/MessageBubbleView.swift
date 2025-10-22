@@ -41,14 +41,32 @@ struct MessageBubbleView: View {
                         .padding(.leading, 12)
                 }
                 
-                // Message text bubble
-                Text(message.text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(bubbleColor)
-                    .foregroundColor(textColor)
-                    .clipShape(messageBubbleShape)
-                    .textSelection(.enabled)
+                // Message text bubble with priority border/badge (PR #17)
+                ZStack(alignment: .topTrailing) {
+                    Text(message.text)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(priorityBackgroundColor)
+                        .foregroundColor(textColor)
+                        .clipShape(messageBubbleShape)
+                        .textSelection(.enabled)
+                        .overlay(
+                            messageBubbleShape
+                                .stroke(priorityBorderColor, lineWidth: priorityBorderWidth)
+                        )
+                    
+                    // Priority badge (PR #17)
+                    if let priority = message.aiMetadata?.priorityLevel,
+                       priority.shouldHighlight {
+                        Image(systemName: priority.icon)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(priority.iconColor)
+                            .padding(4)
+                            .background(Color(.systemBackground))
+                            .clipShape(Circle())
+                            .offset(x: -4, y: 4)
+                    }
+                }
                 
                 // Timestamp + Status (only show on last message in group)
                 if isLastInGroup {
@@ -81,6 +99,31 @@ struct MessageBubbleView: View {
     
     private var textColor: Color {
         isFromCurrentUser ? .white : .primary
+    }
+    
+    // MARK: - Priority Styling (PR #17)
+    
+    /// Priority border color based on message priority level
+    private var priorityBorderColor: Color {
+        guard let priority = message.aiMetadata?.priorityLevel else {
+            return .clear
+        }
+        return priority.borderColor
+    }
+    
+    /// Priority border width
+    private var priorityBorderWidth: CGFloat {
+        guard let priority = message.aiMetadata?.priorityLevel else {
+            return 0
+        }
+        return priority.borderWidth
+    }
+    
+    /// Priority background overlay color
+    private var priorityBackgroundColor: Color {
+        // Just return the normal bubble color
+        // The priority background is already included in the PriorityLevel definition
+        return bubbleColor
     }
     
     /// Dynamic spacing: tight for grouped messages, normal for separate messages
