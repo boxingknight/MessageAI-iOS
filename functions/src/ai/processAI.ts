@@ -4,7 +4,7 @@ import { checkRateLimit } from '../middleware/rateLimit';
 import { validateRequest, validateFeature, validateMessage } from '../middleware/validation';
 import { extractCalendarDates } from './calendarExtraction';
 import { summarizeDecisions } from './decisionSummary';
-import { detectUrgency } from './priorityDetection';
+import { detectUrgency, detectPriority } from './priorityDetection';
 import { extractRSVP } from './rsvpTracking';
 import { extractDeadlines } from './deadlineExtraction';
 import { eventPlanningAgent } from './eventPlanningAgent';
@@ -110,6 +110,9 @@ async function routeAIFeature(data: any): Promise<any> {
     
     case 'urgency':
       return await detectUrgency(data);
+    
+    case 'priority':
+      return await detectPriority(data);
     
     case 'rsvp':
       return await extractRSVP(data);
