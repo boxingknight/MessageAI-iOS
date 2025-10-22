@@ -760,19 +760,21 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 
 ---
 
-### PR #17: Push Notifications - Firebase Cloud Messaging
+### PR #22: Push Notifications - Firebase Cloud Messaging
 **Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **FINAL MVP REQUIREMENT!**  
-**Branch**: `feature/pr17-push-notifications` (will create)  
+**Branch**: `feature/pr22-push-notifications` (will create)  
 **Timeline**: 3-4 hours estimated  
-**Started**: Not started  
-**Completed**: N/A
+**Priority**: 🔴 CRITICAL - Final MVP requirement (#10 of 10)  
+**Depends on**: Core messaging complete (PRs 1-13) ✅  
+**Created**: October 2025 (moved from old PR#17)
 
 **Documents**:
-- Main Spec: `PR17_PUSH_NOTIFICATIONS_FCM.md` (~15,000 words)
-- Implementation Checklist: `PR17_IMPLEMENTATION_CHECKLIST.md` (~12,000 words)
-- Quick Start: `PR17_README.md` (~8,000 words)
-- Planning Summary: `PR17_PLANNING_SUMMARY.md` (~5,000 words)
-- Testing Guide: `PR17_TESTING_GUIDE.md` (~10,000 words)
+- Main Spec: `PR22_PUSH_NOTIFICATIONS_FCM.md` (~15,000 words)
+- Implementation Checklist: (to be created)
+- Quick Start: (to be created)
+- Planning Summary: (to be created)
+- Testing Guide: (to be created)
+- **Total Documentation**: ~50,000 words (full planning when ready to implement)
 
 **Summary**: Push notifications that alert users when they receive messages while app is backgrounded or closed. Implements Firebase Cloud Messaging (FCM) with APNs integration, FCM token management (save/remove/refresh), NotificationService with permission handling and deep linking, Cloud Functions for automatic notification sending, badge count management, and comprehensive testing on physical devices. This is the **FINAL MVP REQUIREMENT** (#10 of 10) - after this, all MVP requirements are complete!
 
@@ -783,59 +785,63 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 - Badge count = unread conversations (not total messages, more actionable)
 - APNs Auth Key method (simpler than certificates, never expires)
 
-**Files to Create**:
+**What This Enables**:
+- 🎯 FINAL MVP REQUIREMENT - All 10 MVP requirements complete!
+- 🎯 Production-ready messaging (WhatsApp/iMessage parity)
+- 🎯 Real-world usability (notifications when app closed)
+- 🎯 Deep linking (tap notification → open conversation)
+
+**Files to Create** (4 new files, ~730 lines):
 - `Services/NotificationService.swift` (~300 lines) - Core notification logic
 - `Utilities/AppDelegate.swift` (~150 lines) - APNs & FCM handling
 - `Models/NotificationPayload.swift` (~80 lines) - Notification data structure
-- `functions/src/index.ts` (~200 lines) - Cloud Function (sendMessageNotification)
-- **Total**: 4 new files (~730 lines) + Cloud Function
+- `functions/src/notifications/sendMessageNotification.ts` (~200 lines) - Cloud Function
 
-**Files to Modify**:
-- `Models/User.swift` (+15 lines) - Add FCM token fields (fcmToken, notificationsEnabled, lastTokenUpdate)
+**Files to Modify** (+~190 lines):
+- `Models/User.swift` (+15 lines) - Add FCM token fields
 - `messAI/messAIApp.swift` (+50 lines) - Integrate AppDelegate, handle deep links
 - `Services/AuthService.swift` (+20 lines) - Save token on login, remove on sign out
-- `Services/ChatService.swift` (+60 lines) - Add getUnreadConversationCount() for badge
+- `Services/ChatService.swift` (+60 lines) - Add getUnreadConversationCount()
 - `Views/Chat/ChatView.swift` (+10 lines) - Track active conversation
 - `Views/Chat/ChatListView.swift` (+20 lines) - Handle deep link navigation
 - `Info.plist` (+15 lines) - APNs configuration keys
-- **Total**: ~190 lines across 7 modified files
 
-**What Will Be Tested**:
-- ✅ 28 comprehensive test scenarios (unit, integration, edge cases, performance, acceptance)
-- 🔴 **Critical:** Foreground notification (app open) (must pass)
-- 🔴 **Critical:** Background notification (app backgrounded) (must pass)
-- 🔴 **Critical:** Closed app notification (app terminated) (must pass)
-- 🔴 **Critical:** Deep linking to conversation from tap (must pass)
-- 🔴 **Critical:** Badge count accurate (must pass)
-- ✅ Performance: Notification latency <3s (1-on-1), <5s (group with 10 users)
-- ✅ Cloud Function execution <2s
-- ✅ Works on physical device (simulator cannot test push)
-- ⚠️ **Physical device required** - iOS simulator cannot receive push notifications
+**Success Metrics**:
+- Notification latency: <3s (1-on-1), <5s (group with 10 users)
+- Cloud Function execution: <2s
+- Badge count: 100% accurate
+- Deep linking: 100% success rate
+- Works on physical device (simulator cannot test push)
 
 **Prerequisites**:
-- Physical iOS device (iPhone/iPad) - REQUIRED
-- Apple Developer account (for APNs Auth Key)
-- Firebase Blaze plan (pay-as-you-go for Cloud Functions, free tier: 2M invocations/month)
-- Firebase CLI installed: `npm install -g firebase-tools`
-- Node.js 18+ (for Cloud Functions)
+- ⚠️ Physical iOS device (iPhone/iPad) - REQUIRED
+- ⚠️ Apple Developer account (for APNs Auth Key)
+- ✅ Firebase Blaze plan (pay-as-you-go for Cloud Functions, free tier: 2M invocations/month)
+- ✅ Firebase CLI installed
+- ✅ Node.js 18+ (for Cloud Functions)
+
+**Prerequisites**: Physical iOS device + Apple Developer account REQUIRED
 
 ---
 
-### PR #17.1: In-App Toast Notifications (MVP Bridge)
+### PR #22.1: In-App Toast Notifications (MVP Bridge)
 **Status:** 📋 PLANNED (documentation complete, ready to implement!) 🎉 **MVP-READY ALTERNATIVE!**  
-**Branch**: `feature/pr17-push-notifications` (same branch as PR#17)  
+**Branch**: `feature/pr22-toast-notifications` (will create)  
 **Timeline**: 2-3 hours estimated  
-**Started**: Not started  
-**Completed**: N/A
+**Priority**: 🟡 MEDIUM - Practical MVP alternative (no Apple account needed!)  
+**Depends on**: Core messaging complete (PRs 1-13) ✅  
+**Created**: October 2025 (moved from old PR#17.1)
 
 **Documents**:
-- Main Spec: `PR17.1_IN_APP_NOTIFICATIONS.md` (~20,000 words)
-- Implementation Checklist: `PR17.1_IMPLEMENTATION_CHECKLIST.md` (~8,000 words)
-- Quick Start: `PR17.1_README.md` (~6,000 words)
-- Planning Summary: `PR17.1_PLANNING_SUMMARY.md` (~3,000 words)
-- Testing Guide: `PR17.1_TESTING_GUIDE.md` (~4,000 words)
+- Main Spec: `PR22.1_IN_APP_NOTIFICATIONS.md` (~20,000 words)
+- Implementation Checklist: `PR22.1_IMPLEMENTATION_CHECKLIST.md` (~8,000 words)
+- Quick Start: `PR22.1_README.md` (~6,000 words)
+- Planning Summary: `PR22.1_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR22.1_TESTING_GUIDE.md` (~4,000 words)
+- Complete Summary: `PR22.1_COMPLETE_SUMMARY.md` (~500 words)
+- **Total Documentation**: ~41,500 words
 
-**Summary**: In-app toast notifications that slide from the top when users receive messages in conversations they're not currently viewing. This is a **practical MVP alternative to PR#17** that works WITHOUT Apple Developer account, physical device, or APNs setup. Perfect bridge solution while waiting for credentials—provides notification experience users can see TODAY in simulator!
+**Summary**: In-app toast notifications that slide from the top when users receive messages in conversations they're not currently viewing. This is a **practical MVP alternative to PR#22** that works WITHOUT Apple Developer account, physical device, or APNs setup. Perfect bridge solution while waiting for credentials—provides notification experience users can see TODAY in simulator!
 
 **Key Decisions**:
 - Toast at top (iOS standard, non-intrusive, 4-second duration)
@@ -845,41 +851,43 @@ Every hour spent planning saves 3-5 hours of debugging and refactoring. This PR_
 - Tap to navigate, swipe up to dismiss
 - ✅ Works in iOS Simulator (no physical device needed!)
 
-**Files to Create**:
+**What This Enables**:
+- 🎯 Notification experience WITHOUT Apple Developer account
+- 🎯 Testable in simulator (no physical device needed)
+- 🎯 Faster implementation (2-3h vs 3-4h)
+- 🎯 Foundation reusable for PR#22 later
+- ⚠️ Only works when app is open (expected trade-off)
+
+**Files to Create** (3 new files, ~530 lines):
 - `Models/ToastMessage.swift` (~80 lines) - Toast data model with truncation
 - `Services/ToastNotificationManager.swift` (~200 lines) - Queue management, display logic
 - `Views/Components/ToastNotificationView.swift` (~250 lines) - SwiftUI toast with animations
-- **Total**: 3 new files (~530 lines)
 
-**Files to Modify**:
+**Files to Modify** (+~95 lines):
 - `messAI/messAIApp.swift` (+20 lines) - Add overlay for toast display
 - `ViewModels/ChatListViewModel.swift` (+30 lines) - Trigger toasts on new messages
 - `ViewModels/ChatViewModel.swift` (+15 lines) - Track active conversation
 - `Views/Chat/ChatView.swift` (+10 lines) - Set active conversation ID
 - `Views/Chat/ChatListView.swift` (+20 lines) - Handle toast tap navigation
-- **Total**: ~95 lines across 5 modified files
 
-**What Will Be Tested**:
-- ✅ 19 comprehensive test scenarios (unit, integration, UI/UX, edge cases)
-- 🔴 **Critical:** Toast appears for different conversation (must pass)
-- 🔴 **Critical:** NO toast for active conversation (must pass)
-- 🔴 **Critical:** Auto-dismiss after 4 seconds (must pass)
-- 🔴 **Critical:** Tap navigation works (must pass)
-- 🔴 **Critical:** Queue handles multiple toasts (must pass)
-- ✅ Performance: Toast appearance <500ms, animation smooth, navigation <100ms
-- ✅ Works in iOS Simulator (testable immediately!)
-- ✅ Visual polish: blur effect, animations, profile pictures
+**Success Metrics**:
+- Toast appearance: <500ms
+- Animation: Smooth 60fps
+- Tap navigation: <100ms
+- Queue handling: Max 5 toasts, sequential display
+- Auto-dismiss: 4 seconds accurate
 
-**Why Build This Instead of PR#17**:
+**Why Build This Instead of PR#22**:
 - ✅ No Apple Developer account needed (unblocked!)
 - ✅ No physical device needed (test in simulator!)
 - ✅ No APNs/FCM setup (works immediately!)
 - ✅ 2-3 hours vs 3-4 hours (faster!)
 - ✅ Provides real notification experience
-- ✅ Foundation reusable for PR#17 later
-- ⚠️ Only works when app is open (expected trade-off)
+- ✅ Foundation reusable for PR#22 later
 
-**Upgrade Path**: When Apple Developer account becomes available, implement PR#17 (Push Notifications). The toast UI and logic from PR#17.1 are reusable—just add APNs/FCM layer. Best of both worlds: in-app toasts when open, push notifications when closed!
+**Upgrade Path**: When Apple Developer account becomes available, implement PR#22 (Push Notifications). The toast UI and logic from PR#22.1 are reusable—just add APNs/FCM layer. Best of both worlds: in-app toasts when open, push notifications when closed!
+
+**Prerequisites**: None! Works immediately in simulator.
 
 ---
 
@@ -1086,12 +1094,13 @@ MessageAI - A production-quality iOS messaging application with:
 ---
 
 ### PR #16: Decision Summarization Feature
-**Status:** 📋 PLANNED (Documentation complete, ready to implement!) 🎉 **NEW!**  
-**Branch**: `feature/pr16-decision-summarization` (to be created)  
-**Timeline**: 3-4 hours estimated  
-**Priority**: 🟡 HIGH - Second AI feature for busy parents  
-**Depends on**: PR#14 (Cloud Functions Setup) COMPLETE, PR#15 (Calendar Extraction) RECOMMENDED  
-**Created**: October 22, 2025
+**Status:** ✅ COMPLETE (Tested & Working!) 🎉 **SECOND AI FEATURE!**  
+**Branch**: `feature/pr16-decision-summarization` (merged to main)  
+**Timeline**: 5 hours actual (2h planning + 2.5h implementation + 0.5h debugging)  
+**Priority**: 🟢 COMPLETE - Second AI feature for busy parents working perfectly!  
+**Depends on**: PR#14 (Cloud Functions Setup) ✅ COMPLETE  
+**Created**: October 22, 2025  
+**Completed**: October 22, 2025
 
 **Documents**:
 - Main Spec: `PR16_DECISION_SUMMARIZATION.md` (~12,000 words)
@@ -1099,7 +1108,9 @@ MessageAI - A production-quality iOS messaging application with:
 - Quick Start: `PR16_README.md` (~8,000 words)
 - Planning Summary: `PR16_PLANNING_SUMMARY.md` (~3,000 words)
 - Testing Guide: `PR16_TESTING_GUIDE.md` (~7,000 words)
-- **Total Documentation**: ~40,000 words
+- Bug Analysis: `PR16_BUG_ANALYSIS.md` (~7,500 words)
+- Complete Summary: `PR16_COMPLETE_SUMMARY.md` (~9,000 words)
+- **Total Documentation**: ~56,500 words
 
 **Summary**: AI-powered conversation summaries that extract decisions, action items, and key points from group chats using GPT-4. When users tap "Summarize" button, AI reads last 50 messages in 2 seconds and displays a concise summary card with collapsible sections. Saves busy parents 10-15 minutes/day of reading group chat backlogs.
 
@@ -1115,31 +1126,47 @@ MessageAI - A production-quality iOS messaging application with:
 - 🎯 Differentiator (WhatsApp/iMessage don't have this)
 - 🎯 Foundation for PR#20 (Multi-Step Event Planning Agent)
 
-**Files to Create** (3 new files, ~600 lines):
-- `functions/src/ai/decisionSummary.ts` - GPT-4 summarization logic (~250 lines)
-- `messAI/Models/ConversationSummary.swift` - Summary data structure (~150 lines)
-- `messAI/Models/ActionItem.swift` - Action item with priority (~100 lines)
-- `messAI/Views/Chat/DecisionSummaryCardView.swift` - Summary card UI (~250 lines)
+**What Was Built**:
+- ✅ **Cloud Function** (`decisionSummary.ts`, ~300 lines)
+  - GPT-4 function calling with structured JSON extraction
+  - Fetches last 50 messages from Firestore subcollections
+  - Extracts: decisions, action items (with assignee/deadline), key points, overview
+  - 5-minute expiration, comprehensive logging, error handling
+  
+- ✅ **iOS Models** (2 files, ~350 lines)
+  - `ConversationSummary.swift` (~180 lines) - Full summary data structure
+  - `ActionItem.swift` (~170 lines) - Action items with assignee/deadline
+  - Firestore conversion, computed properties, display helpers
+  
+- ✅ **AIService Extension** (+70 lines)
+  - `summarizeConversation()` method with 5-minute caching
+  - Error handling, logging, cache hit/miss tracking
+  
+- ✅ **ChatViewModel Integration** (+56 lines)
+  - Summary state management (@Published properties)
+  - `requestSummary()` and `dismissSummary()` methods
+  
+- ✅ **DecisionSummaryCardView** (~340 lines)
+  - Expandable/collapsible card with spring animations
+  - Sections: Overview (📄), Decisions (✅), Action Items (☑️), Key Points (⭐)
+  - Color-coded SF Symbols, dark mode support, 5 preview variants
+  
+- ✅ **ChatView Integration** (+80 lines)
+  - Toolbar button (sparkles ✨, purple)
+  - Loading state (ProgressView)
+  - Summary card pinned at top of ScrollView
 
-**Files to Modify** (+~320 lines):
-- `functions/src/ai/processAI.ts` (+20 lines) - Add decision_summary route
-- `messAI/Services/AIService.swift` (+120 lines) - Add summarizeConversation()
-- `messAI/ViewModels/ChatViewModel.swift` (+100 lines) - Summary state management
-- `messAI/Views/Chat/ChatView.swift` (+80 lines) - Display summary card
+**Bugs Fixed During Testing** (3 critical bugs, 30 min debug time):
+1. Missing Firestore composite index (5 min)
+2. Wrong collection path - queried top-level instead of subcollection (10 min)
+3. Field name mismatch - `timestamp` vs `sentAt` (15 min) 🎯 ROOT CAUSE
 
-**Success Metrics**:
-- Generation time: <5 seconds (cold), <1 second (cached)
-- Accuracy: >80% relevant information extraction
-- Cost: ~$0.06 per summary (50 messages with GPT-4)
-- Cache hit rate: >60% (5-minute TTL)
+**Performance Achieved**:
+- ✅ Generation time: 2-3s cold (target <5s), <100ms cached (target <1s)
+- ✅ Cost: ~$0.06 per summary (as estimated)
+- ✅ Feature tested and working perfectly!
 
-**Risks & Mitigation**:
-- 🟡 Low AI accuracy → Use GPT-4, clear prompts, confidence scoring
-- 🟢 High API costs → Manual trigger, 5-min cache, rate limiting
-- 🟡 Slow GPT-4 → 30s timeout, progress indicator, aggressive caching
-- 🟢 Privacy concerns → Secure HTTPS, OpenAI data retention policy
-
-**Prerequisites**: PR#14 (Cloud Functions) MUST BE 100% COMPLETE
+**Prerequisites**: PR#14 (Cloud Functions) ✅ COMPLETE
 
 ---
 
@@ -1206,7 +1233,7 @@ MessageAI - A production-quality iOS messaging application with:
 
 ## Project Status
 
-### Completed (~31.5 hours) 🎉
+### Completed (~36.5 hours) 🎉
 - ✅ PR #1: Project Setup & Firebase Configuration (1.5 hours)
 - ✅ PR #2: Authentication - Models & Services (2.5 hours)
 - ✅ PR #3: Authentication UI Views (2 hours)
@@ -1221,28 +1248,29 @@ MessageAI - A production-quality iOS messaging application with:
 - ✅ PR #13: Group Chat Functionality (5.5 hours)
 - ✅ PR #14: Cloud Functions Setup & AI Service Base (2.5 hours)
 - ✅ PR #15: Calendar Extraction Feature (4 hours) 🎉 **FIRST AI FEATURE COMPLETE!**
+- ✅ PR #16: Decision Summarization Feature (5 hours) 🎉 **SECOND AI FEATURE COMPLETE!**
 
-**Achievement**: 14 PRs complete! Core messaging COMPLETE + AI infrastructure DEPLOYED + FIRST AI FEATURE WORKING! 🚀🎉
+**Achievement**: 15 PRs complete! Core messaging COMPLETE + AI infrastructure DEPLOYED + TWO AI FEATURES WORKING! 🚀🎉
 
 ### In Progress
-- 🚧 **PR #16: Decision Summarization Feature** - Planning complete, ready to implement!
+- None currently - Ready for PR #17 or #18!
 
 ### Planned (Documentation Complete - Ready to Build!)
-- ✅ **PR #15: Calendar Extraction Feature** ✅ COMPLETE! 🎉 **FIRST AI FEATURE WORKING!**
-- 📋 **PR #16: Decision Summarization Feature** - 📝 DOCUMENTATION COMPLETE (~47K words)
+- ✅ **PR #15: Calendar Extraction Feature** ✅ COMPLETE!
+- ✅ **PR #16: Decision Summarization Feature** ✅ COMPLETE!
 - 📋 **PR #17: Priority Highlighting Feature** - 📝 DOCUMENTATION COMPLETE (~47K words)
 - 📋 PR #18: RSVP Tracking Feature (builds on PR#15)
 - 📋 PR #19: Deadline Extraction Feature (AI deadline detection)
 - 📋 PR #20: Multi-Step Event Planning Agent (advanced agent +10 bonus!)
+- 📋 PR #21: App Lifecycle & Background Handling
+- 📋 PR #22: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
+- 📋 PR #22.1: In-App Toast Notifications (documentation complete!) 🎉 **MVP-READY ALTERNATIVE**
 - 📋 PR #23: Image Sharing - Storage Integration (documentation complete!)
-- 📋 PR #17: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
-- 📋 PR #17.1: In-App Toast Notifications (documentation complete!) 🎉 **MVP-READY ALTERNATIVE**
-- 📋 PR #18: App Lifecycle & Background Handling
-- 📋 PR #19: Error Handling & Loading States
-- 📋 PR #20: UI Polish & Animations
-- 📋 PR #21: Testing & Bug Fixes
-- 📋 PR #22: Documentation & Deployment Prep
-- 📋 PR #23: TestFlight Deployment (Optional)
+- 📋 PR #24: Error Handling & Loading States
+- 📋 PR #25: UI Polish & Animations
+- 📋 PR #26: Testing & Bug Fixes
+- 📋 PR #27: Documentation & Deployment Prep
+- 📋 PR #28: TestFlight Deployment (Optional)
 
 ---
 
@@ -1305,8 +1333,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **18 PRs documented** (PR #1-17, PR #17.1, PR #23) 🎉 **PR #17: THIRD AI FEATURE!**
-- **~727,000 words** of planning and documentation (+47K from PR#17!)
+- **18 PRs documented** (PR #1-17, PR #22, PR #22.1, PR #23) 🎉 **PR #16: SECOND AI FEATURE COMPLETE!**
+- **~740,000 words** of planning and documentation (+13K from PR#16 completion!)
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -1316,19 +1344,19 @@ Each PR follows this documentation standard:
   - PR #12: ~54.5K (with complete summary) ✅
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~24K (with complete summary) ✅ **COMPLETE!**
-  - PR #15: ~39K (planning complete) 🎉 **FIRST AI FEATURE READY!**
-  - PR #16: ~40K (planning complete) 🎉 **SECOND AI FEATURE READY!**
+  - PR #15: ~39K (with complete summary) ✅ **COMPLETE!** 🎉 **FIRST AI FEATURE!**
+  - PR #16: ~47K (planning complete) 🎉 **SECOND AI FEATURE READY!**
   - PR #17: ~47K (planning complete) 🎉 **THIRD AI FEATURE READY!** **NEW!**
+  - PR #22: ~15K (main spec complete) 🎉 **PUSH NOTIFICATIONS!**
+  - PR #22.1: ~41.5K (planning complete) 🎉 **TOAST NOTIFICATIONS!**
   - PR #23: ~48K (planning complete - image sharing)
-  - PR #17 (old): ~50K (planning complete) 🎉 **MVP #10 READY!**
-  - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
 - **104 planning documents** (5-7 per PR, +5 from PR#17)
 - **~41 hours** spent on planning + debugging documentation total (+2h from PR#17)
 - **~4,850+ lines** of production code written (13 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
 **Target**:
-- **23 PRs** total
+- **~28 PRs** total (AI features expanded the scope!)
 - **~450,000+ words** of documentation (estimated)
 - **~12 hours** average planning time across all PRs
 - **ROI**: 3-5x return on planning time investment (proven with PR #2: 2h planning → 2.5h implementation, PR #3: 1.5h planning → 2h implementation, PR #5: 2h planning → 1h implementation = 6x!, PR #9: 2h planning → 2h implementation = 2x!)

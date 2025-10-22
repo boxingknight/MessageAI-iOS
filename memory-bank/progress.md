@@ -1,7 +1,7 @@
 # MessageAI - Progress Tracking
 
 **Last Updated**: October 22, 2025  
-**Project Status**: ✅ PR #15 COMPLETE + PR #16 & #17 DOCUMENTED! 🎉 **3 AI FEATURES READY!**
+**Project Status**: ✅ PR #16 COMPLETE! 🎉 **SECOND AI FEATURE WORKING!**
 
 ---
 
@@ -22,13 +22,14 @@ We've pivoted to focus on **AI-powered features for busy parents** after complet
 
 ### Phase Status
 ```
-[███████████████████████████░] 61% Complete (14 of 23 PRs)
+[███████████████████████████░] 65% Complete (15 of 23 PRs)
 
 Foundation: ████████████████████ 100% (PRs #1-3 complete!) 🎉
 Core Messaging: ████████████████████ 100% (PRs #4-13 complete!) 🚀 **COMPLETE!**
-AI Features: ████░░░░ 29% (PRs #14-15 complete!) 🎉 **PR#16 & #17 DOCUMENTED!**
+AI Features: ██████░░ 43% (PRs #14-16 complete!) 🎉 **TWO AI FEATURES WORKING!**
+  - PR#14 Complete (Cloud Functions Infrastructure)
   - PR#15 Complete (Calendar Extraction)
-  - PR#16 Documented (~47K words) - Ready to implement!
+  - PR#16 Complete (Decision Summarization)
   - PR#17 Documented (~47K words) - Ready to implement!
 Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
 ```
@@ -386,17 +387,20 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
   - Fix all-day event bug (timed events working correctly) ✅
   - Fix auto-scroll bug (natural scrolling for all updates) ✅
 
-- [ ] **PR #16: Decision Summarization Feature** (3-4h) 📋 **DOCUMENTED! (~47K words)**
-  - [ ] Build decision/action item summarization (Cloud Function)
-  - [ ] Create summary display UI (SwiftUI)
-  - [ ] Add summary caching (5-minute TTL)
-  - [ ] Test with group chat decisions
-  - ✅ Planning docs complete:
-    * Main Spec: PR16_DECISION_SUMMARIZATION.md (~13,000 words)
-    * Implementation Checklist: PR16_IMPLEMENTATION_CHECKLIST.md (~11,000 words)
-    * Quick Start: PR16_README.md (~10,000 words)
-    * Planning Summary: PR16_PLANNING_SUMMARY.md (~4,000 words)
-    * Testing Guide: PR16_TESTING_GUIDE.md (~9,000 words)
+- [x] **PR #16: Decision Summarization Feature** (5h actual) ✅ **COMPLETE!** 🎉 **SECOND AI FEATURE WORKING!**
+  - [x] Build decision/action item summarization (Cloud Function)
+  - [x] Create summary display UI (SwiftUI)
+  - [x] Add summary caching (5-minute TTL)
+  - [x] Test with group chat decisions
+  - [x] Fixed 3 critical bugs (Firestore index, collection path, field name)
+  - ✅ Documentation complete (~56,500 words):
+    * Main Spec: PR16_DECISION_SUMMARIZATION.md (~12,000 words)
+    * Implementation Checklist: PR16_IMPLEMENTATION_CHECKLIST.md (~10,000 words)
+    * Quick Start: PR16_README.md (~8,000 words)
+    * Planning Summary: PR16_PLANNING_SUMMARY.md (~3,000 words)
+    * Testing Guide: PR16_TESTING_GUIDE.md (~7,000 words)
+    * Bug Analysis: PR16_BUG_ANALYSIS.md (~7,500 words)
+    * Complete Summary: PR16_COMPLETE_SUMMARY.md (~9,000 words)
 
 - [ ] **PR #17: Priority Highlighting Feature** (2-3h) 📋 **DOCUMENTED! (~47K words)**
   - [ ] Build message priority detection (hybrid: keyword → GPT-4)
