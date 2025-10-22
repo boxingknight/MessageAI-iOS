@@ -180,14 +180,26 @@ struct ChatView: View {
                                    !calendarEvents.isEmpty {
                                     ForEach(calendarEvents) { event in
                                         CalendarCardView(event: event) { event in
+                                            print("📅 [ChatView] Add to Calendar button tapped for event: \(event.title)")
                                             Task {
                                                 let success = await viewModel.addEventToCalendar(event)
-                                                if !success {
-                                                    // Show error if needed
+                                                if success {
+                                                    print("✅ [ChatView] Successfully added event to calendar")
+                                                } else {
+                                                    print("❌ [ChatView] Failed to add event to calendar")
                                                 }
                                             }
                                         }
                                         .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+                                        .onAppear {
+                                            print("📅 [ChatView] Displaying calendar card for: \(event.title)")
+                                            // Auto-scroll to show the calendar card
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                                withAnimation {
+                                                    proxy.scrollTo(message.id, anchor: .bottom)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

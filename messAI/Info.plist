@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCalendarsUsageDescription</key>
+	<string>messAI needs access to your calendar to save extracted event dates from your messages.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>messAI needs full calendar access to add events extracted from your conversations.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>messAI may need access to reminders for event management.</string>
+</dict>
+</plist>
+
