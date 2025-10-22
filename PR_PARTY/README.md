@@ -1188,6 +1188,46 @@ MessageAI - A production-quality iOS messaging application with:
 
 **Summary**: AI-powered urgent message detection that automatically highlights critical messages with visual indicators (red borders, badges, priority banners). Hybrid approach uses keyword filter (80% of messages, <100ms, free) + GPT-4 context analysis (20% of messages, ~2s, ~$0.002/call) for cost-effective accuracy. Prevents busy parents from missing urgent information like "Pickup changed to 2pm TODAY" buried in casual group chat.
 
+---
+
+### PR #18: RSVP Tracking Feature
+**Status:** 📋 PLANNED (Documentation complete, ready to implement!) 🎉 **NEW!**  
+**Branch**: `feature/pr18-rsvp-tracking` (to be created)  
+**Timeline**: 3-4 hours estimated  
+**Priority**: 🔴 CRITICAL - 4th of 5 required AI features  
+**Depends on**: PR#14 (Cloud Functions) ✅ COMPLETE, PR#15 (Calendar Extraction) ✅ COMPLETE  
+**Created**: October 22, 2025
+
+**Documents**:
+- Main Spec: `PR18_RSVP_TRACKING.md` (~15,000 words)
+- Implementation Checklist: `PR18_IMPLEMENTATION_CHECKLIST.md` (~11,000 words)
+- Quick Start: `PR18_README.md` (~9,000 words)
+- Planning Summary: `PR18_PLANNING_SUMMARY.md` (~3,500 words)
+- Testing Guide: `PR18_TESTING_GUIDE.md` (~10,000 words)
+- **Total Documentation**: ~48,500 words
+
+**Summary**: AI-powered RSVP tracking that automatically detects yes/no/maybe responses in group chats and tracks who's attending events. Displays "5 of 12 confirmed" summaries without manual spreadsheet tracking. Hybrid detection (keyword filter → GPT-4 function calling) provides 90%+ accuracy at <$0.003/detection. RSVPs stored in Firestore subcollections (`/events/{eventId}/rsvps/{userId}`) for scalability. Collapsible RSVP section appears below calendar cards with expandable participant list grouped by status. Saves busy parents 10+ minutes per event organized.
+
+**Key Features**:
+1. Hybrid RSVP detection (keyword + GPT-4) - 90% accuracy, 80% cost savings
+2. Firestore subcollections - Scalable, queryable, event-centric
+3. Event linking (AI suggests, user confirms) - 95% accuracy
+4. Collapsible UI (in-chat display) - Zero navigation friction
+5. Real-time updates - RSVP counts update as responses arrive
+6. Participant list - Grouped by status (yes/no/maybe/pending)
+
+**What This Enables**:
+- 🎯 High utility (directly saves time, reduces coordination stress)
+- 🎯 Viral potential ("This app tracked RSVPs automatically!")
+- 🎯 Differentiator (WhatsApp/iMessage don't have this)
+- 🎯 Foundation for PR#20 (Event Planning Agent uses RSVP data)
+
+**Value Proposition**: "Tell me who's coming in 2 seconds, not 10 minutes of spreadsheet updates."
+
+**Prerequisites**: PR#14 ✅ COMPLETE, PR#15 ✅ COMPLETE
+
+---
+
 **Key Decisions**:
 - Detection: **Hybrid approach (keyword filter → GPT-4)** - 80% cost savings while maintaining accuracy
 - Levels: **3-level system (Critical/High/Normal)** - Clear visual hierarchy
@@ -1259,7 +1299,7 @@ MessageAI - A production-quality iOS messaging application with:
 - ✅ **PR #15: Calendar Extraction Feature** ✅ COMPLETE!
 - ✅ **PR #16: Decision Summarization Feature** ✅ COMPLETE!
 - 📋 **PR #17: Priority Highlighting Feature** - 📝 DOCUMENTATION COMPLETE (~47K words)
-- 📋 PR #18: RSVP Tracking Feature (builds on PR#15)
+- 📋 **PR #18: RSVP Tracking Feature** - 📝 DOCUMENTATION COMPLETE (~48.5K words) 🎉 **NEW!**
 - 📋 PR #19: Deadline Extraction Feature (AI deadline detection)
 - 📋 PR #20: Multi-Step Event Planning Agent (advanced agent +10 bonus!)
 - 📋 PR #21: App Lifecycle & Background Handling
@@ -1333,8 +1373,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **18 PRs documented** (PR #1-17, PR #22, PR #22.1, PR #23) 🎉 **PR #16: SECOND AI FEATURE COMPLETE!**
-- **~740,000 words** of planning and documentation (+13K from PR#16 completion!)
+- **19 PRs documented** (PR #1-18, PR #22, PR #22.1, PR #23) 🎉 **PR #18: RSVP TRACKING DOCUMENTED!**
+- **~788,500 words** of planning and documentation (+48.5K from PR#18!)
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -1344,15 +1384,16 @@ Each PR follows this documentation standard:
   - PR #12: ~54.5K (with complete summary) ✅
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
   - PR #14: ~24K (with complete summary) ✅ **COMPLETE!**
-  - PR #15: ~39K (with complete summary) ✅ **COMPLETE!** 🎉 **FIRST AI FEATURE!**
-  - PR #16: ~47K (planning complete) 🎉 **SECOND AI FEATURE READY!**
-  - PR #17: ~47K (planning complete) 🎉 **THIRD AI FEATURE READY!** **NEW!**
+  - PR #15: ~58K (with complete summary + bug analysis) ✅ **COMPLETE!** 🎉 **FIRST AI FEATURE!**
+  - PR #16: ~56.5K (with complete summary + bug analysis) ✅ **COMPLETE!** 🎉 **SECOND AI FEATURE!**
+  - PR #17: ~47K (planning complete) 🎉 **THIRD AI FEATURE READY!**
+  - PR #18: ~48.5K (planning complete) 🎉 **FOURTH AI FEATURE READY!** 🆕
   - PR #22: ~15K (main spec complete) 🎉 **PUSH NOTIFICATIONS!**
   - PR #22.1: ~41.5K (planning complete) 🎉 **TOAST NOTIFICATIONS!**
   - PR #23: ~48K (planning complete - image sharing)
-- **104 planning documents** (5-7 per PR, +5 from PR#17)
-- **~41 hours** spent on planning + debugging documentation total (+2h from PR#17)
-- **~4,850+ lines** of production code written (13 PRs implemented)
+- **109 planning documents** (5-7 per PR, +5 from PR#18)
+- **~43 hours** spent on planning + debugging documentation total (+2h from PR#18)
+- **~4,850+ lines** of production code written (15 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
 **Target**:

@@ -121,11 +121,9 @@ struct MessageBubbleView: View {
     
     /// Priority background overlay color
     private var priorityBackgroundColor: Color {
-        guard let priority = message.aiMetadata?.priorityLevel else {
-            return bubbleColor
-        }
-        // Layer priority background over bubble color
-        return priority.backgroundColor.opacity(0.1).overlay(bubbleColor)
+        // Just return the normal bubble color
+        // The priority background is already included in the PriorityLevel definition
+        return bubbleColor
     }
     
     /// Dynamic spacing: tight for grouped messages, normal for separate messages

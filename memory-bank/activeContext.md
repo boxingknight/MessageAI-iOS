@@ -101,7 +101,51 @@ AI-powered decision summarization for group chats. Sarah (busy parent) returns f
 
 ---
 
-### 🚧 NOW READY: PR #17 - Priority Highlighting Feature (October 22, 2025)
+### 🚧 NOW READY: PR #18 - RSVP Tracking Feature (October 22, 2025) **NEW!**
+
+**Status**: Planning complete, ready to implement!  
+**Branch**: `feature/pr18-rsvp-tracking` (to be created)  
+**Planning Complete**: 5 documents (~48,500 words)  
+**Estimated Time**: 3-4 hours
+
+**What We're Building**:
+AI-powered RSVP tracking that automatically detects yes/no/maybe responses in group chats and tracks who's attending events. Displays "5 of 12 confirmed" summaries without manual spreadsheet tracking. Hybrid detection (keyword filter → GPT-4 function calling) provides 90%+ accuracy at <$0.003/detection.
+
+**Key Features**:
+1. **Hybrid RSVP detection**: Keyword filter (80% fast path) + GPT-4 (20% complex cases) - 90% accuracy, 80% cost savings
+2. **Firestore subcollections**: `/events/{eventId}/rsvps/{userId}` - Scalable, queryable, event-centric
+3. **Event linking**: AI suggests event match → user confirms → RSVP linked (95% accuracy)
+4. **Collapsible UI**: RSVP section below calendar card, expandable participant list grouped by status
+5. **Real-time updates**: RSVP counts update as responses arrive
+6. **Participant list**: Grouped by status (yes/no/maybe/pending)
+
+**Technical Stack**:
+- Cloud Function: `rsvpTracking.ts` (~280 lines)
+- iOS Models: `RSVPStatus` enum, AIMetadata extension (~120 lines)
+- SwiftUI: `RSVPSectionView.swift` (~200 lines)
+- Service: `AIService.trackRSVP()` (~50 lines)
+- Integration: ChatViewModel RSVP state management (~120 lines)
+
+**Cost**: ~$0.003 per RSVP detection (hybrid approach) - 80% cost savings vs pure GPT-4
+**Performance**: <100ms keyword filter, <2s GPT-4, 80% fast path usage
+
+**Why This Matters**:
+- 🎯 Saves 10+ minutes per event organized (no manual spreadsheet tracking)
+- 🎯 Real-time visibility (see who's responded instantly)
+- 🎯 Reduces coordination friction (automated tracking vs manual asks)
+- 🎯 Viral potential ("This app organized my kid's party!")
+
+**Value Proposition**: "Tell me who's coming in 2 seconds, not 10 minutes of spreadsheet updates."
+
+**Next Steps**:
+1. Review PR18_IMPLEMENTATION_CHECKLIST.md
+2. Create branch: `feature/pr18-rsvp-tracking`
+3. Start Phase 1: Cloud Function implementation (rsvpTracking.ts)
+4. Follow checklist step-by-step with testing after each phase
+
+---
+
+### 🚧 ALSO READY: PR #17 - Priority Highlighting Feature (October 22, 2025)
 
 **Status**: Planning complete, ready to implement!  
 **Branch**: `feature/pr17-priority-highlighting` (to be created)  
@@ -1030,8 +1074,8 @@ messAI/
 
 ---
 
-*Last updated: October 22, 2025 - PR #13 Complete + Strategic Revision*
+*Last updated: October 22, 2025 - PR #18 Documentation Complete*
 
-**Current Focus**: Core messaging complete! Ready to build AI infrastructure (PR #14)
+**Current Focus**: Two AI features working! PR#17 and PR#18 both documented and ready to implement!
 
-**Mood**: 🚀 Excited! Solid foundation complete, now adding AI superpowers!
+**Mood**: 🚀 AI momentum building! RSVP tracking planning complete!

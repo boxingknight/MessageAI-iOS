@@ -9,6 +9,7 @@
 import Foundation
 import Combine
 import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -574,6 +575,88 @@ class ChatViewModel: ObservableObject {
         showSummary = false
         conversationSummary = nil
         summarizationError = nil
+    }
+    
+    // MARK: - Priority Highlighting (PR #17)
+    
+    /// Detect priority level for a message (called automatically on new messages)
+    /// Updates the message's AIMetadata with priority information
+    @discardableResult
+    func detectMessagePriority(for messageId: String, messageText: String) async -> PriorityDetectionResult? {
+        print("🎯 Detecting priority for message: \(messageId)")
+        
+        do {
+            // Call AI service to detect priority
+            let result = try await AIService.shared.detectPriority(
+                messageText: messageText,
+                conversationId: conversationId
+            )
+            
+            print("✅ Priority detected: \(result.level.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", result.confidence))")
+            print("   - Method: \(result.method.rawValue)")
+            print("   - Used GPT-4: \(result.usedGPT4)")
+            
+            // Update message's AIMetadata in Firestore
+            await updateMessagePriority(messageId: messageId, result: result)
+            
+            // Update local message object
+            if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                var updatedMessage = messages[index]
+                
+                // Create or update AIMetadata
+                if updatedMessage.aiMetadata == nil {
+                    updatedMessage.aiMetadata = AIMetadata()
+                }
+                
+                updatedMessage.aiMetadata?.priorityLevel = result.level
+                updatedMessage.aiMetadata?.priorityConfidence = result.confidence
+                updatedMessage.aiMetadata?.priorityMethod = result.method.rawValue
+                updatedMessage.aiMetadata?.priorityKeywords = result.keywords
+                updatedMessage.aiMetadata?.priorityReasoning = result.reasoning
+                
+                messages[index] = updatedMessage
+                
+                print("✅ Updated local message with priority: \(result.level.rawValue)")
+            }
+            
+            return result
+            
+        } catch let error as AIError {
+            print("❌ Priority detection failed: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("❌ Priority detection failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Update message priority in Firestore
+    private func updateMessagePriority(messageId: String, result: PriorityDetectionResult) async {
+        do {
+            // Update aiMetadata field in Firestore
+            let aiMetadata: [String: Any] = [
+                "priorityLevel": result.level.rawValue,
+                "priorityConfidence": result.confidence,
+                "priorityMethod": result.method.rawValue,
+                "priorityKeywords": result.keywords ?? [],
+                "priorityReasoning": result.reasoning,
+                "processedAt": Date()
+            ]
+            
+            // Directly update Firestore document
+            try await Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+                .updateData(["aiMetadata": aiMetadata])
+            
+            print("✅ Updated Firestore with priority metadata")
+            
+        } catch {
+            print("❌ Failed to update message priority in Firestore: \(error)")
+        }
     }
 }
 
