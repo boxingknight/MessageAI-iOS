@@ -69,7 +69,7 @@ export async function summarizeDecisions(data: any): Promise<any> {
       .collection('conversations')
       .doc(conversationId)
       .collection('messages')
-      .orderBy('timestamp', 'desc')
+      .orderBy('sentAt', 'desc')
       .limit(50)
       .get();
     
@@ -88,7 +88,7 @@ export async function summarizeDecisions(data: any): Promise<any> {
         return {
           senderName: data.senderName || 'Unknown',
           text: data.text,
-          timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString()
+          timestamp: data.sentAt?.toDate().toISOString() || new Date().toISOString()
         };
       });
     
