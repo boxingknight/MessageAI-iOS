@@ -1023,6 +1023,65 @@ MessageAI - A production-quality iOS messaging application with:
 
 ---
 
+### PR #15: Calendar Extraction Feature
+**Status:** 📋 PLANNED (Documentation complete, ready to implement!)  
+**Branch**: `feature/pr15-calendar-extraction` (to be created)  
+**Timeline**: 3-4 hours estimated  
+**Priority**: 🟡 HIGH - First AI feature for busy parents  
+**Depends on**: PR#14 (Cloud Functions Setup) - MUST BE COMPLETE FIRST  
+**Created**: October 22, 2025
+
+**Documents**:
+- Main Spec: `PR15_CALENDAR_EXTRACTION.md` (~12,000 words)
+- Implementation Checklist: `PR15_IMPLEMENTATION_CHECKLIST.md` (~10,000 words)
+- Quick Start: `PR15_README.md` (~8,000 words)
+- Planning Summary: `PR15_PLANNING_SUMMARY.md` (~3,000 words)
+- Testing Guide: `PR15_TESTING_GUIDE.md` (~6,000 words)
+- **Total Documentation**: ~39,000 words
+
+**Summary**: AI-powered calendar event extraction from messages using GPT-4. Messages like "Soccer practice Thursday at 4pm" automatically become calendar cards with one-tap confirmation to add to iOS Calendar. Implements Cloud Function with GPT-4 integration, CalendarEvent Swift model, CalendarCardView SwiftUI component, EventKit integration for iOS Calendar access, confidence scoring (high/medium/low), and handles explicit dates, relative dates, all-day events, locations, and multiple events per message.
+
+**Key Decisions**:
+- Processing Model: **Manual trigger for MVP** (user long-presses message), automatic in PR#20
+- Data Storage: **Embedded in message.aiMetadata** (co-located, zero extra reads)
+- UI Pattern: **In-chat calendar cards** (context-preserved, zero navigation friction)
+- Confirmation Required: **User must tap to add** (prevents AI errors, builds trust)
+
+**What This Enables**:
+- ✅ First visible AI feature (sets user expectations)
+- ✅ Saves 5-10 minutes/day (no manual calendar entry)
+- ✅ Foundation for PR#18 (RSVP Tracking)
+- ✅ Foundation for PR#20 (Event Planning Agent)
+
+**Files to Create** (7 new files, ~750 lines):
+- `functions/src/ai/calendarExtraction.ts` - GPT-4 extraction logic (~250 lines)
+- `messAI/Models/CalendarEvent.swift` - Calendar data model (~120 lines)
+- `messAI/Views/Chat/CalendarCardView.swift` - SwiftUI calendar card (~200 lines)
+
+**Files to Modify** (+~180 lines):
+- `functions/src/ai/processAI.ts` (+20 lines) - Add calendar route
+- `messAI/Models/AIMetadata.swift` (+2 lines) - Add calendarEvents field
+- `messAI/Services/AIService.swift` (+80 lines) - Add extractCalendarEvents()
+- `messAI/ViewModels/ChatViewModel.swift` (+60 lines) - Add extraction methods
+- `messAI/Views/Chat/ChatView.swift` (+40 lines) - Display calendar cards
+- `messAI/Info.plist` (+2 lines) - Calendar permission description
+
+**Success Metrics**:
+- Extraction time: <2 seconds (warm), <5 seconds (cold start)
+- Accuracy: >90% for explicit dates, >70% for relative dates
+- Cost: ~$0.02 per extraction (~$3-6/month/user at 10/day)
+- Confirmation rate: >70% (users add extracted events to calendar)
+
+**Risks & Mitigation**:
+- 🟡 Low AI accuracy → Mitigated with confidence scoring + user confirmation
+- 🟡 High API costs → Mitigated with manual trigger + rate limiting (from PR#14)
+- 🟢 Calendar permission → Mitigated with graceful error handling
+- 🟡 Complex date parsing → Mitigated with ISO 8601 format + verification UI
+
+**Prerequisites**: PR#14 (Cloud Functions) MUST BE 100% COMPLETE
+
+---
+
 ## Project Status
 
 ### Completed (~31.5 hours) 🎉
@@ -1046,10 +1105,13 @@ MessageAI - A production-quality iOS messaging application with:
 - None currently - Ready for PR #15 (Calendar Extraction)!
 
 ### Planned
+- 📋 **PR #15: Calendar Extraction Feature** (documentation complete!) 🎉 **FIRST AI FEATURE!**
+- 📋 PR #16: Decision Summarization Feature (next AI feature)
+- 📋 PR #17: Priority Highlighting Feature (AI urgency detection)
+- 📋 PR #18: RSVP Tracking Feature (builds on PR#15)
+- 📋 PR #19: Deadline Extraction Feature (AI deadline detection)
+- 📋 PR #20: Multi-Step Event Planning Agent (advanced agent +10 bonus!)
 - 📋 PR #23: Image Sharing - Storage Integration (documentation complete!)
-- 📋 PR #24: Profile Management (documentation pending)
-- 📋 PR #15: Offline Support & Network Monitoring
-- 📋 PR #16: Profile Management
 - 📋 PR #17: Push Notifications - FCM (documentation complete!) 🎉 **FINAL MVP REQUIREMENT**
 - 📋 PR #17.1: In-App Toast Notifications (documentation complete!) 🎉 **MVP-READY ALTERNATIVE**
 - 📋 PR #18: App Lifecycle & Background Handling
@@ -1120,8 +1182,8 @@ Each PR follows this documentation standard:
 ## Total Documentation
 
 **Current State**:
-- **15 PRs documented** (PR #1-14, PR #17) 🎉 **PR #17: FINAL MVP REQUIREMENT!**
-- **~601,000 words** of planning and documentation (+14K from PR#11 bug docs!)
+- **16 PRs documented** (PR #1-15, PR #17, PR #17.1, PR #23) 🎉 **PR #15: FIRST AI FEATURE!**
+- **~640,000 words** of planning and documentation (+39K from PR#15!)
   - PR #1: ~25K, PR #2: ~25K, PR #3: ~19K, PR #4: ~22K
   - PR #5: ~21K, PR #6: ~29K, PR #7: ~31K
   - PR #8: ~36K (with complete summary) ✅
@@ -1130,12 +1192,14 @@ Each PR follows this documentation standard:
   - PR #11: ~52.5K (with bug analysis + complete summary) ✅ **5 CRITICAL BUGS DOCUMENTED!** 🎯
   - PR #12: ~54.5K (with complete summary) ✅
   - PR #13: ~65K (with complete summary) ✅ **COMPLETE!**
-  - PR #23: ~48K (planning complete - renumbered from PR14) 🎉
+  - PR #14: ~24K (with complete summary) ✅ **COMPLETE!**
+  - PR #15: ~39K (planning complete) 🎉 **FIRST AI FEATURE READY!**
+  - PR #23: ~48K (planning complete - image sharing)
   - PR #17: ~50K (planning complete) 🎉 **MVP #10 READY!**
   - PR #17.1: ~41K (planning complete) 🎉 **MVP-READY ALTERNATIVE!**
-- **89 planning documents** (5-7 per PR)
-- **~35 hours** spent on planning + debugging documentation total
-- **~4,850+ lines** of production code written (12 PRs implemented)
+- **94 planning documents** (5-7 per PR, +5 from PR#15)
+- **~37 hours** spent on planning + debugging documentation total (+2h from PR#15)
+- **~4,850+ lines** of production code written (13 PRs implemented)
 - **100% build success rate** (all PRs compile cleanly)
 
 **Target**:
