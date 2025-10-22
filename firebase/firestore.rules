@@ -114,6 +114,17 @@ service cloud.firestore {
                       request.resource.data.startedAt is timestamp;
     }
     
+    // Conversation summaries collection (PR #16)
+    match /summaries/{summaryId} {
+      // Can read summary if you're a participant in the conversation
+      allow read: if isAuthenticated() && 
+                     isParticipant(resource.data.conversationId);
+      
+      // Only Cloud Functions can write summaries (no client writes)
+      // Cloud Functions have admin access (bypasses security rules)
+      allow write: if false;
+    }
+    
     // Deny everything else
     match /{document=**} {
       allow read, write: if false;
