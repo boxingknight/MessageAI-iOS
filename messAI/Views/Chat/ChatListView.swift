@@ -13,6 +13,8 @@ struct ChatListView: View {
     @State private var showingNewGroup = false
     @State private var showActionSheet = false
     @State private var navigationPath = NavigationPath() // PR#17.1: For programmatic navigation
+    @State private var aiTestResult: String? = nil
+    @State private var showAITestResult = false
     
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -30,23 +32,35 @@ struct ChatListView: View {
                 #if DEBUG
                 // Debug: Test toast button
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        // Trigger a test toast
-                        let testToast = ToastMessage(
-                            id: UUID().uuidString,
-                            conversationId: "test-conv-123",
-                            senderId: "test-user",
-                            senderName: "Test User",
-                            senderPhotoURL: nil,
-                            messageText: "This is a test toast notification! Tap to see if navigation works.",
-                            isImageMessage: false,
-                            timestamp: Date()
-                        )
-                        ToastNotificationManager.shared.showToast(testToast)
-                        print("🧪 DEBUG: Manually triggered test toast")
-                    } label: {
-                        Image(systemName: "bell.badge.fill")
-                            .foregroundColor(.orange)
+                    HStack(spacing: 12) {
+                        Button {
+                            // Trigger a test toast
+                            let testToast = ToastMessage(
+                                id: UUID().uuidString,
+                                conversationId: "test-conv-123",
+                                senderId: "test-user",
+                                senderName: "Test User",
+                                senderPhotoURL: nil,
+                                messageText: "This is a test toast notification! Tap to see if navigation works.",
+                                isImageMessage: false,
+                                timestamp: Date()
+                            )
+                            ToastNotificationManager.shared.showToast(testToast)
+                            print("🧪 DEBUG: Manually triggered test toast")
+                        } label: {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundColor(.orange)
+                        }
+                        
+                        // PR#14: Test AI Infrastructure button
+                        Button {
+                            Task {
+                                await testAIInfrastructure()
+                            }
+                        } label: {
+                            Image(systemName: "cpu")
+                                .foregroundColor(.purple)
+                        }
                     }
                 }
                 #endif
@@ -87,6 +101,16 @@ struct ChatListView: View {
             } message: {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
+                }
+            }
+            // PR#14: AI Test Result Alert
+            .alert("🤖 AI Test Result", isPresented: $showAITestResult) {
+                Button("OK") {
+                    aiTestResult = nil
+                }
+            } message: {
+                if let result = aiTestResult {
+                    Text(result)
                 }
             }
             .onAppear {
@@ -206,6 +230,81 @@ struct ChatListView: View {
     private func deleteConversation(_ conversation: Conversation) {
         Task {
             await viewModel.deleteConversation(conversation)
+        }
+    }
+    
+    // MARK: - PR#14: AI Testing
+    
+    /// Test AI Infrastructure - Calls Cloud Function to verify end-to-end setup
+    private func testAIInfrastructure() async {
+        print("🧪 [AI Test] Starting AI infrastructure test...")
+        
+        do {
+            // Call AI service with test message
+            let result = try await AIService.shared.processMessage(
+                "Soccer practice Thursday at 4pm",
+                feature: .calendar
+            )
+            
+            // Extract result details
+            let processingTime = result["processingTimeMs"] as? Int ?? 0
+            let modelUsed = result["modelUsed"] as? String ?? "unknown"
+            let message = result["message"] as? String ?? "No message"
+            
+            // Format success message
+            let successMessage = """
+            ✅ AI Infrastructure Working!
+            
+            📊 Processing Time: \(processingTime)ms
+            🤖 Model: \(modelUsed)
+            💬 Response: \(message)
+            
+            Test: Calendar extraction placeholder
+            """
+            
+            print("✅ [AI Test] Success:", result)
+            
+            // Show result in alert
+            await MainActor.run {
+                aiTestResult = successMessage
+                showAITestResult = true
+            }
+            
+        } catch let error as AIError {
+            // Handle specific AI errors
+            let errorMessage = """
+            ❌ AI Test Failed
+            
+            Error: \(error.localizedDescription)
+            
+            Possible causes:
+            - Not logged in
+            - Rate limit exceeded
+            - Network issue
+            - Cloud Function not deployed
+            """
+            
+            print("❌ [AI Test] Error:", error.localizedDescription)
+            
+            await MainActor.run {
+                aiTestResult = errorMessage
+                showAITestResult = true
+            }
+            
+        } catch {
+            // Handle generic errors
+            let errorMessage = """
+            ❌ AI Test Failed
+            
+            Error: \(error.localizedDescription)
+            """
+            
+            print("❌ [AI Test] Unexpected error:", error)
+            
+            await MainActor.run {
+                aiTestResult = errorMessage
+                showAITestResult = true
+            }
         }
     }
 }
