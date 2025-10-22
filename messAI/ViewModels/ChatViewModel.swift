@@ -316,6 +316,12 @@ class ChatViewModel: ObservableObject {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
                 
+                // PR #17: Automatically detect priority for new messages (async, non-blocking)
+                // Message appears immediately, priority detection happens in background (~1-2s)
+                Task {
+                    await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
+                }
+                
                 // PR #11 Fix: WhatsApp-style delivery tracking
                 if firebaseMessage.senderId != currentUserId {
                     // Step 1: ALWAYS mark as delivered (message arrived on device)
