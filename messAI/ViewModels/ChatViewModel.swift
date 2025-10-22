@@ -640,8 +640,7 @@ class ChatViewModel: ObservableObject {
                 "priorityConfidence": result.confidence,
                 "priorityMethod": result.method.rawValue,
                 "priorityKeywords": result.keywords ?? [],
-                "priorityReasoning": result.reasoning,
-                "processedAt": Timestamp(date: Date())  // Use Firestore Timestamp
+                "priorityReasoning": result.reasoning
             ]
             
             // Directly update Firestore document
