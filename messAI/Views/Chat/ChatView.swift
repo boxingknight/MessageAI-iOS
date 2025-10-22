@@ -110,29 +110,47 @@ struct ChatView: View {
     
     @ViewBuilder
     private var toolbarTrailing: some View {
-        if conversation.isGroup {
-            // Group chat: Show group info button
+        HStack(spacing: 12) {
+            // PR #16: Summarize button
             Button(action: {
-                showGroupInfo = true
+                Task {
+                    await viewModel.requestSummary()
+                }
             }) {
-                Image(systemName: "info.circle")
+                if viewModel.isSummarizing {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.purple)
+                }
             }
-        } else {
-            // 1-on-1 chat: Show menu
-            Menu {
+            .disabled(viewModel.isSummarizing)
+            
+            if conversation.isGroup {
+                // Group chat: Show group info button
                 Button(action: {
-                    print("View info tapped")
+                    showGroupInfo = true
                 }) {
-                    Label("Chat Info", systemImage: "info.circle")
+                    Image(systemName: "info.circle")
                 }
-                
-                Button(action: {
-                    print("Mute tapped")
-                }) {
-                    Label("Mute", systemImage: "bell.slash")
+            } else {
+                // 1-on-1 chat: Show menu
+                Menu {
+                    Button(action: {
+                        print("View info tapped")
+                    }) {
+                        Label("Chat Info", systemImage: "info.circle")
+                    }
+                    
+                    Button(action: {
+                        print("Mute tapped")
+                    }) {
+                        Label("Mute", systemImage: "bell.slash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
-            } label: {
-                Image(systemName: "ellipsis.circle")
             }
         }
     }
@@ -143,6 +161,19 @@ struct ChatView: View {
     private func messagesList(proxy: ScrollViewProxy) -> some View {
                 ScrollView {
                     LazyVStack(spacing: 0) { // No fixed spacing - dynamic per message!
+                        // PR #16: Decision Summary Card (pinned at top)
+                        if viewModel.showSummary, let summary = viewModel.conversationSummary {
+                            DecisionSummaryCardView(
+                                summary: summary,
+                                onDismiss: {
+                                    viewModel.dismissSummary()
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 8)
+                        }
+                        
                         // Loading indicator at top
                         if viewModel.isLoading {
                             ProgressView()
