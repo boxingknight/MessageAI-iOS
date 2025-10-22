@@ -9,7 +9,7 @@ enum UrgencyLevel: String, Codable {
 }
 
 /// Extracted date/time from message
-struct ExtractedDate: Codable, Equatable, Identifiable {
+struct ExtractedDate: Codable, Equatable, Identifiable, Hashable {
     let id: String
     let date: Date
     let time: Date?
@@ -26,7 +26,7 @@ struct ExtractedDate: Codable, Equatable, Identifiable {
 }
 
 /// Group decision summary
-struct Decision: Codable, Equatable {
+struct Decision: Codable, Equatable, Hashable {
     let summary: String
     let participants: [String]
     let timestamp: Date
@@ -38,14 +38,14 @@ enum RSVPStatus: String, Codable {
 }
 
 /// RSVP response info
-struct RSVPResponse: Codable, Equatable {
+struct RSVPResponse: Codable, Equatable, Hashable {
     let eventId: String
     let response: RSVPStatus
     let respondedAt: Date
 }
 
 /// Deadline extracted from message
-struct Deadline: Codable, Equatable, Identifiable {
+struct Deadline: Codable, Equatable, Identifiable, Hashable {
     let id: String
     let description: String
     let dueDate: Date
@@ -60,7 +60,7 @@ struct Deadline: Codable, Equatable, Identifiable {
 }
 
 /// AI metadata attached to messages
-struct AIMetadata: Codable, Equatable {
+struct AIMetadata: Codable, Equatable, Hashable {
     // Calendar Extraction (PR #15)
     var extractedDates: [ExtractedDate]?
     
