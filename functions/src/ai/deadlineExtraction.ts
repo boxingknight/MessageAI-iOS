@@ -1,5 +1,6 @@
 /**
  * PR#19: Deadline Extraction - Keyword + GPT-4 Approach
+ * Version: 1.1.0 - Timezone Fix Deployed (Oct 23, 2025)
  * 
  * Automatically detects deadlines, due dates, and action items using:
  * 1. Fast keyword + date pattern filter (80% of messages, <100ms, free) - skip non-deadline messages
@@ -143,12 +144,15 @@ function containsDeadlineIndicators(messageText: string): boolean {
 
 /**
  * Use GPT-4 to extract structured deadline information
+ * BUG FIX (PR#19.1): Improved prompt for accurate date/time parsing
  */
 async function extractWithGPT4(
   messageText: string,
-  currentDate: Date
+  currentDate: Date,
+  userTimezone?: string
 ): Promise<DeadlineFunctionCall> {
   const startTime = Date.now();
+  const timezone = userTimezone || 'UTC';
   
   try {
     const completion = await getOpenAI().chat.completions.create({
@@ -158,8 +162,33 @@ async function extractWithGPT4(
           role: 'system',
           content: `You are a deadline extraction assistant. Extract deadline information from messages.
 
-Current date/time: ${currentDate.toISOString()}
-Current day of week: ${currentDate.toLocaleDateString('en-US', { weekday: 'long' })}
+Current date/time (UTC): ${currentDate.toISOString()}
+Current date/time (User TZ): ${currentDate.toLocaleString('en-US', { timeZone: timezone, hour12: true })}
+Current day of week: ${currentDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone })}
+User timezone: ${timezone} (e.g., Central Time if America/Chicago)
+
+CRITICAL INSTRUCTIONS FOR DATE/TIME PARSING:
+- ALL relative dates are FUTURE dates unless explicitly stated as past
+  * "Friday" → NEXT Friday (if today is Friday, mean next week's Friday, NOT today)
+  * "end of week" → THIS coming Friday/Saturday
+  * "tomorrow" → the day after current date
+  * "today" → current date (if time is specified and still in future)
+- Parse times in 12-hour format correctly:
+  * "5PM" = 17:00 (5:00 PM in ${timezone})
+  * "5AM" = 05:00 (5:00 AM in ${timezone})
+  * "11AM" = 11:00 (11:00 AM in ${timezone})
+  * "1PM" = 13:00 (1:00 PM in ${timezone})
+  * If AM/PM not specified, infer from context (5:00 is probably 5:00 PM for deadlines)
+- ALL times are in user's timezone (${timezone})
+- Return dueDate in ISO8601 format with correct timezone offset
+- If time is ambiguous, prefer next occurrence in future
+- Default to 11:59 PM for all-day deadlines
+
+Date Parsing Examples:
+- Today is Monday 2PM, "due Friday" → this coming Friday at 11:59 PM
+- Today is Friday 3PM, "due Friday at 5PM" → NEXT Friday (7 days) at 5:00 PM (NOT today)
+- Today is Tuesday, "due by 5PM" → today at 5:00 PM if before 5PM, otherwise tomorrow at 5:00 PM
+- "due end of week" → this coming Friday at 11:59 PM
 
 Instructions:
 - Extract clear deadlines with dates and times
@@ -248,20 +277,123 @@ Instructions:
 }
 
 // ============================================================================
+// TIMEZONE CONVERSION
+// ============================================================================
+
+/**
+ * Convert GPT-4's "naive" UTC time to actual UTC time accounting for user timezone
+ * 
+ * BUG FIX (PR#19.2): GPT-4 returns times as if they're UTC, but user meant local time
+ * 
+ * Example:
+ * - User in Central Time (UTC-5) says "5PM"
+ * - GPT-4 returns "2025-10-24T17:00:00.000Z" (17:00 UTC)
+ * - We interpret "17:00" as "17:00 Central" → "22:00 UTC"
+ * 
+ * @param naiveDate - Date from GPT-4 (treated as if time is in user's timezone)
+ * @param userTimezone - IANA timezone (e.g., "America/Chicago")
+ * @returns Date adjusted to correct UTC time
+ */
+function convertToUserTimezone(naiveDate: Date, userTimezone: string): Date {
+  try {
+    // Extract the time components that GPT-4 thought were local time
+    const year = naiveDate.getUTCFullYear();
+    const month = naiveDate.getUTCMonth(); // 0-indexed
+    const day = naiveDate.getUTCDate();
+    const hours = naiveDate.getUTCHours();
+    const minutes = naiveDate.getUTCMinutes();
+    
+    console.log(`🌍 Timezone conversion:`);
+    console.log(`   GPT-4 naive result: ${naiveDate.toISOString()}`);
+    console.log(`   Extracted time: ${year}-${month+1}-${day} ${hours}:${minutes}`);
+    console.log(`   User timezone: ${userTimezone}`);
+    
+    // Create TWO dates:
+    // 1. A "local" date as if we're in UTC (this is what GPT-4 gave us)
+    const asUTC = new Date(Date.UTC(year, month, day, hours, minutes, 0));
+    
+    // 2. Parse the same date/time string as if it's in the user's timezone
+    // We do this by converting to a locale string and back
+    const inUserTZ = new Date(asUTC.toLocaleString('en-US', { timeZone: userTimezone }));
+    
+    // Calculate the offset between UTC and user timezone
+    const offset = asUTC.getTime() - inUserTZ.getTime();
+    
+    // Apply the offset to get the correct UTC time
+    const correctedUTC = new Date(asUTC.getTime() + offset);
+    
+    console.log(`   Step 1 - as UTC: ${asUTC.toISOString()}`);
+    console.log(`   Step 2 - parsed in ${userTimezone}: ${inUserTZ.toISOString()}`);
+    console.log(`   Step 3 - offset: ${offset / (1000 * 60 * 60)} hours`);
+    console.log(`   Step 4 - corrected UTC: ${correctedUTC.toISOString()}`);
+    console.log(`   Verification - displays as: ${correctedUTC.toLocaleString('en-US', { timeZone: userTimezone, hour12: true })}`);
+    
+    return correctedUTC;
+  } catch (error) {
+    console.error(`❌ Timezone conversion failed:`, error);
+    return naiveDate;
+  }
+}
+
+// ============================================================================
+// DATE VALIDATION
+// ============================================================================
+
+/**
+ * Validate and fix extracted date to ensure it's in the future
+ * BUG FIX (PR#19.1): Prevents past dates from being stored as deadlines
+ */
+function validateAndFixDate(parsedDate: Date, currentDate: Date): Date {
+  const daysDiff = (parsedDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+  
+  // If date is in past, try to fix it
+  if (daysDiff < 0) {
+    console.warn(`⚠️ Detected past date (${Math.abs(daysDiff).toFixed(1)} days ago), adjusting to future`);
+    
+    // If it's a weekday reference, find next occurrence
+    const targetDay = parsedDate.getDay();
+    const adjusted = new Date(currentDate);
+    
+    // Find next occurrence of this day of week
+    let daysToAdd = (targetDay - adjusted.getDay() + 7) % 7;
+    if (daysToAdd === 0) daysToAdd = 7; // If same day, go to next week
+    
+    adjusted.setDate(adjusted.getDate() + daysToAdd);
+    adjusted.setHours(parsedDate.getHours(), parsedDate.getMinutes(), 0, 0);
+    
+    console.log(`✅ Adjusted date from ${parsedDate.toISOString()} to ${adjusted.toISOString()}`);
+    return adjusted;
+  }
+  
+  // If date is more than 2 years in future, probably wrong
+  if (daysDiff > 730) {
+    console.warn(`⚠️ Detected far-future date (${daysDiff.toFixed(1)} days away), capping at 1 year`);
+    const capped = new Date(currentDate);
+    capped.setFullYear(capped.getFullYear() + 1);
+    return capped;
+  }
+  
+  return parsedDate;
+}
+
+// ============================================================================
 // MAIN EXTRACTION FUNCTION
 // ============================================================================
 
 /**
  * Extract deadline from message using hybrid approach
  * Returns structured deadline data or null if no deadline detected
+ * BUG FIX (PR#19.1): Now uses timezone and validates dates
  */
 export async function detectDeadline(
   request: ExtractDeadlineRequest
 ): Promise<ExtractDeadlineResponse> {
   const startTime = Date.now();
+  const userTimezone = (request as any).userTimezone || 'UTC';
   
   console.log('🎯 Deadline detection started for message:', request.messageId);
   console.log('   Message text:', request.messageText);
+  console.log('   User timezone:', userTimezone);
 
   try {
     // ========================================
@@ -290,10 +422,10 @@ export async function detectDeadline(
     // ========================================
     
     const currentDate = request.currentTimestamp 
-      ? new Date(request.currentTimestamp)
+      ? new Date(request.currentTimestamp * 1000)  // BUG FIX: Convert from seconds to ms
       : new Date();
 
-    const gpt4Result = await extractWithGPT4(request.messageText, currentDate);
+    const gpt4Result = await extractWithGPT4(request.messageText, currentDate, userTimezone);
 
     // ========================================
     // STEP 3: Process GPT-4 Result
@@ -318,15 +450,24 @@ export async function detectDeadline(
       throw new Error('GPT-4 returned incomplete deadline data');
     }
 
+    // BUG FIX (PR#19.2): Convert GPT-4's naive UTC time to actual UTC accounting for timezone
+    // GPT-4 returns "17:00 UTC" when user means "17:00 Central", so we need to adjust
+    const parsedDate = new Date(gpt4Result.dueDate);
+    const timezoneAdjustedDate = convertToUserTimezone(parsedDate, userTimezone);
+    
+    // BUG FIX (PR#19.1): Validate and fix date if it's in the past
+    const validatedDate = validateAndFixDate(timezoneAdjustedDate, currentDate);
+    const validatedDateISO = validatedDate.toISOString();
+
     const processingTimeMs = Date.now() - startTime;
-    console.log(`✅ Deadline detected: "${gpt4Result.title}" due ${gpt4Result.dueDate} (${processingTimeMs}ms)`);
+    console.log(`✅ Deadline detected: "${gpt4Result.title}" due ${validatedDateISO} (${processingTimeMs}ms)`);
 
     return {
       detected: true,
       deadline: {
         title: gpt4Result.title,
         description: gpt4Result.description,
-        dueDate: gpt4Result.dueDate,
+        dueDate: validatedDateISO,  // Use validated date
         isAllDay: gpt4Result.isAllDay ?? false,
         priority: gpt4Result.priority || 'medium',
         category: gpt4Result.category
@@ -361,6 +502,8 @@ export async function detectDeadline(
 /**
  * Store detected deadline in Firestore subcollection
  * Collection structure: /conversations/{conversationId}/deadlines/{deadlineId}
+ * 
+ * BUG FIX (PR#19.1): Prevents duplicate deadlines by checking if one already exists for this message
  */
 export async function storeDeadline(
   conversationId: string,
@@ -370,6 +513,22 @@ export async function storeDeadline(
 ): Promise<string> {
   if (!deadline) {
     throw new Error('No deadline data to store');
+  }
+
+  // BUG FIX: Check if deadline already exists for this message (prevents duplicates in group chats)
+  const existingQuery = await db
+    .collection('conversations')
+    .doc(conversationId)
+    .collection('deadlines')
+    .where('messageId', '==', messageId)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get();
+  
+  if (!existingQuery.empty) {
+    const existingId = existingQuery.docs[0].id;
+    console.log(`⚠️ Deadline already exists for message ${messageId}, returning existing ID: ${existingId}`);
+    return existingId;
   }
 
   const deadlineRef = db
@@ -404,7 +563,7 @@ export async function storeDeadline(
 
   await deadlineRef.set(deadlineData);
   
-  console.log(`✅ Deadline stored: ${deadlineRef.id}`);
+  console.log(`✅ Deadline stored: ${deadlineRef.id} for message ${messageId}`);
   return deadlineRef.id;
 }
 
