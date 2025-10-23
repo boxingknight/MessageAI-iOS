@@ -308,12 +308,12 @@ class AIService {
                 usedGPT4: usedGPT4
             )
             
-            print("✅ AIService: Priority detected successfully")
-            print("   - Level: \(level.rawValue)")
-            print("   - Confidence: \(String(format: "%.2f", confidence))")
-            print("   - Method: \(method.rawValue)")
-            print("   - Used GPT-4: \(usedGPT4)")
-            print("   - Processing Time: \(processingTimeMs)ms")
+            // print("✅ AIService: Priority detected successfully")
+            // print("   - Level: \(level.rawValue)")
+            // print("   - Confidence: \(String(format: "%.2f", confidence))")
+            // print("   - Method: \(method.rawValue)")
+            // print("   - Used GPT-4: \(usedGPT4)")
+            // print("   - Processing Time: \(processingTimeMs)ms")
             
             return priorityResult
             
@@ -441,17 +441,24 @@ class AIService {
         conversationId: String,
         storeInFirestore: Bool = true
     ) async throws -> DeadlineDetection? {
-        print("🎯 AIService: Extracting deadline from message in conversation \(conversationId)")
+        print("🚨 DEADLINE: AIService calling Cloud Function...")
+        
+        // BUG FIX (PR#19.1): Pass timezone and current timestamp to fix date parsing issues
+        let currentTimestamp = Date().timeIntervalSince1970
+        // TEMP FIX: Force Central timezone for testing
+        let userTimezone = "America/Chicago"  // Central Time (CST/CDT)
+        // let userTimezone = TimeZone.current.identifier  // TODO: Re-enable for production
         
         // Prepare request data
-        var data: [String: Any] = [
+        let data: [String: Any] = [
             "feature": AIFeature.deadline.rawValue,
             "conversationId": conversationId,
             "messageId": messageId,
             "messageText": messageText,
             "senderId": senderId,
             "senderName": senderName,
-            "currentTimestamp": Date().timeIntervalSince1970,
+            "currentTimestamp": currentTimestamp,
+            "userTimezone": userTimezone,
             "storeInFirestore": storeInFirestore
         ]
         
@@ -465,17 +472,27 @@ class AIService {
             let result = try await callable.call(data)
             
             guard let resultData = result.data as? [String: Any] else {
+                print("🚨 DEADLINE: ❌ result.data is not a dictionary!")
+                print("🚨 DEADLINE:    Type: \(type(of: result.data))")
+                print("🚨 DEADLINE:    Value: \(result.data)")
                 throw AIError.invalidResponse
             }
             
+            print("🚨 DEADLINE: 📦 Raw response from Cloud Function:")
+            print("🚨 DEADLINE:    Keys: \(resultData.keys.sorted())")
+            print("🚨 DEADLINE:    Full data: \(resultData)")
+            
             // Check if deadline was detected
             guard let detected = resultData["detected"] as? Bool else {
+                print("🚨 DEADLINE: ❌ 'detected' field is missing or not a Bool!")
+                print("🚨 DEADLINE:    detected value: \(resultData["detected"] ?? "missing")")
+                print("🚨 DEADLINE:    detected type: \(type(of: resultData["detected"]))")
                 throw AIError.invalidResponse
             }
             
             // If no deadline detected, return nil
             if !detected {
-                print("✅ AIService: No deadline detected in message")
+                print("🚨 DEADLINE: ℹ️ Cloud Function returned: No deadline detected")
                 return nil
             }
             
@@ -492,16 +509,38 @@ class AIService {
                 throw AIError.invalidResponse
             }
             
-            // Parse due date
-            let dateFormatter = ISO8601DateFormatter()
-            guard let dueDate = dateFormatter.date(from: dueDateString) else {
-                print("❌ AIService: Failed to parse due date: \(dueDateString)")
-                throw AIError.invalidResponse
-            }
-            
-            // Parse optional fields
+            // Parse optional fields BEFORE date parsing (for fallback case)
             let deadlineId = resultData["deadlineId"] as? String
             let reasoning = resultData["reasoning"] as? String
+            
+            // Parse due date
+            // BUG FIX (PR#19.1): Add .withFractionalSeconds to parse "2025-10-24T17:00:00.000Z"
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            guard let dueDate = dateFormatter.date(from: dueDateString) else {
+                print("🚨 DEADLINE: ❌ Failed to parse due date: \(dueDateString)")
+                print("🚨 DEADLINE:    Trying fallback parser without fractional seconds...")
+                
+                // Fallback: try without fractional seconds
+                let fallbackFormatter = ISO8601DateFormatter()
+                fallbackFormatter.formatOptions = [.withInternetDateTime]
+                guard let fallbackDate = fallbackFormatter.date(from: dueDateString) else {
+                    print("🚨 DEADLINE: ❌ Fallback parser also failed!")
+                    throw AIError.invalidResponse
+                }
+                
+                print("🚨 DEADLINE: ✅ Fallback parser succeeded")
+                return DeadlineDetection(
+                    deadlineId: deadlineId,
+                    title: title,
+                    dueDate: fallbackDate,
+                    isAllDay: isAllDay,
+                    priority: priorityString,
+                    confidence: confidence,
+                    method: methodString,
+                    reasoning: reasoning
+                )
+            }
             
             let deadlineDetection = DeadlineDetection(
                 deadlineId: deadlineId,
@@ -514,20 +553,20 @@ class AIService {
                 reasoning: reasoning
             )
             
-            print("✅ AIService: Deadline detected successfully")
-            print("   - Title: \(title)")
-            print("   - Due: \(dueDate)")
-            print("   - Priority: \(priorityString)")
-            print("   - Confidence: \(String(format: "%.2f", confidence))")
-            print("   - Method: \(methodString)")
+            print("🚨 DEADLINE: ✅ Cloud Function SUCCESS!")
+            print("🚨 DEADLINE:    - Title: \(title)")
+            print("🚨 DEADLINE:    - Due: \(dueDate)")
+            print("🚨 DEADLINE:    - Priority: \(priorityString)")
+            print("🚨 DEADLINE:    - Confidence: \(String(format: "%.2f", confidence))")
+            print("🚨 DEADLINE:    - Method: \(methodString)")
             if let deadlineId = deadlineId {
-                print("   - Stored with ID: \(deadlineId)")
+                print("🚨 DEADLINE:    - Stored with ID: \(deadlineId)")
             }
             
             return deadlineDetection
             
         } catch let error as NSError {
-            print("❌ AIService: Error calling Cloud Function: \(error)")
+            print("🚨 DEADLINE: ❌ Cloud Function ERROR: \(error)")
             throw mapFirebaseError(error)
         }
     }
