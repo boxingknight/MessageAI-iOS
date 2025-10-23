@@ -8,7 +8,7 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import OpenAI from 'openai';
 import * as functions from 'firebase-functions';
-import { DetectionResponse, Opportunity, ConversationContext } from './types';
+import { DetectionResponse, Opportunity, ConversationContext, ExistingEvent } from './types';
 import { detectEventPlanning } from './eventDetection';
 import { getCache, setCache, hashMessages } from './cache';
 
@@ -150,22 +150,30 @@ async function buildContext(
   }
   
   // Fetch existing events to avoid duplicates
-  const eventsSnapshot = await db
-    .collection('events')
-    .where('conversationId', '==', conversationId)
-    .orderBy('createdAt', 'desc')
-    .limit(10)
-    .get();
-  
-  const existingEvents = eventsSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      title: data.title || 'Untitled Event',
-      date: data.date,
-      createdAt: data.createdAt?.toDate() || new Date()
-    };
-  });
+  // Note: This query requires a composite index (conversationId + createdAt)
+  let existingEvents: ExistingEvent[] = [];
+  try {
+    const eventsSnapshot = await db
+      .collection('events')
+      .where('conversationId', '==', conversationId)
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+    
+    existingEvents = eventsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || 'Untitled Event',
+        date: data.date,
+        createdAt: data.createdAt?.toDate() || new Date()
+      };
+    });
+  } catch (error: any) {
+    // If index is still building, continue without existing events
+    console.log('[DetectOpportunities] Could not fetch existing events (index may be building):', error.message);
+    existingEvents = [];
+  }
   
   return {
     recentMessages: formattedMessages.join('\n'),
