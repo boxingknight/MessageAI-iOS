@@ -269,6 +269,24 @@ struct ChatView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // PR #20.1: Ambient Suggestion Bar (if active)
+            if viewModel.showAmbientBar, let opportunity = viewModel.currentOpportunity {
+                AmbientSuggestionBar(
+                    opportunity: opportunity,
+                    isProcessing: viewModel.agentIsProcessing,
+                    onApprove: {
+                        Task {
+                            await viewModel.approveOpportunity(opportunity)
+                        }
+                    },
+                    onDismiss: {
+                        viewModel.dismissOpportunity(opportunity)
+                    }
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(1)
+            }
+            
             // Messages ScrollView
             ScrollViewReader { proxy in
                 messagesList(proxy: proxy)

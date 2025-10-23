@@ -49,6 +49,17 @@ struct Opportunity: Identifiable, Codable {
     let reasoning: String
     let timestamp: Date
     
+    // Memberwise initializer for manual creation
+    init(id: String, type: OpportunityType, confidence: Double, data: OpportunityData, suggestedActions: [String], reasoning: String, timestamp: Date) {
+        self.id = id
+        self.type = type
+        self.confidence = confidence
+        self.data = data
+        self.suggestedActions = suggestedActions
+        self.reasoning = reasoning
+        self.timestamp = timestamp
+    }
+    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
