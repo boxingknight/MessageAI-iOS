@@ -618,5 +618,73 @@ class AIService {
         
         print("✅ AIService: Deadline marked as completed")
     }
+    
+    // MARK: - PR#20.1: Proactive Agent - Opportunity Detection
+    
+    /**
+     * Detect opportunities in a conversation
+     * Calls the proactive agent Cloud Function
+     */
+    func detectOpportunities(conversationId: String) async throws -> DetectionResponse {
+        print("🔍 AIService: Detecting opportunities for conversation: \(conversationId)")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("detectOpportunities")
+        
+        do {
+            let result = try await callable.call(["conversationId": conversationId])
+            
+            guard let resultData = result.data as? [String: Any] else {
+                throw AIError.invalidResponse
+            }
+            
+            // Parse DetectionResponse
+            let jsonData = try JSONSerialization.data(withJSONObject: resultData)
+            let decoder = JSONDecoder()
+            
+            // Configure decoder for date handling
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                
+                // Try ISO8601 string first
+                if let dateString = try? container.decode(String.self) {
+                    let formatter = ISO8601DateFormatter()
+                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let date = formatter.date(from: dateString) {
+                        return date
+                    }
+                    // Try without fractional seconds
+                    formatter.formatOptions = [.withInternetDateTime]
+                    if let date = formatter.date(from: dateString) {
+                        return date
+                    }
+                }
+                
+                // Try timestamp number
+                if let timestamp = try? container.decode(Double.self) {
+                    return Date(timeIntervalSince1970: timestamp)
+                }
+                
+                // Default to current date
+                return Date()
+            }
+            
+            let response = try decoder.decode(DetectionResponse.self, from: jsonData)
+            
+            print("✅ AIService: Found \(response.opportunities.count) opportunities")
+            print("   Cached: \(response.cached), Tokens: \(response.tokensUsed), Cost: $\(String(format: "%.4f", response.cost))")
+            
+            return response
+            
+        } catch let error as NSError {
+            print("❌ AIService: detectOpportunities failed: \(error.localizedDescription)")
+            
+            if error.domain == "FunctionsErrorDomain" {
+                throw AIError.serverError(error.localizedDescription)
+            } else {
+                throw AIError.networkError
+            }
+        }
+    }
 }
 

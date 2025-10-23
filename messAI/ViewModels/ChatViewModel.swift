@@ -72,6 +72,12 @@ class ChatViewModel: ObservableObject {
         // Clean up deadline listener
         deadlineListener?.remove()
         print("🧹 ChatViewModel deinitialized - cleaned up deadline listener")
+        
+        // Stop proactive monitoring (PR #20.1)
+        Task { @MainActor in
+            stopProactiveMonitoring()
+        }
+        print("🧹 ChatViewModel deinitialized - stopped proactive monitoring")
     }
     
     // MARK: - Methods
@@ -101,6 +107,9 @@ class ChatViewModel: ObservableObject {
             
             // Observe typing indicators (PR #12)
             observeTypingIndicators()
+            
+            // Start proactive AI monitoring (PR #20.1)
+            startProactiveMonitoring()
             
         } catch {
             print("❌ Error loading messages: \(error)")
@@ -1305,6 +1314,152 @@ class ChatViewModel: ObservableObject {
         } catch {
             print("❌ Failed to update event RSVP: \(error)")
         }
+    }
+    
+    // MARK: - Proactive Agent (PR #20.1)
+    
+    @Published var currentOpportunity: Opportunity?
+    @Published var showAmbientBar: Bool = false
+    @Published var inlineChips: [String: Opportunity] = [:] // messageId -> opportunity
+    @Published var pendingSuggestions: [Opportunity] = []
+    @Published var suggestionsCount: Int = 0
+    @Published var agentIsProcessing: Bool = false
+    @Published var agentError: String?
+    
+    private var opportunityListener: AnyCancellable?
+    
+    /**
+     * Start proactive monitoring for this conversation
+     * Called when chat view appears
+     */
+    func startProactiveMonitoring() {
+        print("🤖 ChatViewModel: Starting proactive monitoring for conversation: \(conversationId)")
+        
+        // Start monitoring service
+        ProactiveAgentService.shared.startMonitoring(conversationId: conversationId)
+        
+        // Subscribe to opportunities
+        opportunityListener = ProactiveAgentService.shared.$currentOpportunities
+            .sink { [weak self] opportunities in
+                guard let self = self else { return }
+                
+                Task { @MainActor in
+                    self.handleOpportunitiesDetected(opportunities)
+                }
+            }
+    }
+    
+    /**
+     * Stop proactive monitoring
+     * Called when chat view disappears
+     */
+    func stopProactiveMonitoring() {
+        print("🤖 ChatViewModel: Stopping proactive monitoring")
+        
+        ProactiveAgentService.shared.stopMonitoring()
+        opportunityListener?.cancel()
+        opportunityListener = nil
+        
+        // Clear state
+        currentOpportunity = nil
+        showAmbientBar = false
+        inlineChips = [:]
+        pendingSuggestions = []
+        suggestionsCount = 0
+    }
+    
+    /**
+     * Handle opportunities detected by the service
+     * Route to appropriate UI based on confidence
+     */
+    private func handleOpportunitiesDetected(_ opportunities: [Opportunity]) {
+        print("🤖 ChatViewModel: Handling \(opportunities.count) opportunities")
+        
+        guard let topOpportunity = opportunities.first else {
+            // No opportunities, clear current state
+            currentOpportunity = nil
+            showAmbientBar = false
+            return
+        }
+        
+        // Route based on confidence level
+        if topOpportunity.isHighConfidence {
+            // High confidence (>0.8) → Show in ambient bar
+            print("🤖 High confidence (\(topOpportunity.confidencePercentage)%): Showing ambient bar")
+            currentOpportunity = topOpportunity
+            showAmbientBar = true
+            
+        } else if topOpportunity.isMediumConfidence {
+            // Medium confidence (>0.6) → Show as inline chip
+            print("🤖 Medium confidence (\(topOpportunity.confidencePercentage)%): Showing inline chip")
+            
+            // Find most recent message to attach chip to
+            if let recentMessage = messages.last {
+                inlineChips[recentMessage.id] = topOpportunity
+            }
+            
+        } else {
+            // Low confidence (>0.5) → Add to suggestions list
+            print("🤖 Low confidence (\(topOpportunity.confidencePercentage)%): Adding to suggestions")
+            
+            // Add to pending suggestions if not already there
+            if !pendingSuggestions.contains(where: { $0.id == topOpportunity.id }) {
+                pendingSuggestions.append(topOpportunity)
+                suggestionsCount = pendingSuggestions.count
+            }
+        }
+    }
+    
+    /**
+     * Approve an opportunity (execute workflow)
+     */
+    func approveOpportunity(_ opportunity: Opportunity) async {
+        print("🤖 ChatViewModel: Approving opportunity: \(opportunity.displayTitle)")
+        
+        agentIsProcessing = true
+        
+        // TODO: In Phase 3, we'll implement the workflow executor
+        // For now, just dismiss the opportunity
+        
+        // Simulate processing
+        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        
+        agentIsProcessing = false
+        
+        // Dismiss the opportunity
+        dismissOpportunity(opportunity)
+        
+        print("✅ ChatViewModel: Opportunity approved and processed")
+    }
+    
+    /**
+     * Dismiss an opportunity
+     */
+    func dismissOpportunity(_ opportunity: Opportunity) {
+        print("🤖 ChatViewModel: Dismissing opportunity: \(opportunity.displayTitle)")
+        
+        // Remove from current display
+        if currentOpportunity?.id == opportunity.id {
+            currentOpportunity = nil
+            showAmbientBar = false
+        }
+        
+        // Remove from inline chips
+        inlineChips = inlineChips.filter { $0.value.id != opportunity.id }
+        
+        // Remove from pending suggestions
+        pendingSuggestions.removeAll { $0.id == opportunity.id }
+        suggestionsCount = pendingSuggestions.count
+    }
+    
+    /**
+     * Dismiss all pending suggestions
+     */
+    func dismissAllSuggestions() {
+        print("🤖 ChatViewModel: Dismissing all suggestions")
+        
+        pendingSuggestions = []
+        suggestionsCount = 0
     }
 }
 
