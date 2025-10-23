@@ -174,6 +174,25 @@ struct ChatView: View {
                             .padding(.bottom, 8)
                         }
                         
+                        // PR #19: Deadlines Section (pinned at top)
+                        if !viewModel.conversationDeadlines.isEmpty {
+                            DeadlinesSectionView(
+                                deadlines: viewModel.conversationDeadlines,
+                                onDeadlineTap: { deadline in
+                                    print("📅 Tapped deadline: \(deadline.title)")
+                                    // TODO: Navigate to deadline detail view
+                                },
+                                onDeadlineComplete: { deadline in
+                                    Task {
+                                        await viewModel.completeDeadline(deadline)
+                                    }
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, viewModel.showSummary ? 8 : 12)
+                            .padding(.bottom, 8)
+                        }
+                        
                         // Loading indicator at top
                         if viewModel.isLoading {
                             ProgressView()
@@ -299,6 +318,9 @@ struct ChatView: View {
         .task {
             // Load messages when view appears
             await viewModel.loadMessages()
+            
+            // PR#19: Load deadlines for this conversation
+            await viewModel.loadDeadlines()
         }
         .onAppear {
             // PR#17.1: Track active conversation for toast notifications

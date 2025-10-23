@@ -413,5 +413,170 @@ class AIService {
             throw mapFirebaseError(error)
         }
     }
+    
+    // MARK: - PR#19: Deadline Extraction
+    
+    /**
+     * Extract deadline from message text
+     * Uses hybrid approach: keyword filter → GPT-4 extraction
+     * Returns structured deadline data or nil if no deadline detected
+     * 
+     * Example:
+     * ```
+     * let deadline = try await aiService.extractDeadline(
+     *     messageText: "Please RSVP by Friday at 5pm",
+     *     messageId: "msg123",
+     *     senderId: "user123",
+     *     senderName: "Alice",
+     *     conversationId: "conv456"
+     * )
+     * ```
+     */
+    func extractDeadline(
+        messageText: String,
+        messageId: String,
+        senderId: String,
+        senderName: String,
+        conversationId: String,
+        storeInFirestore: Bool = true
+    ) async throws -> DeadlineDetection? {
+        print("🎯 AIService: Extracting deadline from message in conversation \(conversationId)")
+        
+        // Prepare request data
+        var data: [String: Any] = [
+            "feature": AIFeature.deadline.rawValue,
+            "conversationId": conversationId,
+            "messageId": messageId,
+            "messageText": messageText,
+            "senderId": senderId,
+            "senderName": senderName,
+            "currentTimestamp": Date().timeIntervalSince1970,
+            "storeInFirestore": storeInFirestore
+        ]
+        
+        print("📤 AIService: Calling Cloud Function for deadline extraction")
+        print("   Message: \(messageText.prefix(50))...")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                throw AIError.invalidResponse
+            }
+            
+            // Check if deadline was detected
+            guard let detected = resultData["detected"] as? Bool else {
+                throw AIError.invalidResponse
+            }
+            
+            // If no deadline detected, return nil
+            if !detected {
+                print("✅ AIService: No deadline detected in message")
+                return nil
+            }
+            
+            // Parse deadline data
+            guard let deadlineData = resultData["deadline"] as? [String: Any],
+                  let title = deadlineData["title"] as? String,
+                  let dueDateString = deadlineData["dueDate"] as? String,
+                  let isAllDay = deadlineData["isAllDay"] as? Bool,
+                  let priorityString = deadlineData["priority"] as? String,
+                  let confidence = resultData["confidence"] as? Double,
+                  let methodString = resultData["method"] as? String else {
+                print("❌ AIService: Failed to parse deadline response")
+                print("   Response: \(resultData)")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse due date
+            let dateFormatter = ISO8601DateFormatter()
+            guard let dueDate = dateFormatter.date(from: dueDateString) else {
+                print("❌ AIService: Failed to parse due date: \(dueDateString)")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse optional fields
+            let deadlineId = resultData["deadlineId"] as? String
+            let reasoning = resultData["reasoning"] as? String
+            
+            let deadlineDetection = DeadlineDetection(
+                deadlineId: deadlineId,
+                title: title,
+                dueDate: dueDate,
+                isAllDay: isAllDay,
+                priority: priorityString,
+                confidence: confidence,
+                method: methodString,
+                reasoning: reasoning
+            )
+            
+            print("✅ AIService: Deadline detected successfully")
+            print("   - Title: \(title)")
+            print("   - Due: \(dueDate)")
+            print("   - Priority: \(priorityString)")
+            print("   - Confidence: \(String(format: "%.2f", confidence))")
+            print("   - Method: \(methodString)")
+            if let deadlineId = deadlineId {
+                print("   - Stored with ID: \(deadlineId)")
+            }
+            
+            return deadlineDetection
+            
+        } catch let error as NSError {
+            print("❌ AIService: Error calling Cloud Function: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
+    
+    /**
+     * Fetch deadlines for a conversation from Firestore
+     * Returns all active deadlines sorted by due date
+     */
+    func fetchDeadlines(conversationId: String) async throws -> [Deadline] {
+        print("🎯 AIService: Fetching deadlines for conversation: \(conversationId)")
+        
+        let db = functions.firestore
+        let deadlinesRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+        
+        // Query active deadlines, ordered by due date
+        let snapshot = try await deadlinesRef
+            .whereField("status", isEqualTo: "active")
+            .order(by: "dueDate", descending: false)
+            .getDocuments()
+        
+        let deadlines = snapshot.documents.compactMap { doc in
+            Deadline.fromFirestore(doc.data(), id: doc.documentID)
+        }
+        
+        print("✅ AIService: Fetched \(deadlines.count) deadlines")
+        return deadlines
+    }
+    
+    /**
+     * Mark deadline as completed
+     */
+    func completeDeadline(conversationId: String, deadlineId: String, userId: String) async throws {
+        print("🎯 AIService: Completing deadline: \(deadlineId)")
+        
+        let db = functions.firestore
+        let deadlineRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+            .document(deadlineId)
+        
+        try await deadlineRef.updateData([
+            "status": "completed",
+            "completedAt": Date(),
+            "completedBy": userId,
+            "updatedAt": Date()
+        ])
+        
+        print("✅ AIService: Deadline marked as completed")
+    }
 }
 

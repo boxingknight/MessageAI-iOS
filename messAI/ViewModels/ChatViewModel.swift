@@ -68,6 +68,10 @@ class ChatViewModel: ObservableObject {
             listener.remove()
         }
         print("🧹 ChatViewModel deinitialized - cleaned up \(rsvpListeners.count) RSVP listeners")
+        
+        // Clean up deadline listener
+        deadlineListener?.remove()
+        print("🧹 ChatViewModel deinitialized - cleaned up deadline listener")
     }
     
     // MARK: - Methods
@@ -734,6 +738,14 @@ class ChatViewModel: ObservableObject {
         var participants: [RSVPParticipant]
     }
     
+    // MARK: - Deadline Tracking (PR #19)
+    
+    /// Active deadlines for this conversation
+    @Published var conversationDeadlines: [Deadline] = []
+    
+    /// Firestore listener for real-time deadline updates
+    private var deadlineListener: ListenerRegistration?
+    
     /// Request AI summary of the conversation
     /// Analyzes last 50 messages and extracts decisions, action items, and key points
     func requestSummary() async {
@@ -876,6 +888,161 @@ class ChatViewModel: ObservableObject {
         }
         rsvpListeners.removeAll()
         eventRSVPs.removeAll()
+    }
+    
+    // MARK: - Deadline Tracking (PR #19)
+    
+    /// Load deadlines for this conversation with real-time updates
+    func loadDeadlines() async {
+        print("📋 Setting up real-time deadline listener for conversation: \(conversationId)")
+        
+        // Set up real-time listener
+        deadlineListener = Firestore.firestore()
+            .collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+            .whereField("status", isEqualTo: "active")
+            .order(by: "dueDate", descending: false)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Deadline listener error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let snapshot = snapshot else {
+                    print("⚠️ Deadline snapshot is nil")
+                    return
+                }
+                
+                print("🔄 Deadline update received - \(snapshot.documents.count) active deadlines")
+                
+                var deadlines: [Deadline] = []
+                
+                for doc in snapshot.documents {
+                    if let deadline = Deadline.fromFirestore(doc.data(), id: doc.documentID) {
+                        deadlines.append(deadline)
+                    }
+                }
+                
+                // Update state on main thread
+                Task { @MainActor in
+                    self.conversationDeadlines = deadlines
+                    print("✅ Updated deadlines - \(deadlines.count) active")
+                }
+            }
+    }
+    
+    /// Extract deadline from a message (called automatically when new messages arrive)
+    @discardableResult
+    func extractDeadlineFromMessage(
+        messageId: String,
+        messageText: String,
+        senderId: String,
+        senderName: String
+    ) async -> DeadlineDetection? {
+        print("🎯 Extracting deadline from message: \(messageId)")
+        
+        do {
+            // Call AI service to extract deadline
+            let deadlineDetection = try await AIService.shared.extractDeadline(
+                messageText: messageText,
+                messageId: messageId,
+                senderId: senderId,
+                senderName: senderName,
+                conversationId: conversationId,
+                storeInFirestore: true
+            )
+            
+            if let deadlineDetection = deadlineDetection {
+                print("✅ Deadline extracted: \(deadlineDetection.title)")
+                print("   - Due: \(deadlineDetection.dueDate)")
+                print("   - Priority: \(deadlineDetection.priority)")
+                print("   - Confidence: \(String(format: "%.2f", deadlineDetection.confidence))")
+                
+                // Update message's AIMetadata in Firestore
+                await updateMessageDeadline(messageId: messageId, detection: deadlineDetection)
+                
+                // Update local message object
+                if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                    var updatedMessage = messages[index]
+                    
+                    // Create or update AIMetadata
+                    if updatedMessage.aiMetadata == nil {
+                        updatedMessage.aiMetadata = AIMetadata()
+                    }
+                    
+                    updatedMessage.aiMetadata?.deadlineDetection = deadlineDetection
+                    updatedMessage.aiMetadata?.hasDeadline = true
+                    
+                    messages[index] = updatedMessage
+                    
+                    print("✅ Updated local message with deadline detection")
+                }
+                
+                return deadlineDetection
+            } else {
+                print("✅ No deadline detected in message")
+                return nil
+            }
+            
+        } catch let error as AIError {
+            print("❌ Deadline extraction failed: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("❌ Deadline extraction failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Update message's AIMetadata with deadline detection in Firestore
+    private func updateMessageDeadline(messageId: String, detection: DeadlineDetection) async {
+        do {
+            let messageRef = Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+            
+            try await messageRef.updateData([
+                "aiMetadata.deadlineDetection": [
+                    "deadlineId": detection.deadlineId as Any,
+                    "title": detection.title,
+                    "dueDate": Timestamp(date: detection.dueDate),
+                    "isAllDay": detection.isAllDay,
+                    "priority": detection.priority,
+                    "confidence": detection.confidence,
+                    "method": detection.method,
+                    "reasoning": detection.reasoning as Any
+                ],
+                "aiMetadata.hasDeadline": true,
+                "aiMetadata.processedAt": Timestamp(date: Date())
+            ])
+            
+            print("✅ Updated message AIMetadata with deadline in Firestore")
+            
+        } catch {
+            print("❌ Failed to update message AIMetadata: \(error)")
+        }
+    }
+    
+    /// Mark deadline as completed
+    func completeDeadline(_ deadline: Deadline) async {
+        print("✅ Completing deadline: \(deadline.title)")
+        
+        do {
+            try await AIService.shared.completeDeadline(
+                conversationId: conversationId,
+                deadlineId: deadline.id,
+                userId: currentUserId
+            )
+            
+            print("✅ Deadline marked as completed")
+            
+        } catch {
+            print("❌ Failed to complete deadline: \(error)")
+        }
     }
     
     // MARK: - Priority Highlighting (PR #17)

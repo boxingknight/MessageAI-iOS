@@ -32,19 +32,16 @@ struct Decision: Codable, Equatable, Hashable {
     let timestamp: Date
 }
 
-/// Deadline extracted from message
-struct Deadline: Codable, Equatable, Identifiable, Hashable {
-    let id: String
-    let description: String
-    let dueDate: Date
-    let priority: UrgencyLevel
-    
-    init(id: String = UUID().uuidString, description: String, dueDate: Date, priority: UrgencyLevel) {
-        self.id = id
-        self.description = description
-        self.dueDate = dueDate
-        self.priority = priority
-    }
+/// Deadline detection result (stored in message metadata)
+struct DeadlineDetection: Codable, Equatable, Hashable {
+    let deadlineId: String?         // Reference to /conversations/{id}/deadlines/{deadlineId}
+    let title: String               // Short title
+    let dueDate: Date               // When the deadline is
+    let isAllDay: Bool              // All-day vs specific time
+    let priority: String            // "high", "medium", "low"
+    let confidence: Double          // 0.0-1.0
+    let method: String              // "keyword_filter", "gpt4", "hybrid"
+    let reasoning: String?          // Why this was extracted
 }
 
 /// AI metadata attached to messages
@@ -75,7 +72,8 @@ struct AIMetadata: Codable, Equatable, Hashable {
     var rsvpReasoning: String?          // Why this classification was made
     
     // Deadline Extraction (PR #19)
-    var deadlines: [Deadline]?
+    var deadlineDetection: DeadlineDetection?  // Detected deadline info
+    var hasDeadline: Bool?              // Quick check if message contains deadline
     
     // Common metadata
     var processedAt: Date
