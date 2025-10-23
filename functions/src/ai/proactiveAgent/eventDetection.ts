@@ -40,7 +40,20 @@ Return a confidence score (0.0-1.0):
 
 Return null if confidence < 0.5.
 
-Also avoid suggesting duplicate events. Check existing events and return null if the same event already exists.`;
+Also avoid suggesting duplicate events. Check existing events and return null if the same event already exists.
+
+**IMPORTANT**: Return your response as a JSON object with the following structure:
+{
+  "confidence": 0.0-1.0,
+  "title": "Event name",
+  "eventType": "birthday party|playdate|sports|school event|etc",
+  "date": "YYYY-MM-DD or description",
+  "time": "HH:MM AM/PM",
+  "location": "location description",
+  "participants": ["name1", "name2"],
+  "notes": "additional details",
+  "reasoning": "why this was detected"
+}`;
 
     // Build user prompt
     const existingEventsStr = context.existingEvents?.length
