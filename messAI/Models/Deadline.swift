@@ -22,10 +22,20 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
     // Deadline Details
     let title: String                   // Short title (e.g., "Permission slip")
     let description: String?            // Optional additional details
-    let dueDate: Date                   // When the deadline is
+    let dueDate: Date                   // When the deadline is (raw from Firestore)
     let isAllDay: Bool                  // All-day vs specific time
     let priority: Priority              // High/medium/low urgency
     let category: Category?             // Optional category (school/work/etc)
+    
+    // TEMP FIX (PR#19.2): Display date with timezone adjustment
+    // Deadlines are stored with wrong UTC time (GPT-4 interprets local time as UTC)
+    // This adds +5 hours for Central timezone to display correctly
+    // TODO (Future PR): Fix server-side timezone conversion, then remove this workaround
+    // Options: (1) Improve GPT-4 prompts, (2) Post-process on iOS, (3) Store local time + offset
+    var displayDate: Date {
+        // Add 5 hours to compensate for timezone bug (works for Central timezone)
+        return dueDate.addingTimeInterval(5 * 60 * 60)
+    }
     
     // Status Tracking
     var status: Status                  // Active/completed/cancelled
@@ -118,7 +128,7 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
     /// Time until/since deadline (computed based on current time)
     var timeStatus: TimeStatus {
         let now = Date()
-        let timeInterval = dueDate.timeIntervalSince(now)
+        let timeInterval = displayDate.timeIntervalSince(now)
         let hours = timeInterval / 3600
         let days = timeInterval / 86400
         
@@ -187,7 +197,7 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
     /// Countdown text (e.g., "Due in 2 days", "Due in 3 hours", "OVERDUE")
     var countdownText: String {
         let now = Date()
-        let timeInterval = dueDate.timeIntervalSince(now)
+        let timeInterval = displayDate.timeIntervalSince(now)
         
         if timeInterval < 0 {
             // Overdue
@@ -223,10 +233,10 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
         
         if isAllDay {
             formatter.timeStyle = .none
-            return formatter.string(from: dueDate)
+            return formatter.string(from: displayDate)
         } else {
             formatter.timeStyle = .short
-            return formatter.string(from: dueDate)
+            return formatter.string(from: displayDate)
         }
     }
     
@@ -235,34 +245,34 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
         let calendar = Calendar.current
         let now = Date()
         
-        if calendar.isDateInToday(dueDate) {
+        if calendar.isDateInToday(displayDate) {
             if isAllDay {
                 return "Today"
             } else {
                 let timeFormatter = DateFormatter()
                 timeFormatter.timeStyle = .short
-                return "Today at \(timeFormatter.string(from: dueDate))"
+                return "Today at \(timeFormatter.string(from: displayDate))"
             }
-        } else if calendar.isDateInTomorrow(dueDate) {
+        } else if calendar.isDateInTomorrow(displayDate) {
             if isAllDay {
                 return "Tomorrow"
             } else {
                 let timeFormatter = DateFormatter()
                 timeFormatter.timeStyle = .short
-                return "Tomorrow at \(timeFormatter.string(from: dueDate))"
+                return "Tomorrow at \(timeFormatter.string(from: displayDate))"
             }
-        } else if let daysUntil = calendar.dateComponents([.day], from: now, to: dueDate).day, daysUntil <= 7 {
+        } else if let daysUntil = calendar.dateComponents([.day], from: now, to: displayDate).day, daysUntil <= 7 {
             // Within 1 week
             let dayFormatter = DateFormatter()
             dayFormatter.dateFormat = "EEEE"  // Day name
-            let dayName = dayFormatter.string(from: dueDate)
+            let dayName = dayFormatter.string(from: displayDate)
             
             if isAllDay {
                 return dayName
             } else {
                 let timeFormatter = DateFormatter()
                 timeFormatter.timeStyle = .short
-                return "\(dayName) at \(timeFormatter.string(from: dueDate))"
+                return "\(dayName) at \(timeFormatter.string(from: displayDate))"
             }
         } else {
             // More than 1 week away
@@ -272,7 +282,7 @@ struct Deadline: Identifiable, Codable, Equatable, Hashable {
     
     /// Whether deadline is overdue
     var isOverdue: Bool {
-        return Date() > dueDate && status == .active
+        return Date() > displayDate && status == .active
     }
     
     /// Whether deadline is completed
