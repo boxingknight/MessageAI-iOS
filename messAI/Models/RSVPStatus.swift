@@ -10,6 +10,7 @@ import SwiftUI
 
 /// RSVP response status for event attendance
 enum RSVPStatus: String, Codable, CaseIterable {
+    case organizer = "organizer" // Event organizer (auto-created)
     case yes = "yes"            // Confirmed attendance
     case no = "no"              // Declined attendance
     case maybe = "maybe"        // Tentative attendance
@@ -20,6 +21,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Display name for UI
     var displayName: String {
         switch self {
+        case .organizer:
+            return "Organizing"
         case .yes:
             return "Going"
         case .no:
@@ -34,6 +37,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Short display label
     var shortName: String {
         switch self {
+        case .organizer:
+            return "Organizer"
         case .yes:
             return "Yes"
         case .no:
@@ -50,6 +55,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Icon (SF Symbol) for status
     var icon: String {
         switch self {
+        case .organizer:
+            return "person.badge.shield.checkmark.fill"
         case .yes:
             return "checkmark.circle.fill"
         case .no:
@@ -64,6 +71,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Icon color
     var iconColor: Color {
         switch self {
+        case .organizer:
+            return .blue
         case .yes:
             return .green
         case .no:
@@ -78,6 +87,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Text color for participant names
     var textColor: Color {
         switch self {
+        case .organizer:
+            return .primary
         case .yes:
             return .primary
         case .no:
@@ -92,6 +103,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Background color for status badge
     var backgroundColor: Color {
         switch self {
+        case .organizer:
+            return Color.blue.opacity(0.1)
         case .yes:
             return Color.green.opacity(0.1)
         case .no:
@@ -108,6 +121,8 @@ enum RSVPStatus: String, Codable, CaseIterable {
     /// Emoji representation (for quick visual reference)
     var emoji: String {
         switch self {
+        case .organizer:
+            return "📋"
         case .yes:
             return "✅"
         case .no:
@@ -121,9 +136,11 @@ enum RSVPStatus: String, Codable, CaseIterable {
     
     // MARK: - Sorting Priority
     
-    /// Sort order for displaying participant lists (yes → maybe → no → pending)
+    /// Sort order for displaying participant lists (organizer → yes → maybe → no → pending)
     var sortOrder: Int {
         switch self {
+        case .organizer:
+            return 0  // Organizer always first!
         case .yes:
             return 1
         case .maybe:
@@ -139,7 +156,7 @@ enum RSVPStatus: String, Codable, CaseIterable {
     
     /// Whether this status counts as "confirmed" for attendance tracking
     var isConfirmed: Bool {
-        return self == .yes
+        return self == .organizer || self == .yes  // Organizer counts as confirmed!
     }
     
     /// Whether this status counts as "declined"
@@ -152,9 +169,16 @@ enum RSVPStatus: String, Codable, CaseIterable {
         return self == .maybe || self == .pending
     }
     
+    /// Whether this is the organizer status
+    var isOrganizer: Bool {
+        return self == .organizer
+    }
+    
     /// Accessibility label
     var accessibilityLabel: String {
         switch self {
+        case .organizer:
+            return "Event organizer. Organizing this event."
         case .yes:
             return "Confirmed attendance. Going to the event."
         case .no:
@@ -219,19 +243,22 @@ struct RSVPParticipant: Identifiable, Codable, Equatable, Hashable {
     let status: RSVPStatus          // RSVP status
     let respondedAt: Date?          // When they responded (nil if pending)
     let messageId: String?          // Message ID containing RSVP
+    let isOrganizer: Bool           // Whether this participant is the event organizer
     
     init(
         id: String,
         name: String,
         status: RSVPStatus = .pending,
         respondedAt: Date? = nil,
-        messageId: String? = nil
+        messageId: String? = nil,
+        isOrganizer: Bool = false
     ) {
         self.id = id
         self.name = name
         self.status = status
         self.respondedAt = respondedAt
         self.messageId = messageId
+        self.isOrganizer = isOrganizer
     }
 }
 
@@ -241,14 +268,20 @@ struct RSVPParticipant: Identifiable, Codable, Equatable, Hashable {
 struct RSVPSummary: Codable, Equatable, Hashable {
     let eventId: String
     let totalParticipants: Int
+    let organizerCount: Int  // Usually 1, but tracked separately
     let yesCount: Int
     let noCount: Int
     let maybeCount: Int
     let pendingCount: Int
     
+    /// Total confirmed attendees (organizer + yes responses)
+    var confirmedCount: Int {
+        return organizerCount + yesCount
+    }
+    
     /// Formatted summary text (e.g., "5 of 12 confirmed")
     var summaryText: String {
-        return "\(yesCount) of \(totalParticipants) confirmed"
+        return "\(confirmedCount) of \(totalParticipants) confirmed"
     }
     
     /// Formatted detailed text (e.g., "5 yes, 3 no, 2 maybe, 2 pending")
@@ -272,7 +305,7 @@ struct RSVPSummary: Codable, Equatable, Hashable {
     /// Percentage of confirmed attendees (0.0-1.0)
     var confirmationRate: Double {
         guard totalParticipants > 0 else { return 0.0 }
-        return Double(yesCount) / Double(totalParticipants)
+        return Double(confirmedCount) / Double(totalParticipants)
     }
     
     /// Whether all participants have responded
@@ -286,6 +319,7 @@ struct RSVPSummary: Codable, Equatable, Hashable {
 #if DEBUG
 extension RSVPStatus {
     /// Sample data for SwiftUI previews
+    static let previewOrganizer = RSVPStatus.organizer
     static let previewYes = RSVPStatus.yes
     static let previewNo = RSVPStatus.no
     static let previewMaybe = RSVPStatus.maybe
@@ -315,20 +349,31 @@ extension RSVPResponse {
 
 extension RSVPParticipant {
     /// Sample participants for previews
-    static let previewYes = RSVPParticipant(
+    static let previewOrganizer = RSVPParticipant(
         id: "user1",
         name: "Sarah Johnson",
+        status: .organizer,
+        respondedAt: Date(),
+        messageId: "msg000",
+        isOrganizer: true
+    )
+    
+    static let previewYes = RSVPParticipant(
+        id: "user2",
+        name: "Mike Chen",
         status: .yes,
         respondedAt: Date(),
-        messageId: "msg123"
+        messageId: "msg123",
+        isOrganizer: false
     )
     
     static let previewPending = RSVPParticipant(
-        id: "user2",
-        name: "Mike Chen",
+        id: "user3",
+        name: "Emily Davis",
         status: .pending,
         respondedAt: nil,
-        messageId: nil
+        messageId: nil,
+        isOrganizer: false
     )
 }
 
@@ -337,7 +382,8 @@ extension RSVPSummary {
     static let preview = RSVPSummary(
         eventId: "event123",
         totalParticipants: 12,
-        yesCount: 5,
+        organizerCount: 1,  // Usually 1 organizer
+        yesCount: 4,         // 4 others said yes
         noCount: 3,
         maybeCount: 2,
         pendingCount: 2

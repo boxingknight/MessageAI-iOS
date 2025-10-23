@@ -180,7 +180,8 @@ extension Conversation {
     func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "id": id,
-            "participants": participants,
+            "participants": participants,           // Legacy field (keep for backward compatibility)
+            "participantIds": participants,         // New field (for consistency across collections)
             "isGroup": isGroup,
             "lastMessage": lastMessage,
             "lastMessageAt": Timestamp(date: lastMessageAt),
@@ -210,7 +211,6 @@ extension Conversation {
     init?(dictionary: [String: Any]) {
         guard
             let id = dictionary["id"] as? String,
-            let participants = dictionary["participants"] as? [String],
             let isGroup = dictionary["isGroup"] as? Bool,
             let lastMessage = dictionary["lastMessage"] as? String,
             let lastMessageAtTimestamp = dictionary["lastMessageAt"] as? Timestamp,
@@ -218,6 +218,16 @@ extension Conversation {
             let createdAtTimestamp = dictionary["createdAt"] as? Timestamp
         else {
             return nil
+        }
+        
+        // Handle both 'participantIds' (new) and 'participants' (legacy) field names
+        let participants: [String]
+        if let participantIds = dictionary["participantIds"] as? [String] {
+            participants = participantIds
+        } else if let legacyParticipants = dictionary["participants"] as? [String] {
+            participants = legacyParticipants
+        } else {
+            return nil  // No participants found
         }
         
         self.id = id

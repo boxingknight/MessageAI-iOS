@@ -210,18 +210,7 @@ struct ChatView: View {
                                 if let calendarEvents = message.aiMetadata?.calendarEvents,
                                    !calendarEvents.isEmpty {
                                     ForEach(calendarEvents) { event in
-                                        CalendarCardView(event: event) { event in
-                                            print("📅 [ChatView] Add to Calendar button tapped for event: \(event.title)")
-                                            Task {
-                                                let success = await viewModel.addEventToCalendar(event)
-                                                if success {
-                                                    print("✅ [ChatView] Successfully added event to calendar")
-                                                } else {
-                                                    print("❌ [ChatView] Failed to add event to calendar")
-                                                }
-                                            }
-                                        }
-                                        .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+                                        calendarEventView(event: event, message: message)
                                     }
                                 }
                             }
@@ -338,6 +327,50 @@ struct ChatView: View {
                 Text(errorMessage)
             }
         }
+    }
+    
+    // MARK: - Calendar Event View Helper (PR #18)
+    
+    @ViewBuilder
+    private func calendarEventView(event: CalendarEvent, message: Message) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Calendar Card
+            CalendarCardView(event: event) { event in
+                print("📅 [ChatView] Add to Calendar button tapped for event: \(event.title)")
+                Task {
+                    let success = await viewModel.addEventToCalendar(event)
+                    if success {
+                        print("✅ [ChatView] Successfully added event to calendar")
+                    } else {
+                        print("❌ [ChatView] Failed to add event to calendar")
+                    }
+                }
+            }
+            
+            // PR #18: RSVP Section (below calendar card)
+            if let rsvpData = viewModel.eventRSVPs[event.id] {
+                RSVPSectionView(
+                    summary: rsvpData.summary,
+                    participants: rsvpData.participants,
+                    organizerName: rsvpData.participants.first(where: { $0.isOrganizer })?.name
+                )
+            } else {
+                // Loading state - fetch RSVPs
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading RSVPs...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .task {
+                    await viewModel.loadRSVPsForEvent(event.id)
+                }
+            }
+        }
+        .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
     }
 }
 

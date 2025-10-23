@@ -14,10 +14,16 @@ import SwiftUI
 struct RSVPSectionView: View {
     let summary: RSVPSummary
     let participants: [RSVPParticipant]
+    let organizerName: String?  // NEW: Optional organizer name
     @State private var isExpanded: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // MARK: - Organizer Header (if available)
+            if let organizer = organizerName {
+                organizerHeader(name: organizer)
+            }
+            
             // MARK: - Summary Row (Always Visible)
             summaryRow
             
@@ -74,6 +80,21 @@ struct RSVPSectionView: View {
         .buttonStyle(.plain)
     }
     
+    // MARK: - Organizer Header
+    
+    private func organizerHeader(name: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "person.badge.shield.checkmark.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.blue)
+            
+            Text("Organized by \(name)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .padding(.bottom, 4)
+    }
+    
     // MARK: - Participant List
     
     private var participantList: some View {
@@ -83,6 +104,16 @@ struct RSVPSectionView: View {
             
             // Group participants by status
             let groupedParticipants = Dictionary(grouping: participants) { $0.status }
+            
+            // Organizer (Always First!)
+            if let organizerParticipants = groupedParticipants[.organizer], !organizerParticipants.isEmpty {
+                participantGroup(
+                    title: "Organizer",
+                    icon: "person.badge.shield.checkmark.fill",
+                    color: .blue,
+                    participants: organizerParticipants
+                )
+            }
             
             // Yes (Confirmed)
             if let yesParticipants = groupedParticipants[.yes], !yesParticipants.isEmpty {
@@ -164,7 +195,7 @@ struct RSVPSectionView: View {
     private func participantRow(_ participant: RSVPParticipant) -> some View {
         HStack(spacing: 8) {
             // User Icon
-            Image(systemName: "person.circle.fill")
+            Image(systemName: participant.isOrganizer ? "person.badge.shield.checkmark.fill" : "person.circle.fill")
                 .font(.system(size: 14))
                 .foregroundColor(participant.status.iconColor)
             
@@ -172,6 +203,17 @@ struct RSVPSectionView: View {
             Text(participant.name)
                 .font(.system(size: 13))
                 .foregroundColor(participant.status.textColor)
+            
+            // Organizer Badge
+            if participant.isOrganizer {
+                Text("(Organizer)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(4)
+            }
             
             Spacer()
             
@@ -250,74 +292,94 @@ struct RSVPMinimalView: View {
 struct RSVPSectionView_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 16) {
-            // With participants
+            // With participants (including organizer)
             RSVPSectionView(
                 summary: RSVPSummary(
                     eventId: "event123",
                     totalParticipants: 12,
-                    yesCount: 5,
+                    organizerCount: 1,
+                    yesCount: 4,
                     noCount: 3,
                     maybeCount: 2,
                     pendingCount: 2
                 ),
                 participants: [
+                    // Organizer
+                    RSVPParticipant(
+                        id: "user0",
+                        name: "Sarah Johnson",
+                        status: .organizer,
+                        respondedAt: Date().addingTimeInterval(-10800),
+                        messageId: "msg0",
+                        isOrganizer: true
+                    ),
+                    // Others
                     RSVPParticipant(
                         id: "user1",
-                        name: "Sarah Johnson",
+                        name: "Mike Chen",
                         status: .yes,
                         respondedAt: Date().addingTimeInterval(-3600),
-                        messageId: "msg1"
+                        messageId: "msg1",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user2",
-                        name: "Mike Chen",
+                        name: "Emma Wilson",
                         status: .yes,
                         respondedAt: Date().addingTimeInterval(-7200),
-                        messageId: "msg2"
+                        messageId: "msg2",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user3",
-                        name: "Emma Wilson",
+                        name: "Alex Taylor",
                         status: .maybe,
                         respondedAt: Date().addingTimeInterval(-1800),
-                        messageId: "msg3"
+                        messageId: "msg3",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user4",
-                        name: "Alex Taylor",
+                        name: "Jordan Lee",
                         status: .maybe,
                         respondedAt: Date().addingTimeInterval(-900),
-                        messageId: "msg4"
+                        messageId: "msg4",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user5",
                         name: "Chris Brown",
                         status: .no,
                         respondedAt: Date().addingTimeInterval(-5400),
-                        messageId: "msg5"
+                        messageId: "msg5",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user6",
-                        name: "Jamie Lee",
+                        name: "Jamie Davis",
                         status: .no,
                         respondedAt: Date().addingTimeInterval(-4800),
-                        messageId: "msg6"
+                        messageId: "msg6",
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user7",
                         name: "Pat Kim",
                         status: .pending,
                         respondedAt: nil,
-                        messageId: nil
+                        messageId: nil,
+                        isOrganizer: false
                     ),
                     RSVPParticipant(
                         id: "user8",
-                        name: "Sam Davis",
+                        name: "Sam Wilson",
                         status: .pending,
                         respondedAt: nil,
-                        messageId: nil
+                        messageId: nil,
+                        isOrganizer: false
                     )
-                ]
+                ],
+                organizerName: "Sarah Johnson"
             )
             
             // Empty state
@@ -328,7 +390,8 @@ struct RSVPSectionView_Previews: PreviewProvider {
                 summary: RSVPSummary(
                     eventId: "event123",
                     totalParticipants: 8,
-                    yesCount: 6,
+                    organizerCount: 1,
+                    yesCount: 5,
                     noCount: 1,
                     maybeCount: 1,
                     pendingCount: 0
