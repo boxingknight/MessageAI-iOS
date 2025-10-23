@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFunctions
+import FirebaseFirestore
 
 /// AI features available through Cloud Functions
 enum AIFeature: String, Codable {
@@ -538,7 +539,7 @@ class AIService {
     func fetchDeadlines(conversationId: String) async throws -> [Deadline] {
         print("🎯 AIService: Fetching deadlines for conversation: \(conversationId)")
         
-        let db = functions.firestore
+        let db = Firestore.firestore()
         let deadlinesRef = db.collection("conversations")
             .document(conversationId)
             .collection("deadlines")
@@ -563,7 +564,7 @@ class AIService {
     func completeDeadline(conversationId: String, deadlineId: String, userId: String) async throws {
         print("🎯 AIService: Completing deadline: \(deadlineId)")
         
-        let db = functions.firestore
+        let db = Firestore.firestore()
         let deadlineRef = db.collection("conversations")
             .document(conversationId)
             .collection("deadlines")
