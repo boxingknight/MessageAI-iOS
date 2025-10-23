@@ -54,8 +54,12 @@ ${existingEventsStr}
 Analyze this conversation for event planning opportunities.`;
 
     // Call GPT-4
+    console.log('[Event Detection] Calling OpenAI with model: gpt-4o-mini');
+    console.log('[Event Detection] Message count:', context.messageCount);
+    console.log('[Event Detection] Sample messages:', context.recentMessages.substring(0, 200));
+    
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -65,6 +69,9 @@ Analyze this conversation for event planning opportunities.`;
       max_tokens: 500
     });
 
+    console.log('[Event Detection] OpenAI response received');
+    console.log('[Event Detection] Response status:', response.id ? 'Success' : 'No ID');
+    
     const result = JSON.parse(response.choices[0].message.content || '{}');
     console.log('[Event Detection] GPT-4 result:', JSON.stringify(result, null, 2));
 
