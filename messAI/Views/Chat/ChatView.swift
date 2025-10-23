@@ -174,6 +174,30 @@ struct ChatView: View {
                             .padding(.bottom, 8)
                         }
                         
+                        // PR #19: Deadlines Section (pinned at top)
+                        if !viewModel.conversationDeadlines.isEmpty {
+                            DeadlinesSectionView(
+                                deadlines: viewModel.conversationDeadlines,
+                                onDeadlineTap: { deadline in
+                                    print("🚨 DEADLINE: 📅 User tapped deadline: \(deadline.title)")
+                                    // TODO: Navigate to deadline detail view
+                                },
+                                onDeadlineComplete: { deadline in
+                                    Task {
+                                        await viewModel.completeDeadline(deadline)
+                                    }
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, viewModel.showSummary ? 8 : 12)
+                            .padding(.bottom, 8)
+                            .onAppear {
+                                print("🚨 DEADLINE: 🎨 DeadlinesSectionView RENDERED with \(viewModel.conversationDeadlines.count) deadlines")
+                            }
+                        } else {
+                            let _ = print("🚨 DEADLINE: 🎨 DeadlinesSectionView NOT rendered - conversationDeadlines is EMPTY")
+                        }
+                        
                         // Loading indicator at top
                         if viewModel.isLoading {
                             ProgressView()
@@ -228,7 +252,7 @@ struct ChatView: View {
                             withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
-                            print("📜 [ChatView] Auto-scrolled to latest message: \(lastMessage.id)")
+                            // print("📜 [ChatView] Auto-scrolled to latest message: \(lastMessage.id)")
                         }
                     }
                 }
@@ -237,7 +261,7 @@ struct ChatView: View {
                     DispatchQueue.main.async {
                         if let lastMessage = viewModel.messages.last {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                            print("📜 [ChatView] Initial scroll to bottom")
+                            // print("📜 [ChatView] Initial scroll to bottom")
                         }
                     }
                 }
@@ -299,6 +323,11 @@ struct ChatView: View {
         .task {
             // Load messages when view appears
             await viewModel.loadMessages()
+            
+            // PR#19: Load deadlines for this conversation
+            print("🚨 DEADLINE: 🎬 ChatView .task - About to call loadDeadlines()")
+            await viewModel.loadDeadlines()
+            print("🚨 DEADLINE: 🎬 ChatView .task - Returned from loadDeadlines()")
         }
         .onAppear {
             // PR#17.1: Track active conversation for toast notifications

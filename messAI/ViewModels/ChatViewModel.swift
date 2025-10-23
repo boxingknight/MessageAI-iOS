@@ -68,6 +68,10 @@ class ChatViewModel: ObservableObject {
             listener.remove()
         }
         print("🧹 ChatViewModel deinitialized - cleaned up \(rsvpListeners.count) RSVP listeners")
+        
+        // Clean up deadline listener
+        deadlineListener?.remove()
+        print("🧹 ChatViewModel deinitialized - cleaned up deadline listener")
     }
     
     // MARK: - Methods
@@ -333,6 +337,21 @@ class ChatViewModel: ObservableObject {
                 // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
                 Task {
                     await trackMessageRSVP(for: firebaseMessage.id, message: firebaseMessage)
+                }
+                
+                // PR #19: Automatically extract deadlines from new messages (async, non-blocking)
+                // TEMP FIX: Extract for ALL messages (testing/solo use)
+                // TODO: Re-enable sender-only policy for production group chats
+                // Detects dates, times, and deadline-related keywords in message text
+                print("🚨 DEADLINE: 📨 Message received: '\(firebaseMessage.text)'")
+                
+                Task {
+                    await extractDeadlineFromMessage(
+                        messageId: firebaseMessage.id,
+                        messageText: firebaseMessage.text,
+                        senderId: firebaseMessage.senderId,
+                        senderName: firebaseMessage.senderName ?? "Unknown User"
+                    )
                 }
                 
                 // PR #11 Fix: WhatsApp-style delivery tracking
@@ -734,6 +753,14 @@ class ChatViewModel: ObservableObject {
         var participants: [RSVPParticipant]
     }
     
+    // MARK: - Deadline Tracking (PR #19)
+    
+    /// Active deadlines for this conversation
+    @Published var conversationDeadlines: [Deadline] = []
+    
+    /// Firestore listener for real-time deadline updates
+    private var deadlineListener: ListenerRegistration?
+    
     /// Request AI summary of the conversation
     /// Analyzes last 50 messages and extracts decisions, action items, and key points
     func requestSummary() async {
@@ -878,13 +905,181 @@ class ChatViewModel: ObservableObject {
         eventRSVPs.removeAll()
     }
     
+    // MARK: - Deadline Tracking (PR #19)
+    
+    /// Load deadlines for this conversation with real-time updates
+    func loadDeadlines() async {
+        print("📋 Setting up real-time deadline listener for conversation: \(conversationId)")
+        
+        // Set up real-time listener
+        deadlineListener = Firestore.firestore()
+            .collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+            .whereField("status", isEqualTo: "active")
+            .order(by: "dueDate", descending: false)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("🚨 DEADLINE: ❌ Listener error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let snapshot = snapshot else {
+                    print("🚨 DEADLINE: ⚠️ Snapshot is nil")
+                    return
+                }
+                
+                print("🚨 DEADLINE: 🔄 Update received - \(snapshot.documents.count) documents from Firestore")
+                
+                var deadlines: [Deadline] = []
+                
+                for doc in snapshot.documents {
+                    print("🚨 DEADLINE: 📄 Parsing document \(doc.documentID)")
+                    print("🚨 DEADLINE:    Raw data: \(doc.data())")
+                    
+                    if let deadline = Deadline.fromFirestore(doc.data(), id: doc.documentID) {
+                        deadlines.append(deadline)
+                        print("🚨 DEADLINE:    ✅ Parsed: \(deadline.title) - Due: \(deadline.dueDate)")
+                    } else {
+                        print("🚨 DEADLINE:    ❌ Failed to parse document")
+                    }
+                }
+                
+                // Update state on main thread
+                Task { @MainActor in
+                    self.conversationDeadlines = deadlines
+                    print("🚨 DEADLINE: ✅ Updated UI state - \(deadlines.count) active deadlines")
+                    print("🚨 DEADLINE:    Array contents: \(deadlines.map { $0.title })")
+                }
+            }
+    }
+    
+    /// Extract deadline from a message (called automatically when new messages arrive)
+    @discardableResult
+    func extractDeadlineFromMessage(
+        messageId: String,
+        messageText: String,
+        senderId: String,
+        senderName: String
+    ) async -> DeadlineDetection? {
+        print("🚨 DEADLINE: Extracting deadline from message: \(messageId)")
+        
+        do {
+            // Call AI service to extract deadline
+            let deadlineDetection = try await AIService.shared.extractDeadline(
+                messageText: messageText,
+                messageId: messageId,
+                senderId: senderId,
+                senderName: senderName,
+                conversationId: conversationId,
+                storeInFirestore: true
+            )
+            
+            if let deadlineDetection = deadlineDetection {
+                print("🚨 DEADLINE: ✅ Extracted: \(deadlineDetection.title)")
+                print("🚨 DEADLINE:    - Due: \(deadlineDetection.dueDate)")
+                print("🚨 DEADLINE:    - Priority: \(deadlineDetection.priority)")
+                print("🚨 DEADLINE:    - Confidence: \(String(format: "%.2f", deadlineDetection.confidence))")
+                
+                // Update message's AIMetadata in Firestore
+                await updateMessageDeadline(messageId: messageId, detection: deadlineDetection)
+                
+                // Update local message object
+                if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                    var updatedMessage = messages[index]
+                    
+                    // Create or update AIMetadata
+                    if updatedMessage.aiMetadata == nil {
+                        updatedMessage.aiMetadata = AIMetadata()
+                    }
+                    
+                    updatedMessage.aiMetadata?.deadlineDetection = deadlineDetection
+                    updatedMessage.aiMetadata?.hasDeadline = true
+                    
+                    messages[index] = updatedMessage
+                    
+                    print("🚨 DEADLINE: ✅ Updated local message with deadline detection")
+                }
+                
+                return deadlineDetection
+            } else {
+                print("🚨 DEADLINE: ℹ️ No deadline detected in message")
+                return nil
+            }
+            
+        } catch let error as AIError {
+            print("🚨 DEADLINE: ❌ Extraction failed: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("🚨 DEADLINE: ❌ Extraction failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Update message's AIMetadata with deadline detection in Firestore
+    private func updateMessageDeadline(messageId: String, detection: DeadlineDetection) async {
+        do {
+            let messageRef = Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+            
+            // Convert dates to ISO8601 strings for aiMetadata (not Firestore Timestamps)
+            // Firestore Timestamps can't be JSON-serialized and will crash Message.init
+            let iso8601Formatter = ISO8601DateFormatter()
+            let dueDateString = iso8601Formatter.string(from: detection.dueDate)
+            let processedAtString = iso8601Formatter.string(from: Date())
+            
+            try await messageRef.updateData([
+                "aiMetadata.deadlineDetection": [
+                    "deadlineId": detection.deadlineId as Any,
+                    "title": detection.title,
+                    "dueDate": dueDateString,  // ISO8601 string, not Firestore Timestamp
+                    "isAllDay": detection.isAllDay,
+                    "priority": detection.priority,
+                    "confidence": detection.confidence,
+                    "method": detection.method,
+                    "reasoning": detection.reasoning as Any
+                ],
+                "aiMetadata.hasDeadline": true,
+                "aiMetadata.processedAt": processedAtString  // ISO8601 string, not Firestore Timestamp
+            ])
+            
+            // print("✅ Updated message AIMetadata with deadline in Firestore")
+            
+        } catch {
+            print("🚨 DEADLINE: ❌ Failed to update message AIMetadata: \(error)")
+        }
+    }
+    
+    /// Mark deadline as completed
+    func completeDeadline(_ deadline: Deadline) async {
+        print("🚨 DEADLINE: ✅ Completing deadline: \(deadline.title)")
+        
+        do {
+            try await AIService.shared.completeDeadline(
+                conversationId: conversationId,
+                deadlineId: deadline.id,
+                userId: currentUserId
+            )
+            
+            print("🚨 DEADLINE: ✅ Marked as completed")
+            
+        } catch {
+            print("🚨 DEADLINE: ❌ Failed to complete deadline: \(error)")
+        }
+    }
+    
     // MARK: - Priority Highlighting (PR #17)
     
     /// Detect priority level for a message (called automatically on new messages)
     /// Updates the message's AIMetadata with priority information
     @discardableResult
     func detectMessagePriority(for messageId: String, messageText: String) async -> PriorityDetectionResult? {
-        print("🎯 Detecting priority for message: \(messageId)")
+        // print("🎯 Detecting priority for message: \(messageId)")
         
         do {
             // Call AI service to detect priority
@@ -893,10 +1088,10 @@ class ChatViewModel: ObservableObject {
                 conversationId: conversationId
             )
             
-            print("✅ Priority detected: \(result.level.rawValue)")
-            print("   - Confidence: \(String(format: "%.2f", result.confidence))")
-            print("   - Method: \(result.method.rawValue)")
-            print("   - Used GPT-4: \(result.usedGPT4)")
+            // print("✅ Priority detected: \(result.level.rawValue)")
+            // print("   - Confidence: \(String(format: "%.2f", result.confidence))")
+            // print("   - Method: \(result.method.rawValue)")
+            // print("   - Used GPT-4: \(result.usedGPT4)")
             
             // Update message's AIMetadata in Firestore
             await updateMessagePriority(messageId: messageId, result: result)
@@ -918,16 +1113,13 @@ class ChatViewModel: ObservableObject {
                 
                 messages[index] = updatedMessage
                 
-                print("✅ Updated local message with priority: \(result.level.rawValue)")
+                // print("✅ Updated local message with priority: \(result.level.rawValue)")
             }
             
             return result
             
-        } catch let error as AIError {
-            print("❌ Priority detection failed: \(error.localizedDescription)")
-            return nil
         } catch {
-            print("❌ Priority detection failed: \(error)")
+            // Silenced: Priority detection failed
             return nil
         }
     }
@@ -952,10 +1144,10 @@ class ChatViewModel: ObservableObject {
                 .document(messageId)
                 .updateData(["aiMetadata": aiMetadata])
             
-            print("✅ Updated Firestore with priority metadata")
+            // print("✅ Updated Firestore with priority metadata")
             
         } catch {
-            print("❌ Failed to update message priority in Firestore: \(error)")
+            // print("❌ Failed to update message priority in Firestore: \(error)")
         }
     }
     

@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFunctions
+import FirebaseFirestore
 
 /// AI features available through Cloud Functions
 enum AIFeature: String, Codable {
@@ -307,12 +308,12 @@ class AIService {
                 usedGPT4: usedGPT4
             )
             
-            print("✅ AIService: Priority detected successfully")
-            print("   - Level: \(level.rawValue)")
-            print("   - Confidence: \(String(format: "%.2f", confidence))")
-            print("   - Method: \(method.rawValue)")
-            print("   - Used GPT-4: \(usedGPT4)")
-            print("   - Processing Time: \(processingTimeMs)ms")
+            // print("✅ AIService: Priority detected successfully")
+            // print("   - Level: \(level.rawValue)")
+            // print("   - Confidence: \(String(format: "%.2f", confidence))")
+            // print("   - Method: \(method.rawValue)")
+            // print("   - Used GPT-4: \(usedGPT4)")
+            // print("   - Processing Time: \(processingTimeMs)ms")
             
             return priorityResult
             
@@ -412,6 +413,210 @@ class AIService {
             print("❌ AIService: Error calling Cloud Function: \(error)")
             throw mapFirebaseError(error)
         }
+    }
+    
+    // MARK: - PR#19: Deadline Extraction
+    
+    /**
+     * Extract deadline from message text
+     * Uses hybrid approach: keyword filter → GPT-4 extraction
+     * Returns structured deadline data or nil if no deadline detected
+     * 
+     * Example:
+     * ```
+     * let deadline = try await aiService.extractDeadline(
+     *     messageText: "Please RSVP by Friday at 5pm",
+     *     messageId: "msg123",
+     *     senderId: "user123",
+     *     senderName: "Alice",
+     *     conversationId: "conv456"
+     * )
+     * ```
+     */
+    func extractDeadline(
+        messageText: String,
+        messageId: String,
+        senderId: String,
+        senderName: String,
+        conversationId: String,
+        storeInFirestore: Bool = true
+    ) async throws -> DeadlineDetection? {
+        print("🚨 DEADLINE: AIService calling Cloud Function...")
+        
+        // BUG FIX (PR#19.1): Pass timezone and current timestamp to fix date parsing issues
+        let currentTimestamp = Date().timeIntervalSince1970
+        // TEMP FIX: Force Central timezone for testing
+        let userTimezone = "America/Chicago"  // Central Time (CST/CDT)
+        // let userTimezone = TimeZone.current.identifier  // TODO: Re-enable for production
+        
+        // Prepare request data
+        let data: [String: Any] = [
+            "feature": AIFeature.deadline.rawValue,
+            "conversationId": conversationId,
+            "messageId": messageId,
+            "messageText": messageText,
+            "senderId": senderId,
+            "senderName": senderName,
+            "currentTimestamp": currentTimestamp,
+            "userTimezone": userTimezone,
+            "storeInFirestore": storeInFirestore
+        ]
+        
+        print("📤 AIService: Calling Cloud Function for deadline extraction")
+        print("   Message: \(messageText.prefix(50))...")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                print("🚨 DEADLINE: ❌ result.data is not a dictionary!")
+                print("🚨 DEADLINE:    Type: \(type(of: result.data))")
+                print("🚨 DEADLINE:    Value: \(result.data)")
+                throw AIError.invalidResponse
+            }
+            
+            print("🚨 DEADLINE: 📦 Raw response from Cloud Function:")
+            print("🚨 DEADLINE:    Keys: \(resultData.keys.sorted())")
+            print("🚨 DEADLINE:    Full data: \(resultData)")
+            
+            // Check if deadline was detected
+            guard let detected = resultData["detected"] as? Bool else {
+                print("🚨 DEADLINE: ❌ 'detected' field is missing or not a Bool!")
+                print("🚨 DEADLINE:    detected value: \(resultData["detected"] ?? "missing")")
+                print("🚨 DEADLINE:    detected type: \(type(of: resultData["detected"]))")
+                throw AIError.invalidResponse
+            }
+            
+            // If no deadline detected, return nil
+            if !detected {
+                print("🚨 DEADLINE: ℹ️ Cloud Function returned: No deadline detected")
+                return nil
+            }
+            
+            // Parse deadline data
+            guard let deadlineData = resultData["deadline"] as? [String: Any],
+                  let title = deadlineData["title"] as? String,
+                  let dueDateString = deadlineData["dueDate"] as? String,
+                  let isAllDay = deadlineData["isAllDay"] as? Bool,
+                  let priorityString = deadlineData["priority"] as? String,
+                  let confidence = resultData["confidence"] as? Double,
+                  let methodString = resultData["method"] as? String else {
+                print("❌ AIService: Failed to parse deadline response")
+                print("   Response: \(resultData)")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse optional fields BEFORE date parsing (for fallback case)
+            let deadlineId = resultData["deadlineId"] as? String
+            let reasoning = resultData["reasoning"] as? String
+            
+            // Parse due date
+            // BUG FIX (PR#19.1): Add .withFractionalSeconds to parse "2025-10-24T17:00:00.000Z"
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            guard let dueDate = dateFormatter.date(from: dueDateString) else {
+                print("🚨 DEADLINE: ❌ Failed to parse due date: \(dueDateString)")
+                print("🚨 DEADLINE:    Trying fallback parser without fractional seconds...")
+                
+                // Fallback: try without fractional seconds
+                let fallbackFormatter = ISO8601DateFormatter()
+                fallbackFormatter.formatOptions = [.withInternetDateTime]
+                guard let fallbackDate = fallbackFormatter.date(from: dueDateString) else {
+                    print("🚨 DEADLINE: ❌ Fallback parser also failed!")
+                    throw AIError.invalidResponse
+                }
+                
+                print("🚨 DEADLINE: ✅ Fallback parser succeeded")
+                return DeadlineDetection(
+                    deadlineId: deadlineId,
+                    title: title,
+                    dueDate: fallbackDate,
+                    isAllDay: isAllDay,
+                    priority: priorityString,
+                    confidence: confidence,
+                    method: methodString,
+                    reasoning: reasoning
+                )
+            }
+            
+            let deadlineDetection = DeadlineDetection(
+                deadlineId: deadlineId,
+                title: title,
+                dueDate: dueDate,
+                isAllDay: isAllDay,
+                priority: priorityString,
+                confidence: confidence,
+                method: methodString,
+                reasoning: reasoning
+            )
+            
+            print("🚨 DEADLINE: ✅ Cloud Function SUCCESS!")
+            print("🚨 DEADLINE:    - Title: \(title)")
+            print("🚨 DEADLINE:    - Due: \(dueDate)")
+            print("🚨 DEADLINE:    - Priority: \(priorityString)")
+            print("🚨 DEADLINE:    - Confidence: \(String(format: "%.2f", confidence))")
+            print("🚨 DEADLINE:    - Method: \(methodString)")
+            if let deadlineId = deadlineId {
+                print("🚨 DEADLINE:    - Stored with ID: \(deadlineId)")
+            }
+            
+            return deadlineDetection
+            
+        } catch let error as NSError {
+            print("🚨 DEADLINE: ❌ Cloud Function ERROR: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
+    
+    /**
+     * Fetch deadlines for a conversation from Firestore
+     * Returns all active deadlines sorted by due date
+     */
+    func fetchDeadlines(conversationId: String) async throws -> [Deadline] {
+        print("🎯 AIService: Fetching deadlines for conversation: \(conversationId)")
+        
+        let db = Firestore.firestore()
+        let deadlinesRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+        
+        // Query active deadlines, ordered by due date
+        let snapshot = try await deadlinesRef
+            .whereField("status", isEqualTo: "active")
+            .order(by: "dueDate", descending: false)
+            .getDocuments()
+        
+        let deadlines = snapshot.documents.compactMap { doc in
+            Deadline.fromFirestore(doc.data(), id: doc.documentID)
+        }
+        
+        print("✅ AIService: Fetched \(deadlines.count) deadlines")
+        return deadlines
+    }
+    
+    /**
+     * Mark deadline as completed
+     */
+    func completeDeadline(conversationId: String, deadlineId: String, userId: String) async throws {
+        print("🎯 AIService: Completing deadline: \(deadlineId)")
+        
+        let db = Firestore.firestore()
+        let deadlineRef = db.collection("conversations")
+            .document(conversationId)
+            .collection("deadlines")
+            .document(deadlineId)
+        
+        try await deadlineRef.updateData([
+            "status": "completed",
+            "completedAt": Date(),
+            "completedBy": userId,
+            "updatedAt": Date()
+        ])
+        
+        print("✅ AIService: Deadline marked as completed")
     }
 }
 
