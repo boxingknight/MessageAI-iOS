@@ -1371,6 +1371,9 @@ class ChatViewModel: ObservableObject {
     /**
      * Handle opportunities detected by the service
      * Route to appropriate UI based on confidence
+     * 
+     * IMPORTANT: Only show suggestions to the MESSAGE SENDER (event creator)
+     * Other users will receive RSVP requests after the event is created
      */
     private func handleOpportunitiesDetected(_ opportunities: [Opportunity]) {
         print("🤖 ChatViewModel: Handling \(opportunities.count) opportunities")
@@ -1381,6 +1384,24 @@ class ChatViewModel: ObservableObject {
             showAmbientBar = false
             return
         }
+        
+        // Check if the current user sent the most recent message (is the event creator)
+        guard let mostRecentMessage = messages.last else {
+            print("🤖 No recent message found, skipping opportunity display")
+            return
+        }
+        
+        // Only show suggestions to the MESSAGE SENDER (event creator)
+        // Other users are receivers and will get RSVP requests later
+        guard mostRecentMessage.senderId == currentUserId else {
+            print("🤖 Current user is NOT the sender of the triggering message")
+            print("   Message sender: \(mostRecentMessage.senderId)")
+            print("   Current user: \(currentUserId)")
+            print("   → Skipping Ambient Bar (user will receive RSVP instead)")
+            return
+        }
+        
+        print("🤖 Current user IS the sender → Showing opportunity suggestions")
         
         // Route based on confidence level
         if topOpportunity.isHighConfidence {
@@ -1412,24 +1433,55 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Approve an opportunity (execute workflow)
+     * Creates the event and sends RSVP requests to all participants
      */
     func approveOpportunity(_ opportunity: Opportunity) async {
         print("🤖 ChatViewModel: Approving opportunity: \(opportunity.displayTitle)")
         
         agentIsProcessing = true
         
-        // TODO: In Phase 3, we'll implement the workflow executor
-        // For now, just dismiss the opportunity
-        
-        // Simulate processing
-        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        
-        agentIsProcessing = false
-        
-        // Dismiss the opportunity
-        dismissOpportunity(opportunity)
-        
-        print("✅ ChatViewModel: Opportunity approved and processed")
+        do {
+            // Extract event details from opportunity
+            let title = opportunity.data.title ?? opportunity.displayTitle
+            let dateStr = opportunity.data.date ?? "TBD"
+            let timeStr = opportunity.data.time ?? "TBD"
+            let location = opportunity.data.location ?? "TBD"
+            let participants = opportunity.data.participants ?? []
+            
+            // Create event message that will trigger RSVP tracking
+            let eventMessage = """
+            📅 **Event Created: \(title)**
+            
+            📆 Date: \(dateStr)
+            ⏰ Time: \(timeStr)
+            📍 Location: \(location)
+            👥 Invited: \(participants.joined(separator: ", "))
+            
+            Please RSVP! Reply with:
+            • "Yes" or "Count me in" to accept
+            • "No" or "Can't make it" to decline
+            """
+            
+            // Send the event message (this will trigger RSVP tracking automatically)
+            try await chatService.sendMessage(
+                conversationId: conversationId,
+                text: eventMessage
+            )
+            
+            print("✅ Event message sent, RSVP tracking will be triggered automatically")
+            
+            agentIsProcessing = false
+            
+            // Dismiss the opportunity
+            dismissOpportunity(opportunity)
+            
+            print("✅ ChatViewModel: Opportunity approved and event created")
+            
+        } catch {
+            print("❌ ChatViewModel: Failed to create event: \(error.localizedDescription)")
+            agentError = "Failed to create event: \(error.localizedDescription)"
+            agentIsProcessing = false
+        }
     }
     
     /**
