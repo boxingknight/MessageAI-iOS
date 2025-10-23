@@ -7,10 +7,17 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // Helper function: Get participant list (handles both legacy and new field names)
+    function getParticipants(conversationData) {
+      return 'participantIds' in conversationData 
+             ? conversationData.participantIds 
+             : conversationData.participants;
+    }
+    
     // Helper function: Check if user is participant in conversation
     function isParticipant(conversationId) {
-      return isAuthenticated() && 
-             request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+      let conv = get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+      return isAuthenticated() && request.auth.uid in getParticipants(conv);
     }
     
     // Helper function: Check if user is admin in group conversation (PR #13)
@@ -32,35 +39,37 @@ service cloud.firestore {
     
     // Conversations collection
     match /conversations/{conversationId} {
-      // Can read if you're a participant
+      // Can read if you're a participant (handles both participantIds and participants fields)
       allow read: if isAuthenticated() && 
-                     request.auth.uid in resource.data.participants;
+                     request.auth.uid in getParticipants(resource.data);
       
       // Can create if you include yourself as participant
       // PR #13: Allow groups with 3-50 participants
+      // Handles both participantIds (new) and participants (legacy) field names
       allow create: if isAuthenticated() && 
-                       request.auth.uid in request.resource.data.participants &&
-                       request.resource.data.participants is list &&
-                       request.resource.data.participants.size() >= 2 &&
-                       request.resource.data.participants.size() <= 50;
+                       request.auth.uid in getParticipants(request.resource.data) &&
+                       getParticipants(request.resource.data) is list &&
+                       getParticipants(request.resource.data).size() >= 2 &&
+                       getParticipants(request.resource.data).size() <= 50;
       
       // Can update if you're a participant (for lastMessage, etc.)
       // PR #13: Allow admins to update group settings
       allow update: if isAuthenticated() && (
                        // Participant can update lastMessage fields
-                       (request.auth.uid in resource.data.participants &&
+                       (request.auth.uid in getParticipants(resource.data) &&
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'lastMessageSenderId', 'unreadCount']))
                        ||
                        // Admin can manage group (participants, admins, name, photo)
+                       // Note: participantIds is now added as an allowed field for updates
                        (isAdmin(resource.data) &&
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'admins', 'groupName', 'groupPhotoURL']))
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'participantIds', 'admins', 'groupName', 'groupPhotoURL']))
                      );
       
       // Can delete if you're a participant
       // Note: In production, consider implementing soft-delete instead
       // (marking conversation as deleted per user rather than hard delete)
       allow delete: if isAuthenticated() && 
-                       request.auth.uid in resource.data.participants;
+                       request.auth.uid in getParticipants(resource.data);
       
       // Messages subcollection
       match /messages/{messageId} {
@@ -123,6 +132,46 @@ service cloud.firestore {
       // Only Cloud Functions can write summaries (no client writes)
       // Cloud Functions have admin access (bypasses security rules)
       allow write: if false;
+    }
+    
+    // Events collection (PR #18 Fix)
+    match /events/{eventId} {
+      // Can read event if you're a participant in the source conversation
+      allow read: if isAuthenticated() && 
+                     request.auth.uid in resource.data.participantIds;
+      
+      // Can create event if:
+      // - You're authenticated
+      // - You're the creator
+      // - You're in the participantIds list
+      // - Event has required fields
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.createdBy &&
+                       request.auth.uid in request.resource.data.participantIds &&
+                       request.resource.data.title is string &&
+                       request.resource.data.date is timestamp &&
+                       request.resource.data.conversationId is string &&
+                       request.resource.data.participantIds is list;
+      
+      // Can update event if you're the creator or a participant
+      // (for future features like editing event details)
+      allow update: if isAuthenticated() && 
+                       (request.auth.uid == resource.data.createdBy ||
+                        request.auth.uid in resource.data.participantIds);
+      
+      // Can delete event if you're the creator
+      allow delete: if isAuthenticated() && 
+                       request.auth.uid == resource.data.createdBy;
+      
+      // RSVPs subcollection (PR #18)
+      match /rsvps/{rsvpUserId} {
+        // Can read all RSVPs if you're authenticated
+        allow read: if isAuthenticated();
+        
+        // Can write RSVP if authenticated
+        // Simplified for MVP - any authenticated user can RSVP to any event
+        allow write: if isAuthenticated();
+      }
     }
     
     // Deny everything else

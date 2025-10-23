@@ -61,7 +61,14 @@ class ChatViewModel: ObservableObject {
         self.otherUserId = otherUserId
     }
     
-    // Note: No deinit needed - Task is automatically cancelled when ChatViewModel is deallocated
+    // Cleanup when view model is destroyed
+    deinit {
+        // Clean up RSVP listeners
+        for (_, listener) in rsvpListeners {
+            listener.remove()
+        }
+        print("🧹 ChatViewModel deinitialized - cleaned up \(rsvpListeners.count) RSVP listeners")
+    }
     
     // MARK: - Methods
     
@@ -322,6 +329,12 @@ class ChatViewModel: ObservableObject {
                     await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
                 }
                 
+                // PR #18: Automatically track RSVP for new messages (async, non-blocking)
+                // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
+                Task {
+                    await trackMessageRSVP(for: firebaseMessage.id, message: firebaseMessage)
+                }
+                
                 // PR #11 Fix: WhatsApp-style delivery tracking
                 if firebaseMessage.senderId != currentUserId {
                     // Step 1: ALWAYS mark as delivered (message arrived on device)
@@ -469,7 +482,7 @@ class ChatViewModel: ObservableObject {
                 return
             }
             
-            print("✅ Extracted \(events.count) calendar events")
+            print("✅ Extracted \(events.count) calendar event(s)")
             
             // Update message with extracted events
             await updateMessageWithCalendarEvents(message: message, events: events)
@@ -477,7 +490,7 @@ class ChatViewModel: ObservableObject {
             isExtractingCalendar = false
             
         } catch {
-            print("❌ Calendar extraction failed: \(error)")
+            print("❌ Calendar extraction failed: \(error.localizedDescription)")
             calendarExtractionError = error.localizedDescription
             isExtractingCalendar = false
         }
@@ -509,9 +522,181 @@ class ChatViewModel: ObservableObject {
             
             print("✅ Updated message with calendar events")
             
+            // PR#18 Fix: Create event documents in Firestore
+            for event in events {
+                await createEventDocument(from: event, message: message)
+            }
+            
         } catch {
             print("❌ Failed to update message with calendar events: \(error)")
             calendarExtractionError = "Failed to save calendar events: \(error.localizedDescription)"
+        }
+    }
+    
+    /// Fetch conversation participants from Firestore
+    /// Used when creating event documents to include all members
+    /// Handles both 'participantIds' (new) and 'participants' (legacy) field names
+    private func fetchParticipants(_ conversationId: String) async throws -> [String] {
+        let doc = try await Firestore.firestore()
+            .collection("conversations")
+            .document(conversationId)
+            .getDocument()
+        
+        guard doc.exists, let data = doc.data() else {
+            print("❌ Conversation not found: \(conversationId)")
+            throw NSError(domain: "ChatViewModel", code: 404, userInfo: [
+                NSLocalizedDescriptionKey: "Conversation not found"
+            ])
+        }
+        
+        // Try new field name first
+        if let participantIds = data["participantIds"] as? [String] {
+            print("✅ Fetched \(participantIds.count) participants")
+            return participantIds
+        }
+        
+        // Fallback to legacy field name
+        if let participants = data["participants"] as? [String] {
+            print("✅ Fetched \(participants.count) participants (legacy field)")
+            return participants
+        }
+        
+        print("❌ No participant list found in conversation")
+        throw NSError(domain: "ChatViewModel", code: 400, userInfo: [
+            NSLocalizedDescriptionKey: "Conversation missing participant data"
+        ])
+    }
+    
+    /// Fetch sender's display name from Firestore (fallback if message.senderName is nil)
+    /// Returns the sender's name or "Unknown" if not found
+    private func fetchSenderName(for message: Message) async -> String {
+        // If message already has senderName, use it
+        if let senderName = message.senderName, !senderName.isEmpty {
+            return senderName
+        }
+        
+        // Otherwise, fetch from Firestore users collection
+        do {
+            let userDoc = try await Firestore.firestore()
+                .collection("users")
+                .document(message.senderId)
+                .getDocument()
+            
+            guard let data = userDoc.data() else {
+                print("⚠️ User document not found for: \(message.senderId)")
+                return "Unknown"
+            }
+            
+            // Try common display name fields
+            if let displayName = data["displayName"] as? String, !displayName.isEmpty {
+                return displayName
+            }
+            if let name = data["name"] as? String, !name.isEmpty {
+                return name
+            }
+            if let firstName = data["firstName"] as? String, !firstName.isEmpty {
+                return firstName
+            }
+            
+            print("⚠️ No display name found in user document")
+            return "Unknown"
+            
+        } catch {
+            print("❌ Failed to fetch sender name: \(error.localizedDescription)")
+            return "Unknown"
+        }
+    }
+    
+    /// Create Firestore event document from CalendarEvent (PR#18 Fix)
+    /// Enables RSVP subcollections to properly nest under /events/{eventId}
+    private func createEventDocument(from event: CalendarEvent, message: Message) async {
+        print("📅 Creating event document: \(event.title)")
+        
+        do {
+            // Fetch participants
+            let participantIds = try await fetchParticipants(conversationId)
+            
+            // Fetch organizer name (with fallback if nil)
+            let organizerName = await fetchSenderName(for: message)
+            
+            // Create EventDocument with organizer info
+            let eventDoc = EventDocument(
+                from: event,
+                conversationId: conversationId,
+                createdBy: currentUserId,
+                sourceMessageId: message.id,
+                participantIds: participantIds,
+                organizerId: message.senderId,
+                organizerName: organizerName
+            )
+            
+            // Write to Firestore
+            try await Firestore.firestore()
+                .collection("events")
+                .document(event.id)
+                .setData(eventDoc.toDictionary())
+            
+            print("✅ Event created: /events/\(event.id)")
+            print("   Organizer: \(organizerName) (\(participantIds.count) participants)")
+            
+            // Auto-create organizer RSVP
+            await createOrganizerRSVP(
+                eventId: event.id,
+                organizerId: message.senderId,
+                organizerName: organizerName,
+                messageId: message.id
+            )
+            
+        } catch let error as NSError {
+            print("❌ Failed to create event document: \(error.localizedDescription)")
+            
+            // Log detailed error info for debugging
+            if error.domain == "FIRFirestoreErrorDomain" {
+                switch error.code {
+                case 7:
+                    print("   🔒 Permission denied - check Firestore security rules")
+                case 3:
+                    print("   ⚠️ Invalid argument - check document field types")
+                case 5:
+                    print("   ⚠️ Not found - check document path")
+                default:
+                    print("   Error code: \(error.code)")
+                }
+            }
+        }
+    }
+    
+    /// Auto-create RSVP for event organizer (PR#18 Enhancement)
+    /// Called when event document is created to ensure organizer is included in tracking
+    private func createOrganizerRSVP(
+        eventId: String,
+        organizerId: String,
+        organizerName: String,
+        messageId: String
+    ) async {
+        do {
+            let organizerRSVP: [String: Any] = [
+                "userId": organizerId,
+                "userName": organizerName,
+                "status": RSVPStatus.organizer.rawValue,
+                "isOrganizer": true,
+                "respondedAt": Timestamp(date: Date()),
+                "messageId": messageId
+            ]
+            
+            // Use merge: true to avoid overwriting if organizer already RSVP'd
+            try await Firestore.firestore()
+                .collection("events")
+                .document(eventId)
+                .collection("rsvps")
+                .document(organizerId)
+                .setData(organizerRSVP, merge: true)
+            
+            print("✅ Organizer RSVP created: \(organizerName)")
+            
+        } catch {
+            print("❌ Failed to create organizer RSVP: \(error.localizedDescription)")
+            // Non-fatal: event still works, just missing organizer RSVP
         }
     }
     
@@ -534,6 +719,20 @@ class ChatViewModel: ObservableObject {
     @Published var isSummarizing = false
     @Published var summarizationError: String?
     @Published var showSummary = false
+    
+    // MARK: - RSVP Tracking (PR #18)
+    
+    /// RSVP data for each event (eventId → RSVPData)
+    @Published var eventRSVPs: [String: RSVPData] = [:]
+    
+    /// Firestore listeners for real-time RSVP updates (eventId → ListenerRegistration)
+    private var rsvpListeners: [String: ListenerRegistration] = [:]
+    
+    /// Stores RSVP summary and participants for an event
+    struct RSVPData {
+        var summary: RSVPSummary
+        var participants: [RSVPParticipant]
+    }
     
     /// Request AI summary of the conversation
     /// Analyzes last 50 messages and extracts decisions, action items, and key points
@@ -581,6 +780,102 @@ class ChatViewModel: ObservableObject {
         showSummary = false
         conversationSummary = nil
         summarizationError = nil
+    }
+    
+    // MARK: - RSVP Fetching (PR #18)
+    
+    /// Set up real-time listener for RSVP updates
+    func loadRSVPsForEvent(_ eventId: String) async {
+        // Skip if already listening
+        if rsvpListeners[eventId] != nil {
+            return
+        }
+        
+        print("📋 Setting up real-time RSVP listener for event: \(eventId)")
+        
+        // Set up real-time listener
+        let listener = Firestore.firestore()
+            .collection("events")
+            .document(eventId)
+            .collection("rsvps")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ RSVP listener error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let snapshot = snapshot else {
+                    print("⚠️ RSVP snapshot is nil")
+                    return
+                }
+                
+                print("🔄 RSVP update received for event: \(eventId) - \(snapshot.documents.count) RSVPs")
+                
+                var participants: [RSVPParticipant] = []
+                var statusCounts: [RSVPStatus: Int] = [:]
+                
+                for doc in snapshot.documents {
+                    let data = doc.data()
+                    
+                    guard let userId = data["userId"] as? String,
+                          let userName = data["userName"] as? String,
+                          let statusRaw = data["status"] as? String,
+                          let status = RSVPStatus(rawValue: statusRaw) else {
+                        continue
+                    }
+                    
+                    let isOrganizer = data["isOrganizer"] as? Bool ?? false
+                    
+                    // Create participant
+                    let participant = RSVPParticipant(
+                        id: userId,
+                        name: userName,
+                        status: status,
+                        respondedAt: (data["respondedAt"] as? Timestamp)?.dateValue(),
+                        messageId: data["messageId"] as? String,
+                        isOrganizer: isOrganizer
+                    )
+                    
+                    participants.append(participant)
+                    statusCounts[status, default: 0] += 1
+                }
+                
+                // Build summary
+                let summary = RSVPSummary(
+                    eventId: eventId,
+                    totalParticipants: participants.count,
+                    organizerCount: statusCounts[.organizer] ?? 0,
+                    yesCount: statusCounts[.yes] ?? 0,
+                    noCount: statusCounts[.no] ?? 0,
+                    maybeCount: statusCounts[.maybe] ?? 0,
+                    pendingCount: statusCounts[.pending] ?? 0
+                )
+                
+                // Update state on main thread
+                Task { @MainActor in
+                    self.eventRSVPs[eventId] = RSVPData(
+                        summary: summary,
+                        participants: participants.sorted { $0.status.sortOrder < $1.status.sortOrder }
+                    )
+                    print("✅ Updated RSVPs for event: \(eventId) - \(summary.summaryText)")
+                }
+            }
+        
+        // Store listener for cleanup
+        rsvpListeners[eventId] = listener
+    }
+    
+    /// Remove all RSVP listeners (called on cleanup)
+    func cleanupRSVPListeners() {
+        print("🧹 Cleaning up \(rsvpListeners.count) RSVP listeners")
+        for (eventId, listener) in rsvpListeners {
+            listener.remove()
+            print("   - Removed listener for event: \(eventId)")
+        }
+        rsvpListeners.removeAll()
+        eventRSVPs.removeAll()
     }
     
     // MARK: - Priority Highlighting (PR #17)
@@ -661,6 +956,162 @@ class ChatViewModel: ObservableObject {
             
         } catch {
             print("❌ Failed to update message priority in Firestore: \(error)")
+        }
+    }
+    
+    // MARK: - RSVP Tracking (PR #18)
+    
+    /// Track RSVP responses in a message (called automatically on new messages)
+    /// Updates the message's AIMetadata with RSVP information if detected
+    @discardableResult
+    func trackMessageRSVP(for messageId: String, message: Message) async -> RSVPResponse? {
+        print("🎯 Tracking RSVP for message: \(messageId)")
+        
+        // Get sender info
+        let senderId = message.senderId
+        let senderName = message.senderName ?? "Unknown"
+        
+        // Get recent event IDs from messages with calendar events (last 5)
+        let recentEventIds = messages
+            .compactMap { $0.aiMetadata?.calendarEvents }
+            .flatMap { $0 }
+            .suffix(5)
+            .map { $0.id }
+        
+        do {
+            // Call AI service to track RSVP
+            let result = try await AIService.shared.trackRSVP(
+                messageText: message.text,
+                messageId: messageId,
+                senderId: senderId,
+                senderName: senderName,
+                conversationId: conversationId,
+                recentEventIds: Array(recentEventIds)
+            )
+            
+            // If no RSVP detected, return nil
+            guard let rsvp = result else {
+                print("✅ No RSVP detected in message")
+                return nil
+            }
+            
+            print("✅ RSVP detected: \(rsvp.status.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", rsvp.confidence))")
+            print("   - Event ID: \(rsvp.eventId ?? "none")")
+            print("   - Method: \(rsvp.method.rawValue)")
+            
+            // Update message's AIMetadata in Firestore
+            await updateMessageRSVP(messageId: messageId, rsvp: rsvp)
+            
+            // Update local message object
+            if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                var updatedMessage = messages[index]
+                
+                // Create or update AIMetadata
+                if updatedMessage.aiMetadata == nil {
+                    updatedMessage.aiMetadata = AIMetadata()
+                }
+                
+                updatedMessage.aiMetadata?.rsvpResponse = rsvp
+                updatedMessage.aiMetadata?.rsvpStatus = rsvp.status
+                updatedMessage.aiMetadata?.rsvpEventId = rsvp.eventId
+                updatedMessage.aiMetadata?.rsvpConfidence = rsvp.confidence
+                updatedMessage.aiMetadata?.rsvpMethod = rsvp.method.rawValue
+                updatedMessage.aiMetadata?.rsvpReasoning = rsvp.reasoning
+                
+                messages[index] = updatedMessage
+                
+                print("✅ Updated local message with RSVP: \(rsvp.status.rawValue)")
+            }
+            
+            // If linked to an event, update event RSVP tracking in Firestore
+            if let eventId = rsvp.eventId {
+                print("🔄 Attempting to update event RSVP for eventId: \(eventId)")
+                await updateEventRSVP(
+                    eventId: eventId,
+                    userId: senderId,
+                    userName: senderName,
+                    status: rsvp.status,
+                    messageId: messageId
+                )
+            } else {
+                print("⚠️ No eventId found in RSVP, skipping event RSVP tracking")
+            }
+            
+            return rsvp
+            
+        } catch let error as AIError {
+            print("❌ RSVP tracking failed: \(error.localizedDescription)")
+            return nil
+        } catch {
+            print("❌ RSVP tracking failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Update message RSVP metadata in Firestore
+    private func updateMessageRSVP(messageId: String, rsvp: RSVPResponse) async {
+        do {
+            // Update aiMetadata field in Firestore
+            var aiMetadata: [String: Any] = [
+                "rsvpStatus": rsvp.status.rawValue,
+                "rsvpConfidence": rsvp.confidence,
+                "rsvpMethod": rsvp.method.rawValue
+            ]
+            
+            if let eventId = rsvp.eventId {
+                aiMetadata["rsvpEventId"] = eventId
+            }
+            
+            if let reasoning = rsvp.reasoning {
+                aiMetadata["rsvpReasoning"] = reasoning
+            }
+            
+            // Directly update Firestore document
+            try await Firestore.firestore()
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+                .updateData(["aiMetadata": aiMetadata])
+            
+            print("✅ Updated Firestore with RSVP metadata")
+            
+        } catch {
+            print("❌ Failed to update message RSVP in Firestore: \(error)")
+        }
+    }
+    
+    /// Update event RSVP tracking in Firestore (subcollection pattern)
+    /// Stores RSVP in /events/{eventId}/rsvps/{userId} for scalability
+    private func updateEventRSVP(
+        eventId: String,
+        userId: String,
+        userName: String,
+        status: RSVPStatus,
+        messageId: String
+    ) async {
+        do {
+            let rsvpData: [String: Any] = [
+                "userId": userId,
+                "userName": userName,
+                "status": status.rawValue,
+                "respondedAt": Timestamp(date: Date()),
+                "messageId": messageId
+            ]
+            
+            // Store RSVP in subcollection
+            try await Firestore.firestore()
+                .collection("events")
+                .document(eventId)
+                .collection("rsvps")
+                .document(userId)
+                .setData(rsvpData, merge: true)
+            
+            print("✅ Updated event RSVP tracking: \(eventId) → \(status.rawValue)")
+            
+        } catch {
+            print("❌ Failed to update event RSVP: \(error)")
         }
     }
 }

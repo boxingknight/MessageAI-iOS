@@ -321,5 +321,97 @@ class AIService {
             throw mapFirebaseError(error)
         }
     }
+    
+    // MARK: - RSVP Tracking (PR #18)
+    
+    /// Track RSVP responses in messages using hybrid AI approach
+    /// Returns RSVPResponse with status (yes/no/maybe), confidence, and linked event
+    func trackRSVP(
+        messageText: String,
+        messageId: String,
+        senderId: String,
+        senderName: String,
+        conversationId: String,
+        recentEventIds: [String]? = nil
+    ) async throws -> RSVPResponse? {
+        print("🎯 AIService: Tracking RSVP for message in conversation \(conversationId)")
+        
+        // Prepare request data
+        var data: [String: Any] = [
+            "feature": AIFeature.rsvp.rawValue,
+            "messageText": messageText,
+            "messageId": messageId,
+            "senderId": senderId,
+            "senderName": senderName,
+            "conversationId": conversationId
+        ]
+        
+        // Add recent event IDs if provided
+        if let recentEventIds = recentEventIds, !recentEventIds.isEmpty {
+            data["recentEventIds"] = recentEventIds
+        }
+        
+        print("📤 AIService: Calling Cloud Function for RSVP tracking")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                print("❌ AIService: Invalid response format")
+                throw AIError.invalidResponse
+            }
+            
+            // Check if RSVP was detected
+            guard let detected = resultData["detected"] as? Bool else {
+                print("❌ AIService: Missing 'detected' field in response")
+                throw AIError.invalidResponse
+            }
+            
+            // If no RSVP detected, return nil
+            if !detected {
+                print("✅ AIService: No RSVP detected in message")
+                return nil
+            }
+            
+            // Parse RSVP response
+            guard let statusString = resultData["status"] as? String,
+                  let status = RSVPStatus(rawValue: statusString),
+                  let confidence = resultData["confidence"] as? Double,
+                  let methodString = resultData["method"] as? String,
+                  let method = RSVPResponse.DetectionMethod(rawValue: methodString) else {
+                print("❌ AIService: Failed to parse RSVP response")
+                print("   Response: \(resultData)")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse optional fields
+            let eventId = resultData["eventId"] as? String
+            let reasoning = resultData["reasoning"] as? String
+            
+            let rsvpResponse = RSVPResponse(
+                status: status,
+                eventId: eventId,
+                confidence: confidence,
+                reasoning: reasoning,
+                detectedAt: Date(),
+                method: method
+            )
+            
+            print("✅ AIService: RSVP detected successfully")
+            print("   - Status: \(status.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", confidence))")
+            print("   - Event ID: \(eventId ?? "none")")
+            print("   - Method: \(method.rawValue)")
+            
+            return rsvpResponse
+            
+        } catch let error as NSError {
+            print("❌ AIService: Error calling Cloud Function: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
 }
 

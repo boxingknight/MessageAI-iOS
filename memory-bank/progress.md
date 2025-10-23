@@ -229,10 +229,11 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
      * PR #13: 6 files (~65,000 words)
      * PR #14: 6 files (~24,000 words)
      * PR #15: 7 files (~58,000 words)
-     * PR #16: 7 files (~56,500 words)
-     * PR #17: 5 files (~47,000 words) - Planning complete
-     * PR #18: 5 files (~48,500 words) - Planning complete 🆕
-   - Total: ~788,500+ words of planning
+    * PR #16: 7 files (~56,500 words)
+    * PR #17: 5 files (~47,000 words) - Planning complete
+    * PR #18: 5 files (~48,500 words) - Planning complete
+    * PR #19: 5 files (~48,500 words) - Planning complete 🆕
+  - Total: ~837,000+ words of planning
 
 **5. Build & Run** ✅
    - App builds successfully (0 errors, 0 warnings)
@@ -437,12 +438,18 @@ Polish & Deploy: ░░░░░░░░ 0% (PRs #21-23)
     * Planning Summary: PR18_PLANNING_SUMMARY.md (~3,500 words)
     * Testing Guide: PR18_TESTING_GUIDE.md (~10,500 words)
 
-- [ ] **PR #19: Deadline Extraction Feature** (3-4h)
-  - Build deadline detection
-  - Create deadline data model
-  - Display upcoming deadlines
-  - Add deadline notifications
-  - Test extraction accuracy
+- [ ] **PR #19: Deadline Extraction Feature** (3-4h) 📋 **DOCUMENTED! (~48.5K words)** 🆕
+  - [ ] Build deadline detection (GPT-4 function calling)
+  - [ ] Create deadline data model (Firestore subcollections)
+  - [ ] Display deadline cards with countdown timers (upcoming/due-soon/overdue)
+  - [ ] Add deadline reminder notifications (24h, 1h, at deadline)
+  - [ ] Test extraction and date parsing accuracy (>90% target)
+  - ✅ Planning docs complete:
+    * Main Spec: PR19_DEADLINE_EXTRACTION.md (~15,000 words)
+    * Implementation Checklist: PR19_IMPLEMENTATION_CHECKLIST.md (~11,000 words)
+    * Quick Start: PR19_README.md (~9,000 words)
+    * Planning Summary: PR19_PLANNING_SUMMARY.md (~3,500 words)
+    * Testing Guide: PR19_TESTING_GUIDE.md (~10,000 words)
 
 - [ ] **PR #20: Multi-Step Event Planning Agent** (5-6h) **ADVANCED!**
   - Build multi-step planning agent
