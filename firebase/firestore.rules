@@ -97,6 +97,25 @@ service cloud.firestore {
         allow delete: if isParticipant(conversationId) &&
                          request.auth.uid == resource.data.senderId;
       }
+      
+      // Deadlines subcollection (PR #19)
+      match /deadlines/{deadlineId} {
+        // Can read deadlines if you're a participant in the conversation
+        allow read: if isParticipant(conversationId);
+        
+        // Can create deadline if you're a participant
+        // (Cloud Functions will also create with admin privileges)
+        allow create: if isParticipant(conversationId);
+        
+        // Can update deadline if you're a participant
+        // Allow updating status, completedAt, completedBy fields
+        allow update: if isParticipant(conversationId) &&
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['status', 'completedAt', 'completedBy', 'updatedAt']);
+        
+        // Can delete deadline if you're a participant
+        allow delete: if isParticipant(conversationId);
+      }
     }
     
     // Presence collection (PR #12)
