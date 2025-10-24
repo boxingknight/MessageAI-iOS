@@ -269,44 +269,48 @@ struct ChatView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // PR #20.1: Ambient Suggestion Bar (if active)
-            if viewModel.showAmbientBar, let opportunity = viewModel.currentOpportunity {
-                AmbientSuggestionBar(
-                    opportunity: opportunity,
-                    isCollapsed: viewModel.isOpportunityCollapsed(opportunity.id),
-                    isProcessing: viewModel.agentIsProcessing,
-                    onToggle: {
-                        viewModel.toggleOpportunityCollapsed(opportunity.id)
-                    },
-                    onApprove: {
-                        Task {
-                            await viewModel.approveOpportunity(opportunity)
-                        }
-                    },
-                    onDismiss: {
-                        viewModel.dismissOpportunity(opportunity)
-                    },
-                    onRSVPYes: {
-                        Task {
-                            await viewModel.rsvpYes(opportunity)
-                        }
-                    },
-                    onRSVPNo: {
-                        Task {
-                            await viewModel.rsvpNo(opportunity)
-                        }
-                    },
-                    onAddToCalendar: {
-                        Task {
-                            await viewModel.addToCalendar(opportunity)
-                        }
-                    },
-                    onChangeResponse: {
-                        // Expand the bar and reset the user's response
-                        viewModel.toggleOpportunityCollapsed(opportunity.id)
+            // PR #20.1: Ambient Suggestion Bars (vertical stacking)
+            if viewModel.showAmbientBar, !viewModel.activeOpportunities.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(viewModel.activeOpportunities, id: \.id) { opportunity in
+                        AmbientSuggestionBar(
+                            opportunity: opportunity,
+                            isCollapsed: viewModel.isOpportunityCollapsed(opportunity.id),
+                            isProcessing: viewModel.agentIsProcessing,
+                            onToggle: {
+                                viewModel.toggleOpportunityCollapsed(opportunity.id)
+                            },
+                            onApprove: {
+                                Task {
+                                    await viewModel.approveOpportunity(opportunity)
+                                }
+                            },
+                            onDismiss: {
+                                viewModel.dismissOpportunity(opportunity)
+                            },
+                            onRSVPYes: {
+                                Task {
+                                    await viewModel.rsvpYes(opportunity)
+                                }
+                            },
+                            onRSVPNo: {
+                                Task {
+                                    await viewModel.rsvpNo(opportunity)
+                                }
+                            },
+                            onAddToCalendar: {
+                                Task {
+                                    await viewModel.addToCalendar(opportunity)
+                                }
+                            },
+                            onChangeResponse: {
+                                // Expand the bar and reset the user's response
+                                viewModel.toggleOpportunityCollapsed(opportunity.id)
+                            }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                )
-                .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 .zIndex(1)
             }
             

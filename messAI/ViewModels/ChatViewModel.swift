@@ -1319,7 +1319,8 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Proactive Agent (PR #20.1)
     
-    @Published var currentOpportunity: Opportunity?
+    // Multiple opportunities - vertical stacking
+    @Published var activeOpportunities: [Opportunity] = []
     @Published var showAmbientBar: Bool = false
     @Published var inlineChips: [String: Opportunity] = [:] // messageId -> opportunity
     @Published var pendingSuggestions: [Opportunity] = []
@@ -1329,6 +1330,9 @@ class ChatViewModel: ObservableObject {
     
     // Collapsed/Expanded state for each opportunity (opportunityId -> isCollapsed)
     @Published var opportunityCollapsedStates: [String: Bool] = [:]
+    
+    // Maximum number of stacked opportunities to show (prevents UI overflow)
+    private let maxStackedOpportunities = 5
     
     private var opportunityListener: AnyCancellable?
     private var eventListener: ListenerRegistration?
@@ -1373,7 +1377,7 @@ class ChatViewModel: ObservableObject {
         eventListener = nil
 
         // Clear state
-        currentOpportunity = nil
+        activeOpportunities = []
         showAmbientBar = false
         inlineChips = [:]
         pendingSuggestions = []
@@ -1467,9 +1471,28 @@ class ChatViewModel: ObservableObject {
             timestamp: Date()
         )
         
-        // Show in Ambient Bar
-        currentOpportunity = opportunity
-        showAmbientBar = true
+        // Add to active opportunities (vertical stacking)
+        // Check if this event is already in the array
+        if let existingIndex = activeOpportunities.firstIndex(where: { $0.id == opportunity.id }) {
+            // Update existing opportunity with fresh data
+            activeOpportunities[existingIndex] = opportunity
+            print("🔄 Updated existing opportunity: \(title)")
+        } else {
+            // Add new opportunity
+            activeOpportunities.append(opportunity)
+            
+            // Limit to max stacked opportunities
+            if activeOpportunities.count > maxStackedOpportunities {
+                // Remove oldest opportunities
+                let removed = activeOpportunities.removeFirst()
+                opportunityCollapsedStates.removeValue(forKey: removed.id)
+                print("🗑️ Removed oldest opportunity to stay under limit")
+            }
+            
+            print("➕ Added new opportunity: \(title) (Total: \(activeOpportunities.count))")
+        }
+        
+        showAmbientBar = !activeOpportunities.isEmpty
         
         // Set collapsed state based on whether user already responded
         opportunityCollapsedStates["rsvp-\(eventId)"] = (userResponse != nil)
@@ -1502,12 +1525,13 @@ class ChatViewModel: ObservableObject {
             }
         }
         
-        // Update opportunity with display names
-        guard var opportunity = currentOpportunity,
-              opportunity.id == opportunityId else {
+        // Update opportunity with display names in the array
+        guard let opportunityIndex = activeOpportunities.firstIndex(where: { $0.id == opportunityId }) else {
+            print("⚠️ Opportunity \(opportunityId) not found in active opportunities")
             return
         }
         
+        var opportunity = activeOpportunities[opportunityIndex]
         var updatedData = opportunity.data
         updatedData.rsvpDisplayNames = displayNames
         
@@ -1523,7 +1547,7 @@ class ChatViewModel: ObservableObject {
         
         // Update on main thread
         await MainActor.run {
-            self.currentOpportunity = updatedOpportunity
+            self.activeOpportunities[opportunityIndex] = updatedOpportunity
         }
     }
     
@@ -1538,9 +1562,7 @@ class ChatViewModel: ObservableObject {
         print("🤖 ChatViewModel: Handling \(opportunities.count) opportunities")
         
         guard let topOpportunity = opportunities.first else {
-            // No opportunities, clear current state
-            currentOpportunity = nil
-            showAmbientBar = false
+            // No opportunities detected
             return
         }
         
@@ -1564,10 +1586,29 @@ class ChatViewModel: ObservableObject {
         
         // Route based on confidence level
         if topOpportunity.isHighConfidence {
-            // High confidence (>0.8) → Show in ambient bar
-            print("🤖 High confidence (\(topOpportunity.confidencePercentage)%): Showing ambient bar")
-            currentOpportunity = topOpportunity
-            showAmbientBar = true
+            // High confidence (>0.8) → Add to ambient bar (vertical stacking)
+            print("🤖 High confidence (\(topOpportunity.confidencePercentage)%): Adding to ambient bar")
+            
+            // Check if this opportunity already exists
+            if let existingIndex = activeOpportunities.firstIndex(where: { $0.id == topOpportunity.id }) {
+                // Update existing opportunity
+                activeOpportunities[existingIndex] = topOpportunity
+                print("🔄 Updated existing opportunity: \(topOpportunity.displayTitle)")
+            } else {
+                // Add new opportunity
+                activeOpportunities.append(topOpportunity)
+                
+                // Limit to max stacked opportunities
+                if activeOpportunities.count > maxStackedOpportunities {
+                    let removed = activeOpportunities.removeFirst()
+                    opportunityCollapsedStates.removeValue(forKey: removed.id)
+                    print("🗑️ Removed oldest opportunity to stay under limit")
+                }
+                
+                print("➕ Added new opportunity: \(topOpportunity.displayTitle) (Total: \(activeOpportunities.count))")
+            }
+            
+            showAmbientBar = !activeOpportunities.isEmpty
             
         } else if topOpportunity.isMediumConfidence {
             // Medium confidence (>0.6) → Show as inline chip
@@ -1769,10 +1810,13 @@ class ChatViewModel: ObservableObject {
                 timestamp: opportunity.timestamp
             )
             
-            // Update the current opportunity
-            currentOpportunity = updatedOpportunity
-            
-            print("✅ Opportunity refreshed with RSVP data: \(rsvps.count) responses")
+            // Update the opportunity in the active opportunities array
+            if let opportunityIndex = activeOpportunities.firstIndex(where: { $0.id == opportunity.id }) {
+                activeOpportunities[opportunityIndex] = updatedOpportunity
+                print("✅ Opportunity refreshed with RSVP data: \(rsvps.count) responses")
+            } else {
+                print("⚠️ Opportunity \(opportunity.id) not found in active opportunities")
+            }
             
         } catch {
             print("❌ Failed to refresh RSVP data: \(error.localizedDescription)")
@@ -2007,15 +2051,16 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Dismiss an opportunity
+     * Removes it from the active opportunities array
      */
     func dismissOpportunity(_ opportunity: Opportunity) {
         print("🤖 ChatViewModel: Dismissing opportunity: \(opportunity.displayTitle)")
         
-        // Remove from current display
-        if currentOpportunity?.id == opportunity.id {
-            currentOpportunity = nil
-            showAmbientBar = false
-        }
+        // Remove from active opportunities array
+        activeOpportunities.removeAll { $0.id == opportunity.id }
+        
+        // Update showAmbientBar based on remaining opportunities
+        showAmbientBar = !activeOpportunities.isEmpty
 
         // Remove from inline chips
         inlineChips = inlineChips.filter { $0.value.id != opportunity.id }
@@ -2026,6 +2071,8 @@ class ChatViewModel: ObservableObject {
         
         // Remove collapsed state
         opportunityCollapsedStates.removeValue(forKey: opportunity.id)
+        
+        print("   → Removed opportunity. Remaining: \(activeOpportunities.count)")
     }
     
     /**
