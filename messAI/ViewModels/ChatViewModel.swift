@@ -1709,26 +1709,6 @@ class ChatViewModel: ObservableObject {
         let today = Date()
         let dateStrLower = dateStr.lowercased()
         
-        // Handle day names (Monday, Tuesday, etc.)
-        let weekdays = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, 
-                        "thursday": 5, "friday": 6, "saturday": 7]
-        
-        for (dayName, weekday) in weekdays {
-            if dateStrLower.contains(dayName) {
-                // Find next occurrence of this weekday
-                var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear, .weekday], from: today)
-                components.weekday = weekday
-                
-                if let date = calendar.date(from: components) {
-                    // If the date is in the past, add a week
-                    if date < today {
-                        return calendar.date(byAdding: .day, value: 7, to: date) ?? today
-                    }
-                    return date
-                }
-            }
-        }
-        
         // Handle "tomorrow"
         if dateStrLower.contains("tomorrow") {
             return calendar.date(byAdding: .day, value: 1, to: today) ?? today
@@ -1739,7 +1719,33 @@ class ChatViewModel: ObservableObject {
             return today
         }
         
+        // Handle day names (Monday, Tuesday, etc.)
+        let weekdays = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, 
+                        "thursday": 5, "friday": 6, "saturday": 7]
+        
+        for (dayName, targetWeekday) in weekdays {
+            if dateStrLower.contains(dayName) {
+                // Get current weekday (1 = Sunday, 2 = Monday, etc.)
+                let currentWeekday = calendar.component(.weekday, from: today)
+                
+                // Calculate days until target weekday
+                var daysToAdd = targetWeekday - currentWeekday
+                
+                // If target day is today or already passed this week, go to next week
+                if daysToAdd <= 0 {
+                    daysToAdd += 7
+                }
+                
+                // Add the calculated days to today
+                if let date = calendar.date(byAdding: .day, value: daysToAdd, to: today) {
+                    print("📅 Parsed '\(dayName)' as \(daysToAdd) days from now")
+                    return date
+                }
+            }
+        }
+        
         // Default to tomorrow if can't parse
+        print("⚠️ Could not parse date '\(dateStr)', defaulting to tomorrow")
         return calendar.date(byAdding: .day, value: 1, to: today) ?? today
     }
     
