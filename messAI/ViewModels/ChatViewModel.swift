@@ -1594,8 +1594,8 @@ class ChatViewModel: ObservableObject {
             
             agentIsProcessing = false
             
-            // Dismiss the Ambient Bar
-            dismissOpportunity(opportunity)
+            // Update opportunity to show RSVP list + Add to Calendar button
+            await refreshOpportunityWithRSVPs(opportunity, eventId: eventId, userResponse: "yes")
             
         } catch {
             print("❌ Failed to record RSVP: \(error.localizedDescription)")
@@ -1629,14 +1629,75 @@ class ChatViewModel: ObservableObject {
             
             agentIsProcessing = false
             
-            // Dismiss the Ambient Bar
-            dismissOpportunity(opportunity)
+            // Update opportunity to show RSVP list
+            await refreshOpportunityWithRSVPs(opportunity, eventId: eventId, userResponse: "no")
+            
+            // After 10 seconds, fade out the Ambient Bar
+            Task {
+                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+                await MainActor.run {
+                    dismissOpportunity(opportunity)
+                }
+            }
             
         } catch {
             print("❌ Failed to record RSVP: \(error.localizedDescription)")
             agentError = "Failed to record RSVP"
             agentIsProcessing = false
         }
+    }
+    
+    /**
+     * Refresh opportunity with updated RSVP list
+     */
+    private func refreshOpportunityWithRSVPs(_ opportunity: Opportunity, eventId: String, userResponse: String) async {
+        do {
+            let db = Firestore.firestore()
+            let eventDoc = try await db.collection("events").document(eventId).getDocument()
+            
+            guard let data = eventDoc.data() else {
+                print("❌ Event not found")
+                return
+            }
+            
+            let rsvps = data["rsvps"] as? [String: String] ?? [:]
+            
+            // Update the opportunity with RSVP data
+            var updatedData = opportunity.data
+            updatedData.rsvps = rsvps
+            updatedData.userResponse = userResponse
+            
+            let updatedOpportunity = Opportunity(
+                id: opportunity.id,
+                type: opportunity.type,
+                confidence: opportunity.confidence,
+                data: updatedData,
+                suggestedActions: opportunity.suggestedActions,
+                reasoning: opportunity.reasoning,
+                timestamp: opportunity.timestamp
+            )
+            
+            // Update the current opportunity
+            currentOpportunity = updatedOpportunity
+            
+            print("✅ Opportunity refreshed with RSVP data: \(rsvps.count) responses")
+            
+        } catch {
+            print("❌ Failed to refresh RSVP data: \(error.localizedDescription)")
+        }
+    }
+    
+    /**
+     * Add event to iOS Calendar
+     */
+    func addToCalendar(_ opportunity: Opportunity) async {
+        print("📅 ChatViewModel: Adding event to calendar")
+        
+        // TODO: Implement iOS Calendar integration
+        // For now, show success message and dismiss
+        
+        print("✅ Event added to calendar (placeholder)")
+        dismissOpportunity(opportunity)
     }
     
     /**

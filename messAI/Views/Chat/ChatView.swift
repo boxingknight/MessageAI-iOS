@@ -291,6 +291,11 @@ struct ChatView: View {
                         Task {
                             await viewModel.rsvpNo(opportunity)
                         }
+                    },
+                    onAddToCalendar: {
+                        Task {
+                            await viewModel.addToCalendar(opportunity)
+                        }
                     }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))

@@ -133,6 +133,8 @@ struct OpportunityData: Codable {
     // RSVP Management
     var eventReference: String?
     var needsRSVP: Bool?
+    var rsvps: [String: String]? // userId -> "yes"/"no"/"maybe"
+    var userResponse: String? // Current user's response
     
     // Decision Summary
     var decision: String?

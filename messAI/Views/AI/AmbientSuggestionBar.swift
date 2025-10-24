@@ -15,8 +15,18 @@ struct AmbientSuggestionBar: View {
     let onDismiss: () -> Void
     let onRSVPYes: (() -> Void)?
     let onRSVPNo: (() -> Void)?
+    let onAddToCalendar: (() -> Void)?
     
     @State private var isExpanded: Bool = true
+    
+    // Check if user has already responded
+    private var hasResponded: Bool {
+        opportunity.data.userResponse != nil
+    }
+    
+    private var userSaidYes: Bool {
+        opportunity.data.userResponse == "yes"
+    }
     
     // Convenience init for non-RSVP opportunities
     init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void) {
@@ -26,16 +36,18 @@ struct AmbientSuggestionBar: View {
         self.onDismiss = onDismiss
         self.onRSVPYes = nil
         self.onRSVPNo = nil
+        self.onAddToCalendar = nil
     }
     
     // Full init with RSVP handlers
-    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void, onRSVPYes: (() -> Void)?, onRSVPNo: (() -> Void)?) {
+    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void, onRSVPYes: (() -> Void)?, onRSVPNo: (() -> Void)?, onAddToCalendar: (() -> Void)? = nil) {
         self.opportunity = opportunity
         self.isProcessing = isProcessing
         self.onApprove = onApprove
         self.onDismiss = onDismiss
         self.onRSVPYes = onRSVPYes
         self.onRSVPNo = onRSVPNo
+        self.onAddToCalendar = onAddToCalendar
     }
     
     var body: some View {
@@ -103,6 +115,32 @@ struct AmbientSuggestionBar: View {
                     .font(.subheadline)
                 }
                 
+                // RSVP List (if user has responded)
+                if hasResponded, opportunity.type == .rsvpManagement, let rsvps = opportunity.data.rsvps {
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("RSVP Status")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        ForEach(Array(rsvps.keys.sorted()), id: \.self) { userId in
+                            if let response = rsvps[userId] {
+                                HStack {
+                                    Image(systemName: response == "yes" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                        .foregroundColor(response == "yes" ? .green : .red)
+                                    Text(userId) // TODO: Fetch user names
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text(response.capitalized)
+                                        .font(.caption)
+                                        .foregroundColor(response == "yes" ? .green : .red)
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Action buttons
                 HStack(spacing: 12) {
                     if isProcessing {
@@ -116,8 +154,8 @@ struct AmbientSuggestionBar: View {
                         }
                         .frame(maxWidth: .infinity)
                         
-                    } else if opportunity.type == .rsvpManagement {
-                        // RSVP-specific buttons (Yes/No)
+                    } else if opportunity.type == .rsvpManagement && !hasResponded {
+                        // RSVP-specific buttons (Yes/No) - Only show if not responded yet
                         Button(action: {
                             onRSVPYes?()
                         }) {
@@ -149,6 +187,36 @@ struct AmbientSuggestionBar: View {
                             .background(Color.red.opacity(0.8))
                             .cornerRadius(10)
                         }
+                    
+                    } else if opportunity.type == .rsvpManagement && hasResponded && userSaidYes {
+                        // User said Yes - Show "Add to Calendar" button
+                        Button(action: {
+                            onAddToCalendar?()
+                        }) {
+                            HStack {
+                                Image(systemName: "calendar.badge.plus")
+                                Text("Add to Calendar")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .cornerRadius(10)
+                        }
+                        
+                    } else if opportunity.type == .rsvpManagement && hasResponded {
+                        // User said No - Show confirmation message
+                        HStack {
+                            Image(systemName: "checkmark.circle")
+                                .foregroundColor(.secondary)
+                            Text("RSVP recorded. This will disappear in a moment...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                         
                     } else {
                         // Standard action buttons (Create & Organize, etc.)
