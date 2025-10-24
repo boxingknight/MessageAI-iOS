@@ -271,8 +271,10 @@ struct ChatView: View {
         VStack(spacing: 0) {
             // PR #20.1: Ambient Suggestion Bars (vertical stacking)
             if viewModel.showAmbientBar, !viewModel.activeOpportunities.isEmpty {
+                let _ = print("🎨 ChatView: Rendering \(viewModel.activeOpportunities.count) ambient bars")
                 VStack(spacing: 8) {
                     ForEach(viewModel.activeOpportunities, id: \.id) { opportunity in
+                        let _ = print("   Rendering bar: \(opportunity.displayTitle)")
                         AmbientSuggestionBar(
                             opportunity: opportunity,
                             isCollapsed: viewModel.isOpportunityCollapsed(opportunity.id),
@@ -312,6 +314,8 @@ struct ChatView: View {
                     }
                 }
                 .zIndex(1)
+            } else {
+                let _ = print("🎨 ChatView: NOT rendering ambient bars - showAmbientBar: \(viewModel.showAmbientBar), activeOpportunities.count: \(viewModel.activeOpportunities.count)")
             }
             
             // Messages ScrollView

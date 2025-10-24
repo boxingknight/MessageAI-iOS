@@ -1350,6 +1350,7 @@ class ChatViewModel: ObservableObject {
         // Subscribe to opportunities
         opportunityListener = ProactiveAgentService.shared.$currentOpportunities
             .sink { [weak self] opportunities in
+                print("🎯 OpportunityListener: Received \(opportunities.count) opportunities from service")
                 guard let self = self else { return }
 
                 Task { @MainActor in
@@ -1560,11 +1561,16 @@ class ChatViewModel: ObservableObject {
      */
     private func handleOpportunitiesDetected(_ opportunities: [Opportunity]) {
         print("🤖 ChatViewModel: Handling \(opportunities.count) opportunities")
+        print("   Current activeOpportunities count: \(activeOpportunities.count)")
+        print("   showAmbientBar: \(showAmbientBar)")
         
         guard let topOpportunity = opportunities.first else {
             // No opportunities detected
+            print("   ⚠️ No opportunities in array, skipping")
             return
         }
+        
+        print("   Top opportunity: \(topOpportunity.displayTitle) (confidence: \(topOpportunity.confidencePercentage)%)")
         
         // Check if the current user sent the most recent message (is the event creator)
         guard let mostRecentMessage = messages.last else {
@@ -1609,6 +1615,14 @@ class ChatViewModel: ObservableObject {
             }
             
             showAmbientBar = !activeOpportunities.isEmpty
+            
+            print("   ✅ Ambient bar updated:")
+            print("      activeOpportunities count: \(activeOpportunities.count)")
+            print("      showAmbientBar: \(showAmbientBar)")
+            print("      Opportunities in array:")
+            for (index, opp) in activeOpportunities.enumerated() {
+                print("         \(index + 1). \(opp.displayTitle) (\(opp.id))")
+            }
             
         } else if topOpportunity.isMediumConfidence {
             // Medium confidence (>0.6) → Show as inline chip
