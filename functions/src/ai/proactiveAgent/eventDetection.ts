@@ -47,13 +47,21 @@ Also avoid suggesting duplicate events. Check existing events and return null if
   "confidence": 0.0-1.0,
   "title": "Event name",
   "eventType": "birthday party|playdate|sports|school event|etc",
-  "date": "YYYY-MM-DD or description",
-  "time": "HH:MM AM/PM",
+  "date": "Day name only (Monday, Tuesday, etc.) or relative (today, tomorrow)",
+  "time": "Time in 12-hour format (e.g., 2PM, 3:30PM)",
   "location": "location description",
   "participants": ["name1", "name2"],
   "notes": "additional details",
   "reasoning": "why this was detected"
-}`;
+}
+
+**CRITICAL DATE FORMAT**: 
+- For "Monday at 1PM" → return date as "Monday"
+- For "this Friday" → return date as "Friday"  
+- For "tomorrow" → return date as "tomorrow"
+- For "today" → return date as "today"
+- Do NOT return specific dates like "October 30" or "30th"
+- ONLY return the day name (Monday-Sunday) or relative (today/tomorrow)`;
 
     // Build user prompt
     const existingEventsStr = context.existingEvents?.length
