@@ -85,9 +85,11 @@ struct Opportunity: Identifiable, Codable {
     }
     
     // Confidence levels
-    var isHighConfidence: Bool { confidence > 0.8 }
-    var isMediumConfidence: Bool { confidence > 0.6 && confidence <= 0.8 }
-    var isLowConfidence: Bool { confidence > 0.5 && confidence <= 0.6 }
+    // Lowered from 0.8 to 0.65 to catch legitimate events like "Swimming this Sunday at 1PM" (70%)
+    // High confidence events get Ambient Bar, medium get inline chips, low get suggestions list
+    var isHighConfidence: Bool { confidence > 0.65 }
+    var isMediumConfidence: Bool { confidence > 0.5 && confidence <= 0.65 }
+    var isLowConfidence: Bool { confidence > 0.4 && confidence <= 0.5 }
     
     // Display helpers
     var confidencePercentage: Int {
