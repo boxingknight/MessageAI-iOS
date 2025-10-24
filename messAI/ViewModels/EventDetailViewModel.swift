@@ -214,10 +214,70 @@ class EventDetailViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Phase 5: Event Cancellation
+    
     /// Cancel event (creator only)
     func cancelEvent() async {
-        print("🗑️ EventDetailViewModel: Cancelling event")
-        // TODO: Implement in Phase 5
+        print("🗑️ EventDetailViewModel: Cancelling event: \(event.title)")
+        
+        isProcessing = true
+        
+        let db = Firestore.firestore()
+        
+        do {
+            // Update event status to cancelled
+            try await db.collection("events").document(event.id).updateData([
+                "status": "cancelled",
+                "cancelledAt": FieldValue.serverTimestamp(),
+                "cancelledBy": currentUserId
+            ])
+            
+            print("✅ Event cancelled successfully")
+            
+            // Update local state
+            event.status = "cancelled"
+            event.cancelledAt = Date()
+            event.cancelledBy = currentUserId
+            
+            // Send system message to chat
+            await sendCancellationMessage()
+            
+            isProcessing = false
+            
+        } catch {
+            print("❌ Failed to cancel event: \(error.localizedDescription)")
+            errorMessage = "Failed to cancel event: \(error.localizedDescription)"
+            isProcessing = false
+        }
+    }
+    
+    /// Send system message about event cancellation
+    private func sendCancellationMessage() async {
+        let db = Firestore.firestore()
+        
+        let messageText = "🚫 Event cancelled: \(event.title)"
+        
+        do {
+            // Create system message
+            let messageData: [String: Any] = [
+                "senderId": "system",
+                "senderName": "System",
+                "text": messageText,
+                "sentAt": FieldValue.serverTimestamp(),
+                "type": "system",
+                "status": "sent"
+            ]
+            
+            // Add to messages subcollection
+            try await db.collection("conversations/\(conversationId)/messages")
+                .addDocument(data: messageData)
+            
+            print("✅ Cancellation system message sent")
+            
+        } catch {
+            print("❌ Failed to send cancellation message: \(error.localizedDescription)")
+            // Don't fail the cancellation if system message fails
+        }
     }
 }
 

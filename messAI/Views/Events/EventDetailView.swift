@@ -51,6 +51,10 @@ struct EventDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $viewModel.showEditModal) {
+            // Phase 4: Edit Event Modal
+            EventEditView(event: viewModel.event, conversationId: conversationId)
+        }
         .confirmationDialog("Change Your Response", isPresented: $viewModel.showChangeRSVP) {
             Button("✅ Yes, I'll attend") {
                 Task {
@@ -73,6 +77,16 @@ struct EventDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Update your RSVP for \(viewModel.event.title)")
+        }
+        .confirmationDialog("Cancel Event", isPresented: $viewModel.showCancelConfirmation) {
+            Button("Cancel Event", role: .destructive) {
+                Task {
+                    await viewModel.cancelEvent()
+                }
+            }
+            Button("Keep Event", role: .cancel) {}
+        } message: {
+            Text("This will cancel the event for all participants. This action cannot be undone.")
         }
         .onAppear {
             print("📱 EventDetailView: Appeared for event: \(viewModel.event.title)")
@@ -220,11 +234,12 @@ struct EventDetailView: View {
                 .disabled(viewModel.isAddedToCalendar || viewModel.isProcessing)
             }
             
-            // Phase 3-5: Additional buttons (placeholders)
+            // Phase 3-5: Additional buttons
             if viewModel.isCreator && !viewModel.event.isCancelled {
                 // Edit button (creator only) - Phase 4
                 Button(action: {
-                    print("👆 EventDetailView: Edit Event tapped (Phase 4)")
+                    print("👆 EventDetailView: Edit Event tapped")
+                    viewModel.showEditModal = true
                 }) {
                     Label("Edit Event", systemImage: "pencil")
                         .frame(maxWidth: .infinity)
@@ -233,11 +248,12 @@ struct EventDetailView: View {
                         .foregroundColor(.purple)
                         .cornerRadius(10)
                 }
-                .disabled(true)
+                .disabled(viewModel.isProcessing)
                 
                 // Cancel button (creator only) - Phase 5
                 Button(action: {
-                    print("👆 EventDetailView: Cancel Event tapped (Phase 5)")
+                    print("👆 EventDetailView: Cancel Event tapped")
+                    viewModel.showCancelConfirmation = true
                 }) {
                     Label("Cancel Event", systemImage: "trash")
                         .frame(maxWidth: .infinity)
@@ -246,7 +262,7 @@ struct EventDetailView: View {
                         .foregroundColor(.red)
                         .cornerRadius(10)
                 }
-                .disabled(true)
+                .disabled(viewModel.isProcessing)
             } else if !viewModel.isCreator && !viewModel.event.isCancelled {
                 // Change RSVP button (participants) - Phase 3
                 Button(action: {
@@ -273,7 +289,7 @@ struct EventDetailView: View {
             }
             
             // Phase status indicator
-            Text("Phases 2-3 Complete ✅ | Phases 4-5: Coming soon")
+            Text("Phases 2-5 Complete ✅ | Phase 6: Polish coming soon")
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
