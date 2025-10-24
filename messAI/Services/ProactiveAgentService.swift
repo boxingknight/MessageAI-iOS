@@ -26,8 +26,9 @@ class ProactiveAgentService: ObservableObject {
     private var messagesListener: ListenerRegistration?
     private var cancellables = Set<AnyCancellable>()
     
-    // Throttling: max 1 analysis per 10 seconds
-    private let throttleInterval: TimeInterval = 10.0
+    // Throttling: max 1 analysis per 3 seconds (reduced from 10s)
+    // This allows faster detection while preventing excessive API calls
+    private let throttleInterval: TimeInterval = 3.0
     private var lastAnalysisTimestamp: Date?
     
     // MARK: - Singleton
@@ -55,10 +56,10 @@ class ProactiveAgentService: ObservableObject {
         // Listen to new messages
         setupMessageListener()
         
-        // Perform initial analysis
-        Task {
-            await analyzeConversation()
-        }
+        // DON'T perform initial analysis immediately!
+        // Reason: Conversation may be empty or only have old messages
+        // The listener will trigger analysis when new messages arrive
+        print("[ProactiveAgent] Listener active, waiting for new messages...")
     }
     
     /// Stop monitoring the current conversation
@@ -145,9 +146,6 @@ class ProactiveAgentService: ObservableObject {
         
         print("[ProactiveAgent] Starting analysis for conversation: \(conversationId)")
         
-        // Update timestamp
-        lastAnalysisTimestamp = Date()
-        
         do {
             // Call Cloud Function
             let result = try await AIService.shared.detectOpportunities(conversationId: conversationId)
@@ -157,7 +155,24 @@ class ProactiveAgentService: ObservableObject {
                 self.lastAnalysisTime = Date()
                 self.error = nil
                 
-                print("[ProactiveAgent] Analysis complete: \(result.opportunities.count) opportunities found")
+                // CRITICAL FIX: Only update throttle timestamp if we actually analyzed messages
+                // This prevents the initial empty analysis from blocking the first real message
+                if result.opportunities.count > 0 {
+                    // Found opportunities → set timestamp (normal throttling)
+                    self.lastAnalysisTimestamp = Date()
+                    print("[ProactiveAgent] Analysis complete: \(result.opportunities.count) opportunities found")
+                    print("[ProactiveAgent] Throttle timestamp updated (found opportunities)")
+                } else if result.tokensUsed > 0 {
+                    // No opportunities but we consumed tokens → conversation has messages
+                    self.lastAnalysisTimestamp = Date()
+                    print("[ProactiveAgent] Analysis complete: 0 opportunities found (but conversation analyzed)")
+                    print("[ProactiveAgent] Throttle timestamp updated (tokens used: \(result.tokensUsed))")
+                } else {
+                    // No opportunities and no tokens → empty conversation or cached empty result
+                    print("[ProactiveAgent] Analysis complete: 0 opportunities (empty/cached)")
+                    print("[ProactiveAgent] Throttle timestamp NOT updated (allow retry soon)")
+                }
+                
                 print("[ProactiveAgent] Cached: \(result.cached), Tokens: \(result.tokensUsed), Cost: $\(String(format: "%.4f", result.cost))")
                 
                 // Log each opportunity
@@ -170,6 +185,7 @@ class ProactiveAgentService: ObservableObject {
             await MainActor.run {
                 self.error = error.localizedDescription
                 print("[ProactiveAgent] Analysis failed: \(error.localizedDescription)")
+                // Don't update timestamp on error (allow retry)
             }
         }
     }
