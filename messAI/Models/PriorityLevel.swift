@@ -9,7 +9,7 @@ import SwiftUI
  */
 
 /// Priority level for messages (AI-detected urgency)
-enum PriorityLevel: String, Codable, CaseIterable {
+enum PriorityLevel: String, Codable, CaseIterable, Equatable, Hashable {
     case critical = "critical"  // Emergency, immediate action needed
     case high = "high"          // Important, timely action needed
     case normal = "normal"      // Regular conversation

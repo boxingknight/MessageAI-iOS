@@ -14,6 +14,7 @@ struct ChatView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
     @State private var showGroupInfo = false
+    @State private var showEventsSheet = false  // PR#20.2: Events sheet
     
     let conversation: Conversation
     
@@ -126,6 +127,15 @@ struct ChatView: View {
                 }
             }
             .disabled(viewModel.isSummarizing)
+            
+            // PR#20.2: Events button (for all chats)
+            Button(action: {
+                print("📅 ChatView: Opening Events sheet")
+                showEventsSheet = true
+            }) {
+                Image(systemName: "calendar")
+                    .foregroundColor(.blue)
+            }
             
             if conversation.isGroup {
                 // Group chat: Show group info button
@@ -368,6 +378,10 @@ struct ChatView: View {
                 conversation: conversation,
                 users: userCache
             )
+        }
+        .sheet(isPresented: $showEventsSheet) {
+            // PR#20.2: Events Sheet
+            EventsListView(conversationId: conversation.id)
         }
         .task {
             // Load messages when view appears

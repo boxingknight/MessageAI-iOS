@@ -9,7 +9,7 @@ import SwiftUI
  */
 
 /// RSVP response status for event attendance
-enum RSVPStatus: String, Codable, CaseIterable {
+enum RSVPStatus: String, Codable, CaseIterable, Equatable, Hashable {
     case organizer = "organizer" // Event organizer (auto-created)
     case yes = "yes"            // Confirmed attendance
     case no = "no"              // Declined attendance
@@ -210,7 +210,7 @@ struct RSVPResponse: Codable, Equatable, Hashable {
     let detectedAt: Date            // When RSVP was detected
     let method: DetectionMethod     // How it was detected
     
-    enum DetectionMethod: String, Codable {
+    enum DetectionMethod: String, Codable, Equatable, Hashable {
         case keyword = "keyword"    // Fast keyword filter only
         case gpt4 = "gpt4"         // GPT-4 analysis only
         case hybrid = "hybrid"     // Keyword + GPT-4 combined
