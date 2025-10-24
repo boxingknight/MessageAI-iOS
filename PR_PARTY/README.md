@@ -1542,6 +1542,98 @@ MessageAI - A production-quality iOS messaging application with:
 
 ---
 
+### PR #20.2: Event Management - Info Button & Events Sheet
+**Status:** 📋 **DOCUMENTATION COMPLETE** (Ready for Implementation)  
+**Branch**: `feature/pr20.2-event-management` (to be created)  
+**Timeline**: 6-8 hours estimated  
+**Priority**: 🔵 HIGH - Completes event lifecycle (create → view → manage)  
+**Depends on**: PR#20.1 (Proactive Agent) ✅  
+**Created**: October 24, 2025
+
+**Documents**:
+- **Main Spec**: `PR20.2_EVENT_MANAGEMENT.md` (~18,000 words) ✅ COMPLETE!
+- **Implementation Checklist**: `PR20.2_IMPLEMENTATION_CHECKLIST.md` (~22,000 words) ✅ COMPLETE!
+- **Quick Start Guide**: `PR20.2_README.md` (~12,000 words) ✅ COMPLETE!
+- **Total Documentation**: ~52,000 words (~104 pages)
+
+**Summary**: Complete event management system with **Info button** (top right of ChatView) that opens a full-screen **Events Sheet** displaying all events (upcoming & past). Users can view event details, edit events (creator only), cancel events (creator only), add events to iOS Calendar, and change RSVP responses (participants). Implements **Solution 1 (Apple Calendar Style)** from the three design options analyzed—clean, minimalist list-based approach that mirrors iOS Calendar's familiar UX.
+
+**Key Features**:
+1. **Info Button** - Top right of ChatView, shows badge count of active events
+2. **Events List Sheet** - Full-screen sheet with upcoming/past sections
+3. **Event Detail Modal** - Tap event → See full details (date, time, location, RSVPs)
+4. **Edit Event** - Creator can modify title, date, time, location, notes
+5. **Cancel Event** - Creator can cancel with confirmation (dismisses Ambient Bars for all users)
+6. **Add to Calendar** - All users can add event to iOS Calendar
+7. **Change RSVP** - Participants can change Yes/No/Maybe response
+8. **Real-Time Updates** - All changes sync instantly (<500ms) across devices
+
+**What This Enables**:
+- 🎯 Complete event lifecycle (PR#20.1 creates, PR#20.2 manages)
+- 🎯 Event history (see past events, not just active ones)
+- 🎯 Mistake correction (creator can edit/fix errors)
+- 🎯 Plan changes (creator can cancel events)
+- 🎯 Calendar integration (add to iOS Calendar with one tap)
+- 🎯 RSVP flexibility (participants can change their response)
+
+**Value Proposition**: "View all your events, edit plans as they change, and keep your calendar in sync—all in one place."
+
+**Architecture** (Apple Calendar Style):
+- **Views (4 new files, ~550 lines)**:
+  - `EventsListView.swift` (120 lines) - Main events sheet
+  - `EventRowView.swift` (80 lines) - Reusable row component
+  - `EventDetailView.swift` (200 lines) - Event detail modal
+  - `EventEditView.swift` (150 lines) - Edit modal (creator only)
+
+- **ViewModels (3 new files, ~450 lines)**:
+  - `EventsListViewModel.swift` (150 lines) - Events list logic
+  - `EventDetailViewModel.swift` (180 lines) - Event detail logic
+  - `EventEditViewModel.swift` (120 lines) - Edit logic
+
+- **Models (1 file, extended)**:
+  - `EventDocument.swift` (+100 lines) - Add computed properties for UI
+
+**Total New Code**: ~1,000 lines across 7 new files + 1 modified file
+
+**Implementation Phases** (6 phases, 6-8 hours):
+1. **Phase 1: Basic Infrastructure** (2-3 hours) - Info button → Events List → Event Detail (read-only)
+2. **Phase 2: Calendar Integration** (1 hour) - "Add to Calendar" button works
+3. **Phase 3: RSVP Management** (1-2 hours) - Participants can change RSVP
+4. **Phase 4: Event Editing** (2-3 hours) - Creators can edit events
+5. **Phase 5: Event Cancellation** (1 hour) - Creators can cancel events
+6. **Phase 6: Polish & Edge Cases** (1-2 hours) - Loading states, error handling, offline mode
+
+**Success Criteria**:
+- ✅ Info button opens Events List
+- ✅ Events split into Upcoming/Past
+- ✅ Tap event → See details
+- ✅ Add to Calendar works (EventKit integration)
+- ✅ Edit event works (creator only, real-time sync)
+- ✅ Cancel event works (creator only, dismisses Ambient Bars)
+- ✅ Change RSVP works (participants)
+- ✅ Real-time updates (<500ms latency)
+- ✅ Handles edge cases (offline, permissions, malformed data)
+- ✅ VoiceOver support (accessibility)
+
+**Design Rationale (Why Solution 1)**:
+- ✅ **Familiar UX** - Mirrors iOS Calendar (users already know this pattern)
+- ✅ **Clean & Simple** - No complex navigation, just list → detail
+- ✅ **Fast to Build** - 6-8 hours (vs 10-12h for modal/tabs or 15-20h for hybrid)
+- ✅ **Scalable** - Works for 3 events or 300 events
+- ✅ **Apple HIG** - Follows Apple's design guidelines perfectly
+
+**Why NOT Solution 2 (Modal/Tabs)**: More complex navigation (modals within modals), 10-12 hours
+**Why NOT Solution 3 (Hybrid)**: Overly complex for MVP, 15-20 hours, feature creep
+
+**Prerequisites**: 
+- ✅ PR#20.1 (Proactive Agent) - COMPLETE (events can be created)
+- ✅ Firestore events collection - EXISTS
+- ✅ Event creation via Ambient Bar - WORKING
+
+**Ready to implement!** 🚀
+
+---
+
 ## Project Status
 
 ### Completed (~39.5 hours) 🎉
