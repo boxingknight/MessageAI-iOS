@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import EventKit
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -1693,11 +1694,61 @@ class ChatViewModel: ObservableObject {
     func addToCalendar(_ opportunity: Opportunity) async {
         print("📅 ChatViewModel: Adding event to calendar")
         
-        // TODO: Implement iOS Calendar integration
-        // For now, show success message and dismiss
+        let eventStore = EKEventStore()
         
-        print("✅ Event added to calendar (placeholder)")
-        dismissOpportunity(opportunity)
+        do {
+            // Request calendar access (iOS 17+)
+            let granted = try await eventStore.requestFullAccessToEvents()
+            
+            guard granted else {
+                print("❌ Calendar access denied")
+                agentError = "Calendar access denied. Please enable in Settings."
+                return
+            }
+            
+            // Create calendar event
+            let event = EKEvent(eventStore: eventStore)
+            event.title = opportunity.data.title ?? "Event"
+            event.notes = "Created from messAI"
+            
+            // Parse date and time
+            if let dateStr = opportunity.data.date, let timeStr = opportunity.data.time {
+                // Create date from string (simplified for now)
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                
+                // For now, use current date + 1 day as fallback
+                let eventDate = Date().addingTimeInterval(86400) // Tomorrow
+                event.startDate = eventDate
+                event.endDate = eventDate.addingTimeInterval(3600) // 1 hour duration
+                event.isAllDay = false
+            } else {
+                // All-day event
+                event.startDate = Date().addingTimeInterval(86400) // Tomorrow
+                event.endDate = event.startDate
+                event.isAllDay = true
+            }
+            
+            // Set location if available
+            if let location = opportunity.data.location, !location.isEmpty {
+                event.location = location
+            }
+            
+            // Set calendar (use default)
+            event.calendar = eventStore.defaultCalendarForNewEvents
+            
+            // Save event
+            try eventStore.save(event, span: .thisEvent)
+            
+            print("✅ Event added to calendar: \(event.title ?? "")")
+            
+            // Dismiss the Ambient Bar
+            dismissOpportunity(opportunity)
+            
+        } catch {
+            print("❌ Failed to add to calendar: \(error.localizedDescription)")
+            agentError = "Failed to add event to calendar"
+        }
     }
     
     /**
