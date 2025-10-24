@@ -179,12 +179,39 @@ class EventDetailViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Phase 3-5: Placeholder Methods (to be implemented)
+    // MARK: - Phase 3: RSVP Management
     
     /// Change user's RSVP response
     func changeRSVP(to response: String) async {
         print("🎫 EventDetailViewModel: Changing RSVP to: \(response)")
-        // TODO: Implement in Phase 3
+        
+        isProcessing = true
+        
+        let db = Firestore.firestore()
+        
+        do {
+            // Update Firestore rsvps map
+            try await db.collection("events").document(event.id).updateData([
+                "rsvps.\(currentUserId)": response,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("✅ RSVP updated successfully: \(response)")
+            
+            // Update local state
+            if event.rsvps == nil {
+                event.rsvps = [:]
+            }
+            event.rsvps?[currentUserId] = response
+            currentUserRSVP = response
+            
+            isProcessing = false
+            
+        } catch {
+            print("❌ Failed to update RSVP: \(error.localizedDescription)")
+            errorMessage = "Failed to update RSVP: \(error.localizedDescription)"
+            isProcessing = false
+        }
     }
     
     /// Cancel event (creator only)

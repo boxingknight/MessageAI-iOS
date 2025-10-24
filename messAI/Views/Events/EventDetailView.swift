@@ -51,6 +51,29 @@ struct EventDetailView: View {
                 }
             }
         }
+        .confirmationDialog("Change Your Response", isPresented: $viewModel.showChangeRSVP) {
+            Button("✅ Yes, I'll attend") {
+                Task {
+                    await viewModel.changeRSVP(to: "yes")
+                }
+            }
+            
+            Button("❌ No, can't make it") {
+                Task {
+                    await viewModel.changeRSVP(to: "no")
+                }
+            }
+            
+            Button("⏳ Maybe") {
+                Task {
+                    await viewModel.changeRSVP(to: "maybe")
+                }
+            }
+            
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Update your RSVP for \(viewModel.event.title)")
+        }
         .onAppear {
             print("📱 EventDetailView: Appeared for event: \(viewModel.event.title)")
             viewModel.startListening()
@@ -227,7 +250,8 @@ struct EventDetailView: View {
             } else if !viewModel.isCreator && !viewModel.event.isCancelled {
                 // Change RSVP button (participants) - Phase 3
                 Button(action: {
-                    print("👆 EventDetailView: Change Response tapped (Phase 3)")
+                    print("👆 EventDetailView: Change Response tapped")
+                    viewModel.showChangeRSVP = true
                 }) {
                     Label("Change Response", systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)
@@ -236,7 +260,7 @@ struct EventDetailView: View {
                         .foregroundColor(.purple)
                         .cornerRadius(10)
                 }
-                .disabled(true)
+                .disabled(viewModel.isProcessing)
             }
             
             // Error message (if any)
@@ -249,7 +273,7 @@ struct EventDetailView: View {
             }
             
             // Phase status indicator
-            Text("Phase 2 Complete ✅ | Phases 3-5: Coming soon")
+            Text("Phases 2-3 Complete ✅ | Phases 4-5: Coming soon")
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
