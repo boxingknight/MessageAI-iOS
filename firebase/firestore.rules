@@ -153,30 +153,30 @@ service cloud.firestore {
       allow write: if false;
     }
     
-    // Events collection (PR #18 Fix)
+    // Events collection (PR #18 Fix, PR #20.1 Update)
     match /events/{eventId} {
-      // Can read event if you're a participant in the source conversation
+      // Can read event if you're authenticated and in the conversation
       allow read: if isAuthenticated() && 
-                     request.auth.uid in resource.data.participantIds;
+                     isParticipant(resource.data.conversationId);
+      
+      // Allow querying events for a conversation (for event listener)
+      allow list: if isAuthenticated();
       
       // Can create event if:
       // - You're authenticated
       // - You're the creator
-      // - You're in the participantIds list
-      // - Event has required fields
+      // - Event has required fields (flexible for both old and new structure)
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.createdBy &&
-                       request.auth.uid in request.resource.data.participantIds &&
                        request.resource.data.title is string &&
-                       request.resource.data.date is timestamp &&
                        request.resource.data.conversationId is string &&
-                       request.resource.data.participantIds is list;
+                       isParticipant(request.resource.data.conversationId);
       
-      // Can update event if you're the creator or a participant
-      // (for future features like editing event details)
+      // Can update event if you're the creator or a participant in the conversation
+      // Allow updating RSVP fields (rsvps map)
       allow update: if isAuthenticated() && 
                        (request.auth.uid == resource.data.createdBy ||
-                        request.auth.uid in resource.data.participantIds);
+                        isParticipant(resource.data.conversationId));
       
       // Can delete event if you're the creator
       allow delete: if isAuthenticated() && 
