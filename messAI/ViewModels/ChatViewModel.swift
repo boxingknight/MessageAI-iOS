@@ -1588,14 +1588,47 @@ class ChatViewModel: ObservableObject {
             return
         }
         
-        print("🤖 Current user IS the sender → Showing opportunity suggestions")
+        print("🤖 Current user IS the sender → Checking for duplicates")
+        
+        // NEW: Check if this event already exists in Firestore (Solution 1)
+        // Only check for EVENT PLANNING opportunities (not RSVP, not other types)
+        if topOpportunity.type == .eventPlanning {
+            Task {
+                let isDuplicate = await checkIfEventExists(
+                    title: topOpportunity.data.title,
+                    date: topOpportunity.data.date
+                )
+                
+                if isDuplicate {
+                    print("🔄 DUPLICATE DETECTED: Event '\(topOpportunity.displayTitle)' already exists")
+                    print("   → Skipping opportunity to prevent re-prompting")
+                    return
+                }
+                
+                // Not a duplicate, proceed with normal flow
+                await MainActor.run {
+                    self.routeOpportunityByConfidence(topOpportunity)
+                }
+            }
+        } else {
+            // Non-event opportunities (priority, deadline, etc.) - process immediately
+            routeOpportunityByConfidence(topOpportunity)
+        }
+    }
+    
+    /**
+     * Route opportunity to appropriate UI based on confidence level
+     * Extracted to separate method for clarity
+     */
+    private func routeOpportunityByConfidence(_ topOpportunity: Opportunity) {
+        print("🤖 Routing opportunity: \(topOpportunity.displayTitle)")
         
         // Route based on confidence level
         if topOpportunity.isHighConfidence {
             // High confidence (>0.8) → Add to ambient bar (vertical stacking)
             print("🤖 High confidence (\(topOpportunity.confidencePercentage)%): Adding to ambient bar")
             
-            // Check if this opportunity already exists
+            // Check if this opportunity already exists in the array
             if let existingIndex = activeOpportunities.firstIndex(where: { $0.id == topOpportunity.id }) {
                 // Update existing opportunity
                 activeOpportunities[existingIndex] = topOpportunity
@@ -1642,6 +1675,84 @@ class ChatViewModel: ObservableObject {
                 pendingSuggestions.append(topOpportunity)
                 suggestionsCount = pendingSuggestions.count
             }
+        }
+    }
+    
+    /**
+     * Check if an event already exists in Firestore
+     * Prevents duplicate "Create & Organize" prompts for the same event
+     * 
+     * Uses fuzzy matching on title and exact matching on date
+     * to account for slight variations in how events are described
+     */
+    private func checkIfEventExists(title: String?, date: String?) async -> Bool {
+        guard let eventTitle = title, !eventTitle.isEmpty else {
+            print("🔍 No title provided, cannot check for duplicates")
+            return false
+        }
+        
+        print("🔍 Checking for duplicate event: '\(eventTitle)' on '\(date ?? "unknown date")'")
+        
+        do {
+            let db = Firestore.firestore()
+            
+            // Query events in this conversation
+            let eventsSnapshot = try await db.collection("events")
+                .whereField("conversationId", isEqualTo: conversationId)
+                .limit(to: 50) // Check recent events
+                .getDocuments()
+            
+            print("   Found \(eventsSnapshot.documents.count) existing events in conversation")
+            
+            // Normalize the opportunity title for comparison
+            let normalizedOpportunityTitle = eventTitle.lowercased().trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            
+            // Check each event for a match
+            for eventDoc in eventsSnapshot.documents {
+                let eventData = eventDoc.data()
+                guard let existingTitle = eventData["title"] as? String else { continue }
+                
+                let normalizedExistingTitle = existingTitle.lowercased().trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                
+                // Check for title match (fuzzy matching - contains or is contained)
+                let titleMatches = normalizedOpportunityTitle.contains(normalizedExistingTitle) ||
+                                   normalizedExistingTitle.contains(normalizedOpportunityTitle) ||
+                                   normalizedOpportunityTitle == normalizedExistingTitle
+                
+                if titleMatches {
+                    // If titles match, also check date if provided
+                    if let opportunityDate = date, !opportunityDate.isEmpty {
+                        // Get existing event date
+                        let existingDate = eventData["date"] as? String ?? ""
+                        
+                        // Normalize dates for comparison
+                        let normalizedOpportunityDate = opportunityDate.lowercased().trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                        let normalizedExistingDate = existingDate.lowercased().trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                        
+                        // Check for date match (fuzzy matching)
+                        let dateMatches = normalizedOpportunityDate.contains(normalizedExistingDate) ||
+                                          normalizedExistingDate.contains(normalizedOpportunityDate) ||
+                                          normalizedOpportunityDate == normalizedExistingDate
+                        
+                        if dateMatches {
+                            print("   ✅ MATCH FOUND: '\(existingTitle)' on '\(existingDate)' (ID: \(eventDoc.documentID))")
+                            return true
+                        }
+                    } else {
+                        // No date provided in opportunity, just match on title
+                        print("   ✅ MATCH FOUND (title only): '\(existingTitle)' (ID: \(eventDoc.documentID))")
+                        return true
+                    }
+                }
+            }
+            
+            print("   ❌ No duplicate found - this is a new event")
+            return false
+            
+        } catch {
+            print("   ⚠️ Error checking for duplicates: \(error.localizedDescription)")
+            // If check fails, allow the opportunity through (fail open)
+            return false
         }
     }
     
