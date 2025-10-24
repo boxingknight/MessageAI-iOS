@@ -1703,13 +1703,14 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Parse event date from natural language string
+     * Supports: "October 31", "Monday", "tomorrow", "today"
      */
     private func parseEventDate(from dateStr: String) -> Date {
         let calendar = Calendar.current
         let today = Date()
         let dateStrLower = dateStr.lowercased()
         
-        // Handle "tomorrow"
+        // Handle "tomorrow" (check first to avoid "tomorrow" containing weekday names)
         if dateStrLower.contains("tomorrow") {
             return calendar.date(byAdding: .day, value: 1, to: today) ?? today
         }
@@ -1717,6 +1718,51 @@ class ChatViewModel: ObservableObject {
         // Handle "today"
         if dateStrLower.contains("today") {
             return today
+        }
+        
+        // Handle specific dates like "October 31" or "Oct 31"
+        // Format: "Month Day" (e.g., "October 31", "Oct 31", "November 5")
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        // Try full month name (October 31)
+        dateFormatter.dateFormat = "MMMM d"
+        if let parsedDate = dateFormatter.date(from: dateStr) {
+            // Set the year to current year or next year if date has passed
+            var components = calendar.dateComponents([.month, .day], from: parsedDate)
+            components.year = calendar.component(.year, from: today)
+            
+            if let dateThisYear = calendar.date(from: components) {
+                // If the date has already passed this year, use next year
+                if dateThisYear < today {
+                    components.year = (components.year ?? 0) + 1
+                    if let dateNextYear = calendar.date(from: components) {
+                        print("📅 Parsed '\(dateStr)' as \(dateFormatter.string(from: dateNextYear)) (next year)")
+                        return dateNextYear
+                    }
+                }
+                print("📅 Parsed '\(dateStr)' as \(dateFormatter.string(from: dateThisYear))")
+                return dateThisYear
+            }
+        }
+        
+        // Try abbreviated month name (Oct 31)
+        dateFormatter.dateFormat = "MMM d"
+        if let parsedDate = dateFormatter.date(from: dateStr) {
+            var components = calendar.dateComponents([.month, .day], from: parsedDate)
+            components.year = calendar.component(.year, from: today)
+            
+            if let dateThisYear = calendar.date(from: components) {
+                if dateThisYear < today {
+                    components.year = (components.year ?? 0) + 1
+                    if let dateNextYear = calendar.date(from: components) {
+                        print("📅 Parsed '\(dateStr)' as \(dateFormatter.string(from: dateNextYear)) (next year)")
+                        return dateNextYear
+                    }
+                }
+                print("📅 Parsed '\(dateStr)' as \(dateFormatter.string(from: dateThisYear))")
+                return dateThisYear
+            }
         }
         
         // Handle day names (Monday, Tuesday, etc.)

@@ -47,7 +47,7 @@ Also avoid suggesting duplicate events. Check existing events and return null if
   "confidence": 0.0-1.0,
   "title": "Event name",
   "eventType": "birthday party|playdate|sports|school event|etc",
-  "date": "Day name only (Monday, Tuesday, etc.) or relative (today, tomorrow)",
+  "date": "See date format rules below",
   "time": "Time in 12-hour format (e.g., 2PM, 3:30PM)",
   "location": "location description",
   "participants": ["name1", "name2"],
@@ -55,13 +55,25 @@ Also avoid suggesting duplicate events. Check existing events and return null if
   "reasoning": "why this was detected"
 }
 
-**CRITICAL DATE FORMAT**: 
-- For "Monday at 1PM" → return date as "Monday"
-- For "this Friday" → return date as "Friday"  
-- For "tomorrow" → return date as "tomorrow"
-- For "today" → return date as "today"
-- Do NOT return specific dates like "October 30" or "30th"
-- ONLY return the day name (Monday-Sunday) or relative (today/tomorrow)`;
+**CRITICAL DATE FORMAT RULES**: 
+IF the message contains a specific date (like "October 31st" or "Oct 31"):
+  → Return: "October 31" (Month + Day, no year, no ordinal suffixes)
+  → Example: "Poker on October 31st" → return "October 31"
+
+IF the message contains a day name (like "this Monday" or "Friday"):
+  → Return: Just the day name (Monday, Tuesday, etc.)
+  → Example: "Party this Monday" → return "Monday"
+
+IF the message says "tomorrow":
+  → Return: "tomorrow"
+
+IF the message says "today":
+  → Return: "today"
+
+NEVER include:
+  - Ordinal suffixes (31st → 31, 1st → 1)
+  - Year (2025)
+  - Weekday + date together ("Monday, October 31")`;
 
     // Build user prompt
     const existingEventsStr = context.existingEvents?.length
