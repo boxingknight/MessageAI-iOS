@@ -1353,8 +1353,9 @@ class ChatViewModel: ObservableObject {
                 print("🎯 OpportunityListener: Received \(opportunities.count) opportunities from service")
                 guard let self = self else { return }
 
+                // Spawn structured task to handle async detection
                 Task { @MainActor in
-                    self.handleOpportunitiesDetected(opportunities)
+                    await self.handleOpportunitiesDetected(opportunities)
                 }
             }
         
@@ -1558,8 +1559,11 @@ class ChatViewModel: ObservableObject {
      * 
      * IMPORTANT: Only show suggestions to the MESSAGE SENDER (event creator)
      * Other users will receive RSVP requests after the event is created
+     * 
+     * HYBRID APPROACH: Try local array first (fast), query Firestore as backup (accurate)
      */
-    private func handleOpportunitiesDetected(_ opportunities: [Opportunity]) {
+    @MainActor
+    private func handleOpportunitiesDetected(_ opportunities: [Opportunity]) async {
         print("🤖 ChatViewModel: Handling \(opportunities.count) opportunities")
         print("   Current activeOpportunities count: \(activeOpportunities.count)")
         print("   showAmbientBar: \(showAmbientBar)")
@@ -1572,54 +1576,72 @@ class ChatViewModel: ObservableObject {
         
         print("   Top opportunity: \(topOpportunity.displayTitle) (confidence: \(topOpportunity.confidencePercentage)%)")
         
-        // Check if the current user sent the most recent message (is the event creator)
-        // CRITICAL: Query Firestore directly instead of using messages.last
-        // Reason: Race condition - ProactiveAgent listener fires before ChatViewModel's
-        // Firestore listener updates the messages array, causing messages.last to be stale
-        Task {
-            guard let latestMessage = await fetchLatestMessage() else {
-                print("🤖 No recent message found in Firestore, skipping opportunity display")
-                return
-            }
+        // HYBRID APPROACH: Check sender using both local array and Firestore
+        // Step 1: Try local array first (fast path - no network request)
+        let localMessage = messages.last
+        var latestMessage: Message?
+        var usedFirestore = false
+        
+        if let local = localMessage {
+            print("🤖 Checking local messages.last: '\(local.text)' (sender: \(local.senderId))")
             
-            print("🤖 Latest message from Firestore: '\(latestMessage.text)'")
-            print("   Sender: \(latestMessage.senderId)")
-            print("   Current user: \(currentUserId)")
-            
-            // Only show suggestions to the MESSAGE SENDER (event creator)
-            // Other users are receivers and will get RSVP requests later
-            guard latestMessage.senderId == currentUserId else {
-                print("🤖 Current user is NOT the sender of the triggering message")
-                print("   → Skipping Ambient Bar (user will receive RSVP instead)")
-                return
-            }
-            
-            print("🤖 Current user IS the sender → Checking for duplicates")
-            
-            // NEW: Check if this event already exists in Firestore (Solution 1)
-            // Only check for EVENT PLANNING opportunities (not RSVP, not other types)
-            if topOpportunity.type == .eventPlanning {
-                let isDuplicate = await checkIfEventExists(
-                    title: topOpportunity.data.title,
-                    date: topOpportunity.data.date
-                )
-                
-                if isDuplicate {
-                    print("🔄 DUPLICATE DETECTED: Event '\(topOpportunity.displayTitle)' already exists")
-                    print("   → Skipping opportunity to prevent re-prompting")
-                    return
-                }
-                
-                // Not a duplicate, proceed with normal flow
-                await MainActor.run {
-                    self.routeOpportunityByConfidence(topOpportunity)
-                }
+            // If local sender matches current user, use it (fast path!)
+            if local.senderId == currentUserId {
+                print("   ✅ Local message sender matches current user (fast path)")
+                latestMessage = local
             } else {
-                // Non-event opportunities (priority, deadline, etc.) - process immediately
-                await MainActor.run {
-                    self.routeOpportunityByConfidence(topOpportunity)
-                }
+                // Local sender doesn't match - might be race condition
+                // Query Firestore as backup (accurate path)
+                print("   ⚠️ Local message sender doesn't match, querying Firestore as backup...")
+                latestMessage = await fetchLatestMessage()
+                usedFirestore = true
             }
+        } else {
+            // No local messages, query Firestore
+            print("🤖 No local messages, querying Firestore...")
+            latestMessage = await fetchLatestMessage()
+            usedFirestore = true
+        }
+        
+        // Validate we got a message
+        guard let message = latestMessage else {
+            print("🤖 No recent message found (local or Firestore), skipping opportunity display")
+            return
+        }
+        
+        print("🤖 Using \(usedFirestore ? "Firestore" : "local") message: '\(message.text)'")
+        print("   Sender: \(message.senderId)")
+        print("   Current user: \(currentUserId)")
+        
+        // Only show suggestions to the MESSAGE SENDER (event creator)
+        // Other users are receivers and will get RSVP requests later
+        guard message.senderId == currentUserId else {
+            print("🤖 Current user is NOT the sender of the triggering message")
+            print("   → Skipping Ambient Bar (user will receive RSVP instead)")
+            return
+        }
+        
+        print("🤖 Current user IS the sender → Checking for duplicates")
+        
+        // Check if this event already exists in Firestore (prevent duplicates)
+        // Only check for EVENT PLANNING opportunities (not RSVP, not other types)
+        if topOpportunity.type == .eventPlanning {
+            let isDuplicate = await checkIfEventExists(
+                title: topOpportunity.data.title,
+                date: topOpportunity.data.date
+            )
+            
+            if isDuplicate {
+                print("🔄 DUPLICATE DETECTED: Event '\(topOpportunity.displayTitle)' already exists")
+                print("   → Skipping opportunity to prevent re-prompting")
+                return
+            }
+            
+            // Not a duplicate, proceed with normal flow
+            routeOpportunityByConfidence(topOpportunity)
+        } else {
+            // Non-event opportunities (priority, deadline, etc.) - process immediately
+            routeOpportunityByConfidence(topOpportunity)
         }
     }
     
