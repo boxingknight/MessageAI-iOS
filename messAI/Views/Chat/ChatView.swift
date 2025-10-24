@@ -281,6 +281,16 @@ struct ChatView: View {
                     },
                     onDismiss: {
                         viewModel.dismissOpportunity(opportunity)
+                    },
+                    onRSVPYes: {
+                        Task {
+                            await viewModel.rsvpYes(opportunity)
+                        }
+                    },
+                    onRSVPNo: {
+                        Task {
+                            await viewModel.rsvpNo(opportunity)
+                        }
                     }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))

@@ -1327,6 +1327,7 @@ class ChatViewModel: ObservableObject {
     @Published var agentError: String?
     
     private var opportunityListener: AnyCancellable?
+    private var eventListener: ListenerRegistration?
     
     /**
      * Start proactive monitoring for this conversation
@@ -1334,19 +1335,22 @@ class ChatViewModel: ObservableObject {
      */
     func startProactiveMonitoring() {
         print("🤖 ChatViewModel: Starting proactive monitoring for conversation: \(conversationId)")
-        
+
         // Start monitoring service
         ProactiveAgentService.shared.startMonitoring(conversationId: conversationId)
-        
+
         // Subscribe to opportunities
         opportunityListener = ProactiveAgentService.shared.$currentOpportunities
             .sink { [weak self] opportunities in
                 guard let self = self else { return }
-                
+
                 Task { @MainActor in
                     self.handleOpportunitiesDetected(opportunities)
                 }
             }
+        
+        // Listen for new events in this conversation (for RSVP opportunities)
+        startEventListener()
     }
     
     /**
@@ -1355,17 +1359,97 @@ class ChatViewModel: ObservableObject {
      */
     func stopProactiveMonitoring() {
         print("🤖 ChatViewModel: Stopping proactive monitoring")
-        
+
         ProactiveAgentService.shared.stopMonitoring()
         opportunityListener?.cancel()
         opportunityListener = nil
         
+        // Stop event listener
+        eventListener?.remove()
+        eventListener = nil
+
         // Clear state
         currentOpportunity = nil
         showAmbientBar = false
         inlineChips = [:]
         pendingSuggestions = []
         suggestionsCount = 0
+    }
+    
+    /**
+     * Start listening for new events in this conversation
+     * When a new event is created, show RSVP Ambient Bar to receivers
+     */
+    private func startEventListener() {
+        let db = Firestore.firestore()
+        
+        // Listen for events created in this conversation
+        eventListener = db.collection("events")
+            .whereField("conversationId", isEqualTo: conversationId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 1)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Event listener error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents, !documents.isEmpty else {
+                    return
+                }
+                
+                Task { @MainActor in
+                    for document in documents {
+                        let data = document.data()
+                        guard let createdBy = data["createdBy"] as? String else { continue }
+                        
+                        // Only show RSVP Ambient Bar to receivers (not the creator)
+                        if createdBy != self.currentUserId {
+                            print("📅 New event detected! Creating RSVP opportunity for receiver")
+                            self.createRSVPOpportunity(from: data, eventId: document.documentID)
+                        }
+                    }
+                }
+            }
+        
+        print("🎧 Event listener started for conversation: \(conversationId)")
+    }
+    
+    /**
+     * Create an RSVP opportunity from a new event
+     * This will trigger the Ambient Bar to show with RSVP options
+     */
+    private func createRSVPOpportunity(from eventData: [String: Any], eventId: String) {
+        let title = eventData["title"] as? String ?? "Event"
+        let date = eventData["date"] as? String ?? ""
+        let time = eventData["time"] as? String ?? ""
+        let location = eventData["location"] as? String ?? ""
+        
+        // Create RSVP opportunity
+        let opportunity = Opportunity(
+            id: "rsvp-\(eventId)",
+            type: .rsvpManagement,
+            confidence: 1.0, // Always high confidence for created events
+            data: OpportunityData(
+                title: title,
+                date: date,
+                time: time,
+                location: location,
+                eventReference: eventId,
+                needsRSVP: true
+            ),
+            suggestedActions: ["rsvp_yes", "rsvp_no", "rsvp_maybe"],
+            reasoning: "New event created - RSVP requested",
+            timestamp: Date()
+        )
+        
+        // Show in Ambient Bar
+        currentOpportunity = opportunity
+        showAmbientBar = true
+        
+        print("✅ RSVP Ambient Bar shown for event: \(title)")
     }
     
     /**
@@ -1433,7 +1517,7 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Approve an opportunity (execute workflow)
-     * Creates the event and sends RSVP requests to all participants
+     * Creates the event in Firestore - receivers will see RSVP Ambient Bar
      */
     func approveOpportunity(_ opportunity: Opportunity) async {
         print("🤖 ChatViewModel: Approving opportunity: \(opportunity.displayTitle)")
@@ -1443,32 +1527,33 @@ class ChatViewModel: ObservableObject {
         do {
             // Extract event details from opportunity
             let title = opportunity.data.title ?? opportunity.displayTitle
-            let dateStr = opportunity.data.date ?? "TBD"
-            let timeStr = opportunity.data.time ?? "TBD"
-            let location = opportunity.data.location ?? "TBD"
+            let dateStr = opportunity.data.date ?? ""
+            let timeStr = opportunity.data.time ?? ""
+            let location = opportunity.data.location ?? ""
             let participants = opportunity.data.participants ?? []
             
-            // Create event message that will trigger RSVP tracking
-            let eventMessage = """
-            📅 **Event Created: \(title)**
+            // Create event in Firestore
+            let db = Firestore.firestore()
+            let eventRef = db.collection("events").document()
             
-            📆 Date: \(dateStr)
-            ⏰ Time: \(timeStr)
-            📍 Location: \(location)
-            👥 Invited: \(participants.joined(separator: ", "))
+            let eventData: [String: Any] = [
+                "id": eventRef.documentID,
+                "title": title,
+                "conversationId": conversationId,
+                "createdBy": currentUserId,
+                "date": dateStr,
+                "time": timeStr,
+                "location": location,
+                "participants": participants,
+                "createdAt": FieldValue.serverTimestamp(),
+                "updatedAt": FieldValue.serverTimestamp(),
+                "status": "pending" // pending, confirmed, cancelled
+            ]
             
-            Please RSVP! Reply with:
-            • "Yes" or "Count me in" to accept
-            • "No" or "Can't make it" to decline
-            """
+            try await eventRef.setData(eventData)
             
-            // Send the event message (this will trigger RSVP tracking automatically)
-            try await chatService.sendMessage(
-                conversationId: conversationId,
-                text: eventMessage
-            )
-            
-            print("✅ Event message sent, RSVP tracking will be triggered automatically")
+            print("✅ Event created in Firestore: \(eventRef.documentID)")
+            print("   Receivers will automatically see RSVP Ambient Bar")
             
             agentIsProcessing = false
             
@@ -1485,6 +1570,76 @@ class ChatViewModel: ObservableObject {
     }
     
     /**
+     * Handle RSVP Yes response
+     */
+    func rsvpYes(_ opportunity: Opportunity) async {
+        print("✅ ChatViewModel: User RSVP'd YES to event")
+        
+        guard let eventId = opportunity.data.eventReference else {
+            print("❌ No event reference found")
+            return
+        }
+        
+        agentIsProcessing = true
+        
+        do {
+            // Update event RSVP in Firestore
+            let db = Firestore.firestore()
+            try await db.collection("events").document(eventId).updateData([
+                "rsvps.\(currentUserId)": "yes",
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("✅ RSVP Yes recorded in Firestore")
+            
+            agentIsProcessing = false
+            
+            // Dismiss the Ambient Bar
+            dismissOpportunity(opportunity)
+            
+        } catch {
+            print("❌ Failed to record RSVP: \(error.localizedDescription)")
+            agentError = "Failed to record RSVP"
+            agentIsProcessing = false
+        }
+    }
+    
+    /**
+     * Handle RSVP No response
+     */
+    func rsvpNo(_ opportunity: Opportunity) async {
+        print("❌ ChatViewModel: User RSVP'd NO to event")
+        
+        guard let eventId = opportunity.data.eventReference else {
+            print("❌ No event reference found")
+            return
+        }
+        
+        agentIsProcessing = true
+        
+        do {
+            // Update event RSVP in Firestore
+            let db = Firestore.firestore()
+            try await db.collection("events").document(eventId).updateData([
+                "rsvps.\(currentUserId)": "no",
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+            
+            print("✅ RSVP No recorded in Firestore")
+            
+            agentIsProcessing = false
+            
+            // Dismiss the Ambient Bar
+            dismissOpportunity(opportunity)
+            
+        } catch {
+            print("❌ Failed to record RSVP: \(error.localizedDescription)")
+            agentError = "Failed to record RSVP"
+            agentIsProcessing = false
+        }
+    }
+    
+    /**
      * Dismiss an opportunity
      */
     func dismissOpportunity(_ opportunity: Opportunity) {
@@ -1495,10 +1650,10 @@ class ChatViewModel: ObservableObject {
             currentOpportunity = nil
             showAmbientBar = false
         }
-        
+
         // Remove from inline chips
         inlineChips = inlineChips.filter { $0.value.id != opportunity.id }
-        
+
         // Remove from pending suggestions
         pendingSuggestions.removeAll { $0.id == opportunity.id }
         suggestionsCount = pendingSuggestions.count

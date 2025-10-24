@@ -13,8 +13,30 @@ struct AmbientSuggestionBar: View {
     let isProcessing: Bool
     let onApprove: () -> Void
     let onDismiss: () -> Void
+    let onRSVPYes: (() -> Void)?
+    let onRSVPNo: (() -> Void)?
     
     @State private var isExpanded: Bool = true
+    
+    // Convenience init for non-RSVP opportunities
+    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+        self.opportunity = opportunity
+        self.isProcessing = isProcessing
+        self.onApprove = onApprove
+        self.onDismiss = onDismiss
+        self.onRSVPYes = nil
+        self.onRSVPNo = nil
+    }
+    
+    // Full init with RSVP handlers
+    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void, onRSVPYes: (() -> Void)?, onRSVPNo: (() -> Void)?) {
+        self.opportunity = opportunity
+        self.isProcessing = isProcessing
+        self.onApprove = onApprove
+        self.onDismiss = onDismiss
+        self.onRSVPYes = onRSVPYes
+        self.onRSVPNo = onRSVPNo
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -24,10 +46,10 @@ struct AmbientSuggestionBar: View {
                 HStack {
                     Image(systemName: opportunity.type.icon)
                         .font(.title2)
-                        .foregroundColor(.purple)
+                        .foregroundColor(opportunity.type == .rsvpManagement ? .green : .purple)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("AI Suggestion")
+                        Text(opportunity.type == .rsvpManagement ? "Event Invitation" : "AI Suggestion")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
@@ -57,20 +79,20 @@ struct AmbientSuggestionBar: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Event details (if expanded and event planning)
-                if isExpanded, opportunity.type == .eventPlanning {
+                // Event details (if expanded and event-related)
+                if isExpanded, (opportunity.type == .eventPlanning || opportunity.type == .rsvpManagement) {
                     Divider()
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        if let date = opportunity.data.date {
+                        if let date = opportunity.data.date, !date.isEmpty {
                             DetailRow(icon: "calendar", text: date)
                         }
                         
-                        if let time = opportunity.data.time {
+                        if let time = opportunity.data.time, !time.isEmpty {
                             DetailRow(icon: "clock", text: time)
                         }
                         
-                        if let location = opportunity.data.location {
+                        if let location = opportunity.data.location, !location.isEmpty {
                             DetailRow(icon: "mappin.and.ellipse", text: location)
                         }
                         
@@ -94,8 +116,42 @@ struct AmbientSuggestionBar: View {
                         }
                         .frame(maxWidth: .infinity)
                         
+                    } else if opportunity.type == .rsvpManagement {
+                        // RSVP-specific buttons (Yes/No)
+                        Button(action: {
+                            onRSVPYes?()
+                        }) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Yes, I'll attend")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.green)
+                            .cornerRadius(10)
+                        }
+                        
+                        Button(action: {
+                            onRSVPNo?()
+                        }) {
+                            HStack {
+                                Image(systemName: "xmark.circle.fill")
+                                Text("No, can't make it")
+                            }
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.8))
+                            .cornerRadius(10)
+                        }
+                        
                     } else {
-                        // Primary action
+                        // Standard action buttons (Create & Organize, etc.)
                         Button(action: onApprove) {
                             HStack {
                                 Image(systemName: "sparkles")
