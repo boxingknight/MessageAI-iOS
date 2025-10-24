@@ -129,9 +129,13 @@ struct AmbientSuggestionBar: View {
                                 HStack {
                                     Image(systemName: response == "yes" ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .foregroundColor(response == "yes" ? .green : .red)
-                                    Text(userId) // TODO: Fetch user names
+                                    
+                                    // Use display name if available, fallback to userId
+                                    Text(opportunity.data.rsvpDisplayNames?[userId] ?? userId)
                                         .font(.subheadline)
+                                    
                                     Spacer()
+                                    
                                     Text(response.capitalized)
                                         .font(.caption)
                                         .foregroundColor(response == "yes" ? .green : .red)

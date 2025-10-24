@@ -1649,7 +1649,7 @@ class ChatViewModel: ObservableObject {
     }
     
     /**
-     * Refresh opportunity with updated RSVP list
+     * Refresh opportunity with updated RSVP list and display names
      */
     private func refreshOpportunityWithRSVPs(_ opportunity: Opportunity, eventId: String, userResponse: String) async {
         do {
@@ -1663,10 +1663,23 @@ class ChatViewModel: ObservableObject {
             
             let rsvps = data["rsvps"] as? [String: String] ?? [:]
             
-            // Update the opportunity with RSVP data
+            // Fetch display names for all users who RSVP'd
+            var displayNames: [String: String] = [:]
+            for userId in rsvps.keys {
+                let userDoc = try await db.collection("users").document(userId).getDocument()
+                if let userData = userDoc.data(),
+                   let displayName = userData["displayName"] as? String {
+                    displayNames[userId] = displayName
+                } else {
+                    displayNames[userId] = "Unknown User"
+                }
+            }
+            
+            // Update the opportunity with RSVP data and display names
             var updatedData = opportunity.data
             updatedData.rsvps = rsvps
             updatedData.userResponse = userResponse
+            updatedData.rsvpDisplayNames = displayNames
             
             let updatedOpportunity = Opportunity(
                 id: opportunity.id,
@@ -1686,6 +1699,94 @@ class ChatViewModel: ObservableObject {
         } catch {
             print("❌ Failed to refresh RSVP data: \(error.localizedDescription)")
         }
+    }
+    
+    /**
+     * Parse event date from natural language string
+     */
+    private func parseEventDate(from dateStr: String) -> Date {
+        let calendar = Calendar.current
+        let today = Date()
+        let dateStrLower = dateStr.lowercased()
+        
+        // Handle day names (Monday, Tuesday, etc.)
+        let weekdays = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, 
+                        "thursday": 5, "friday": 6, "saturday": 7]
+        
+        for (dayName, weekday) in weekdays {
+            if dateStrLower.contains(dayName) {
+                // Find next occurrence of this weekday
+                var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear, .weekday], from: today)
+                components.weekday = weekday
+                
+                if let date = calendar.date(from: components) {
+                    // If the date is in the past, add a week
+                    if date < today {
+                        return calendar.date(byAdding: .day, value: 7, to: date) ?? today
+                    }
+                    return date
+                }
+            }
+        }
+        
+        // Handle "tomorrow"
+        if dateStrLower.contains("tomorrow") {
+            return calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        }
+        
+        // Handle "today"
+        if dateStrLower.contains("today") {
+            return today
+        }
+        
+        // Default to tomorrow if can't parse
+        return calendar.date(byAdding: .day, value: 1, to: today) ?? today
+    }
+    
+    /**
+     * Parse event time from string (e.g., "2PM", "14:00", "3pm")
+     */
+    private func parseEventTime(from timeStr: String, baseDate: Date) -> Date {
+        let calendar = Calendar.current
+        let timeStrLower = timeStr.lowercased().trimmingCharacters(in: .whitespaces)
+        
+        var hour = 12
+        var minute = 0
+        
+        // Parse formats like "2PM", "3pm", "2:30PM"
+        if let regex = try? NSRegularExpression(pattern: "(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?", options: .caseInsensitive),
+           let match = regex.firstMatch(in: timeStrLower, range: NSRange(timeStrLower.startIndex..., in: timeStrLower)) {
+            
+            // Extract hour
+            if let hourRange = Range(match.range(at: 1), in: timeStrLower) {
+                hour = Int(timeStrLower[hourRange]) ?? 12
+            }
+            
+            // Extract minute (optional)
+            if match.range(at: 2).location != NSNotFound,
+               let minuteRange = Range(match.range(at: 2), in: timeStrLower) {
+                minute = Int(timeStrLower[minuteRange]) ?? 0
+            }
+            
+            // Handle AM/PM
+            if match.range(at: 3).location != NSNotFound,
+               let ampmRange = Range(match.range(at: 3), in: timeStrLower) {
+                let ampm = String(timeStrLower[ampmRange])
+                if ampm == "pm" && hour < 12 {
+                    hour += 12
+                } else if ampm == "am" && hour == 12 {
+                    hour = 0
+                }
+            }
+        }
+        
+        // Create date with parsed time
+        var components = calendar.dateComponents([.year, .month, .day], from: baseDate)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        
+        return calendar.date(from: components) ?? baseDate
     }
     
     /**
@@ -1712,20 +1813,26 @@ class ChatViewModel: ObservableObject {
             event.notes = "Created from messAI"
             
             // Parse date and time
-            if let dateStr = opportunity.data.date, let timeStr = opportunity.data.time {
-                // Create date from string (simplified for now)
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd"
+            if let dateStr = opportunity.data.date, !dateStr.isEmpty {
+                var eventDate = parseEventDate(from: dateStr)
                 
-                // For now, use current date + 1 day as fallback
-                let eventDate = Date().addingTimeInterval(86400) // Tomorrow
-                event.startDate = eventDate
-                event.endDate = eventDate.addingTimeInterval(3600) // 1 hour duration
-                event.isAllDay = false
+                // Parse time if available
+                if let timeStr = opportunity.data.time, !timeStr.isEmpty {
+                    eventDate = parseEventTime(from: timeStr, baseDate: eventDate)
+                    event.startDate = eventDate
+                    event.endDate = eventDate.addingTimeInterval(3600) // 1 hour duration
+                    event.isAllDay = false
+                } else {
+                    // All-day event
+                    event.startDate = eventDate
+                    event.endDate = eventDate
+                    event.isAllDay = true
+                }
             } else {
-                // All-day event
-                event.startDate = Date().addingTimeInterval(86400) // Tomorrow
-                event.endDate = event.startDate
+                // No date provided, use tomorrow
+                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                event.startDate = tomorrow
+                event.endDate = tomorrow
                 event.isAllDay = true
             }
             
