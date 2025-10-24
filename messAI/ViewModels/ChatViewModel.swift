@@ -1573,27 +1573,32 @@ class ChatViewModel: ObservableObject {
         print("   Top opportunity: \(topOpportunity.displayTitle) (confidence: \(topOpportunity.confidencePercentage)%)")
         
         // Check if the current user sent the most recent message (is the event creator)
-        guard let mostRecentMessage = messages.last else {
-            print("🤖 No recent message found, skipping opportunity display")
-            return
-        }
-        
-        // Only show suggestions to the MESSAGE SENDER (event creator)
-        // Other users are receivers and will get RSVP requests later
-        guard mostRecentMessage.senderId == currentUserId else {
-            print("🤖 Current user is NOT the sender of the triggering message")
-            print("   Message sender: \(mostRecentMessage.senderId)")
+        // CRITICAL: Query Firestore directly instead of using messages.last
+        // Reason: Race condition - ProactiveAgent listener fires before ChatViewModel's
+        // Firestore listener updates the messages array, causing messages.last to be stale
+        Task {
+            guard let latestMessage = await fetchLatestMessage() else {
+                print("🤖 No recent message found in Firestore, skipping opportunity display")
+                return
+            }
+            
+            print("🤖 Latest message from Firestore: '\(latestMessage.text)'")
+            print("   Sender: \(latestMessage.senderId)")
             print("   Current user: \(currentUserId)")
-            print("   → Skipping Ambient Bar (user will receive RSVP instead)")
-            return
-        }
-        
-        print("🤖 Current user IS the sender → Checking for duplicates")
-        
-        // NEW: Check if this event already exists in Firestore (Solution 1)
-        // Only check for EVENT PLANNING opportunities (not RSVP, not other types)
-        if topOpportunity.type == .eventPlanning {
-            Task {
+            
+            // Only show suggestions to the MESSAGE SENDER (event creator)
+            // Other users are receivers and will get RSVP requests later
+            guard latestMessage.senderId == currentUserId else {
+                print("🤖 Current user is NOT the sender of the triggering message")
+                print("   → Skipping Ambient Bar (user will receive RSVP instead)")
+                return
+            }
+            
+            print("🤖 Current user IS the sender → Checking for duplicates")
+            
+            // NEW: Check if this event already exists in Firestore (Solution 1)
+            // Only check for EVENT PLANNING opportunities (not RSVP, not other types)
+            if topOpportunity.type == .eventPlanning {
                 let isDuplicate = await checkIfEventExists(
                     title: topOpportunity.data.title,
                     date: topOpportunity.data.date
@@ -1609,10 +1614,43 @@ class ChatViewModel: ObservableObject {
                 await MainActor.run {
                     self.routeOpportunityByConfidence(topOpportunity)
                 }
+            } else {
+                // Non-event opportunities (priority, deadline, etc.) - process immediately
+                await MainActor.run {
+                    self.routeOpportunityByConfidence(topOpportunity)
+                }
             }
-        } else {
-            // Non-event opportunities (priority, deadline, etc.) - process immediately
-            routeOpportunityByConfidence(topOpportunity)
+        }
+    }
+    
+    /**
+     * Fetch the latest message from Firestore
+     * Used to avoid race conditions with the local messages array
+     * 
+     * Returns the most recent message, or nil if none found
+     */
+    private func fetchLatestMessage() async -> Message? {
+        let db = Firestore.firestore()
+        
+        do {
+            let snapshot = try await db.collection("conversations/\(conversationId)/messages")
+                .order(by: "sentAt", descending: true)
+                .limit(to: 1)
+                .getDocuments()
+            
+            guard let doc = snapshot.documents.first else {
+                print("⚠️ No messages found in Firestore")
+                return nil
+            }
+            
+            // Parse the message
+            let message = try doc.data(as: Message.self)
+            print("✅ Fetched latest message from Firestore: '\(message.text)' (ID: \(message.id))")
+            return message
+            
+        } catch {
+            print("❌ Failed to fetch latest message from Firestore: \(error.localizedDescription)")
+            return nil
         }
     }
     
