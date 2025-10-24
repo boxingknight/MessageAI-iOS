@@ -3,21 +3,22 @@
 //  messAI
 //
 //  PR#20.1: Proactive AI Agent - Ambient Suggestion Bar
-//  Beautiful slide-down bar for high-confidence AI suggestions
+//  Apple-quality minimal persistent bar with collapsed/expanded states
 //
 
 import SwiftUI
 
 struct AmbientSuggestionBar: View {
     let opportunity: Opportunity
+    let isCollapsed: Bool
     let isProcessing: Bool
+    let onToggle: () -> Void
     let onApprove: () -> Void
     let onDismiss: () -> Void
     let onRSVPYes: (() -> Void)?
     let onRSVPNo: (() -> Void)?
     let onAddToCalendar: (() -> Void)?
-    
-    @State private var isExpanded: Bool = true
+    let onChangeResponse: (() -> Void)?
     
     // Check if user has already responded
     private var hasResponded: Bool {
@@ -28,71 +29,121 @@ struct AmbientSuggestionBar: View {
         opportunity.data.userResponse == "yes"
     }
     
+    private var userSaidNo: Bool {
+        opportunity.data.userResponse == "no"
+    }
+    
     // Convenience init for non-RSVP opportunities
-    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+    init(opportunity: Opportunity, isCollapsed: Bool, isProcessing: Bool, onToggle: @escaping () -> Void, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.opportunity = opportunity
+        self.isCollapsed = isCollapsed
         self.isProcessing = isProcessing
+        self.onToggle = onToggle
         self.onApprove = onApprove
         self.onDismiss = onDismiss
         self.onRSVPYes = nil
         self.onRSVPNo = nil
         self.onAddToCalendar = nil
+        self.onChangeResponse = nil
     }
     
     // Full init with RSVP handlers
-    init(opportunity: Opportunity, isProcessing: Bool, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void, onRSVPYes: (() -> Void)?, onRSVPNo: (() -> Void)?, onAddToCalendar: (() -> Void)? = nil) {
+    init(opportunity: Opportunity, isCollapsed: Bool, isProcessing: Bool, onToggle: @escaping () -> Void, onApprove: @escaping () -> Void, onDismiss: @escaping () -> Void, onRSVPYes: (() -> Void)?, onRSVPNo: (() -> Void)?, onAddToCalendar: (() -> Void)? = nil, onChangeResponse: (() -> Void)? = nil) {
         self.opportunity = opportunity
+        self.isCollapsed = isCollapsed
         self.isProcessing = isProcessing
+        self.onToggle = onToggle
         self.onApprove = onApprove
         self.onDismiss = onDismiss
         self.onRSVPYes = onRSVPYes
         self.onRSVPNo = onRSVPNo
         self.onAddToCalendar = onAddToCalendar
+        self.onChangeResponse = onChangeResponse
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Main content
-            VStack(alignment: .leading, spacing: 12) {
-                // Header
-                HStack {
-                    Image(systemName: opportunity.type.icon)
-                        .font(.title2)
-                        .foregroundColor(opportunity.type == .rsvpManagement ? .green : .purple)
+        if isCollapsed {
+            collapsedView
+        } else {
+            expandedView
+        }
+    }
+    
+    // MARK: - Collapsed View (Minimal 1-line)
+    
+    private var collapsedView: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 12) {
+                // Status icon
+                Image(systemName: statusIcon)
+                    .font(.body)
+                    .foregroundColor(statusColor)
+                
+                // Event title + status
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(opportunity.displayTitle)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
                     
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(opportunity.type == .rsvpManagement ? "Event Invitation" : "AI Suggestion")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text(opportunity.displayTitle)
-                            .font(.headline)
-                            .lineLimit(1)
-                    }
-                    
-                    Spacer()
-                    
-                    // Confidence badge
-                    Text("\(opportunity.confidencePercentage)%")
+                    Text(statusText)
                         .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.purple.opacity(0.2))
-                        .foregroundColor(.purple)
-                        .cornerRadius(12)
-                    
-                    // Dismiss button
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundColor(.gray)
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundColor(.secondary)
                 }
                 
-                // Event details (if expanded and event-related)
-                if isExpanded, (opportunity.type == .eventPlanning || opportunity.type == .rsvpManagement) {
+                Spacer()
+                
+                // Expand chevron
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(backgroundColor)
+                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+            )
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+        .buttonStyle(.plain)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    
+    // MARK: - Expanded View (Full Details)
+    
+    private var expandedView: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header (Tappable to collapse)
+                Button(action: onToggle) {
+                    HStack {
+                        Image(systemName: opportunity.type.icon)
+                            .font(.title3)
+                            .foregroundColor(opportunity.type == .rsvpManagement ? .green : .purple)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(opportunity.displayTitle)
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                                .lineLimit(2)
+                        }
+                        
+                        Spacer()
+                        
+                        // Collapse chevron
+                        Image(systemName: "chevron.up")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                
+                // Event details
+                if opportunity.type == .eventPlanning || opportunity.type == .rsvpManagement {
                     Divider()
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -116,7 +167,7 @@ struct AmbientSuggestionBar: View {
                 }
                 
                 // RSVP List (if user has responded)
-                if hasResponded, opportunity.type == .rsvpManagement, let rsvps = opportunity.data.rsvps {
+                if hasResponded, opportunity.type == .rsvpManagement, let rsvps = opportunity.data.rsvps, !rsvps.isEmpty {
                     Divider()
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -130,7 +181,6 @@ struct AmbientSuggestionBar: View {
                                     Image(systemName: response == "yes" ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .foregroundColor(response == "yes" ? .green : .red)
                                     
-                                    // Use display name if available, fallback to userId
                                     Text(opportunity.data.rsvpDisplayNames?[userId] ?? userId)
                                         .font(.subheadline)
                                     
@@ -148,7 +198,6 @@ struct AmbientSuggestionBar: View {
                 // Action buttons
                 HStack(spacing: 12) {
                     if isProcessing {
-                        // Processing state
                         HStack {
                             ProgressView()
                                 .scaleEffect(0.8)
@@ -159,7 +208,7 @@ struct AmbientSuggestionBar: View {
                         .frame(maxWidth: .infinity)
                         
                     } else if opportunity.type == .rsvpManagement && !hasResponded {
-                        // RSVP-specific buttons (Yes/No) - Only show if not responded yet
+                        // RSVP buttons (Yes/No)
                         Button(action: {
                             onRSVPYes?()
                         }) {
@@ -193,37 +242,53 @@ struct AmbientSuggestionBar: View {
                         }
                     
                     } else if opportunity.type == .rsvpManagement && hasResponded && userSaidYes {
-                        // User said Yes - Show "Add to Calendar" button
+                        // User said Yes - Show "Add to Calendar" + "Change Response"
+                        VStack(spacing: 8) {
+                            Button(action: {
+                                onAddToCalendar?()
+                            }) {
+                                HStack {
+                                    Image(systemName: "calendar.badge.plus")
+                                    Text("Add to Calendar")
+                                }
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.blue)
+                                .cornerRadius(10)
+                            }
+                            
+                            Button(action: {
+                                onChangeResponse?()
+                            }) {
+                                Text("Change Response")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                    } else if opportunity.type == .rsvpManagement && hasResponded && userSaidNo {
+                        // User said No - Show "Change Response"
                         Button(action: {
-                            onAddToCalendar?()
+                            onChangeResponse?()
                         }) {
                             HStack {
-                                Image(systemName: "calendar.badge.plus")
-                                Text("Add to Calendar")
+                                Image(systemName: "arrow.clockwise")
+                                Text("Change Response")
                             }
                             .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .fontWeight(.medium)
+                            .foregroundColor(.purple)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.blue)
+                            .background(Color.purple.opacity(0.1))
                             .cornerRadius(10)
                         }
                         
-                    } else if opportunity.type == .rsvpManagement && hasResponded {
-                        // User said No - Show confirmation message
-                        HStack {
-                            Image(systemName: "checkmark.circle")
-                                .foregroundColor(.secondary)
-                            Text("RSVP recorded. This will disappear in a moment...")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        
                     } else {
-                        // Standard action buttons (Create & Organize, etc.)
+                        // Standard action buttons
                         Button(action: onApprove) {
                             HStack {
                                 Image(systemName: "sparkles")
@@ -244,7 +309,6 @@ struct AmbientSuggestionBar: View {
                             .cornerRadius(10)
                         }
                         
-                        // Secondary action (optional)
                         if opportunity.suggestedActions.count > 1 {
                             Button(action: onDismiss) {
                                 Text("Not Now")
@@ -259,6 +323,16 @@ struct AmbientSuggestionBar: View {
                         }
                     }
                 }
+                
+                // Dismiss button (top right)
+                HStack {
+                    Spacer()
+                    Button(action: onDismiss) {
+                        Text("Dismiss")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             .padding(16)
             .background(
@@ -270,7 +344,40 @@ struct AmbientSuggestionBar: View {
             .padding(.top, 8)
         }
         .transition(.move(edge: .top).combined(with: .opacity))
-        .animation(.spring(response: 0.3), value: isExpanded)
+    }
+    
+    // MARK: - Computed Properties for Collapsed State
+    
+    private var statusIcon: String {
+        if hasResponded {
+            return userSaidYes ? "checkmark.circle.fill" : "xmark.circle.fill"
+        }
+        return opportunity.type.icon
+    }
+    
+    private var statusColor: Color {
+        if hasResponded {
+            return userSaidYes ? .green : .gray
+        }
+        return opportunity.type == .rsvpManagement ? .green : .purple
+    }
+    
+    private var statusText: String {
+        if hasResponded {
+            return userSaidYes ? "You're attending · Tap for details" : "You declined · Tap for details"
+        }
+        return "Tap to respond"
+    }
+    
+    private var backgroundColor: Color {
+        if hasResponded {
+            if userSaidYes {
+                return Color.green.opacity(0.08)
+            } else {
+                return Color.gray.opacity(0.06)
+            }
+        }
+        return Color.purple.opacity(0.08)
     }
     
     private var primaryActionText: String {
@@ -312,8 +419,8 @@ struct DetailRow: View {
 
 struct AmbientSuggestionBar_Previews: PreviewProvider {
     static var previews: some View {
-        VStack {
-            // High confidence event
+        VStack(spacing: 20) {
+            // Expanded event
             AmbientSuggestionBar(
                 opportunity: Opportunity(
                     id: "1",
@@ -330,32 +437,37 @@ struct AmbientSuggestionBar_Previews: PreviewProvider {
                     reasoning: "Detected event planning in conversation",
                     timestamp: Date()
                 ),
+                isCollapsed: false,
                 isProcessing: false,
+                onToggle: {},
+                onApprove: {},
+                onDismiss: {}
+            )
+            
+            // Collapsed event (after RSVP Yes)
+            AmbientSuggestionBar(
+                opportunity: Opportunity(
+                    id: "2",
+                    type: .rsvpManagement,
+                    confidence: 1.0,
+                    data: OpportunityData(
+                        title: "Poker Night",
+                        date: "October 31",
+                        time: "10PM",
+                        userResponse: "yes"
+                    ),
+                    suggestedActions: ["rsvp"],
+                    reasoning: "User RSVP'd yes",
+                    timestamp: Date()
+                ),
+                isCollapsed: true,
+                isProcessing: false,
+                onToggle: {},
                 onApprove: {},
                 onDismiss: {}
             )
             
             Spacer()
-            
-            // Processing state
-            AmbientSuggestionBar(
-                opportunity: Opportunity(
-                    id: "2",
-                    type: .eventPlanning,
-                    confidence: 0.85,
-                    data: OpportunityData(
-                        title: "Soccer Practice",
-                        date: "Tomorrow",
-                        time: "4:00 PM"
-                    ),
-                    suggestedActions: ["create_event"],
-                    reasoning: "Event detected",
-                    timestamp: Date()
-                ),
-                isProcessing: true,
-                onApprove: {},
-                onDismiss: {}
-            )
         }
         .background(Color.gray.opacity(0.1))
     }

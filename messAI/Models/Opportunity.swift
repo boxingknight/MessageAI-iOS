@@ -103,7 +103,15 @@ struct Opportunity: Identifiable, Codable {
         case .deadlineTracking:
             return data.task ?? "Deadline"
         case .rsvpManagement:
-            return "RSVP Needed"
+            // Show event name with date/time for RSVP invitations
+            var title = data.title ?? "Event"
+            if let date = data.date, !date.isEmpty {
+                title += " - \(date)"
+            }
+            if let time = data.time, !time.isEmpty {
+                title += " at \(time)"
+            }
+            return title
         case .decisionSummary:
             return "Decision Made"
         }

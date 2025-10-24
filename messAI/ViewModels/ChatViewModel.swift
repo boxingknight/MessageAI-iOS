@@ -1327,6 +1327,9 @@ class ChatViewModel: ObservableObject {
     @Published var agentIsProcessing: Bool = false
     @Published var agentError: String?
     
+    // Collapsed/Expanded state for each opportunity (opportunityId -> isCollapsed)
+    @Published var opportunityCollapsedStates: [String: Bool] = [:]
+    
     private var opportunityListener: AnyCancellable?
     private var eventListener: ListenerRegistration?
     
@@ -1420,7 +1423,8 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Create an RSVP opportunity from a new event
-     * This will trigger the Ambient Bar to show with RSVP options
+     * Checks if user already responded - if yes, shows collapsed bar with their status
+     * If no, shows full RSVP prompt
      */
     private func createRSVPOpportunity(from eventData: [String: Any], eventId: String) {
         let title = eventData["title"] as? String ?? "Event"
@@ -1428,21 +1432,38 @@ class ChatViewModel: ObservableObject {
         let time = eventData["time"] as? String ?? ""
         let location = eventData["location"] as? String ?? ""
         
-        // Create RSVP opportunity
+        // Check if user already RSVP'd
+        let rsvps = eventData["rsvps"] as? [String: String] ?? [:]
+        let userResponse = rsvps[currentUserId]
+        
+        // Create opportunity
+        var opportunityData = OpportunityData(
+            title: title,
+            date: date,
+            time: time,
+            location: location,
+            eventReference: eventId,
+            needsRSVP: userResponse == nil // Only needs RSVP if user hasn't responded
+        )
+        
+        // If user already responded, include their response and all RSVPs
+        if let userResponse = userResponse {
+            opportunityData.userResponse = userResponse
+            opportunityData.rsvps = rsvps
+            
+            // Fetch display names asynchronously
+            Task {
+                await self.fetchRSVPDisplayNames(for: rsvps, opportunityId: "rsvp-\(eventId)")
+            }
+        }
+        
         let opportunity = Opportunity(
             id: "rsvp-\(eventId)",
             type: .rsvpManagement,
-            confidence: 1.0, // Always high confidence for created events
-            data: OpportunityData(
-                title: title,
-                date: date,
-                time: time,
-                location: location,
-                eventReference: eventId,
-                needsRSVP: true
-            ),
+            confidence: 1.0,
+            data: opportunityData,
             suggestedActions: ["rsvp_yes", "rsvp_no", "rsvp_maybe"],
-            reasoning: "New event created - RSVP requested",
+            reasoning: userResponse == nil ? "New event - RSVP requested" : "You RSVP'd \(userResponse ?? "")",
             timestamp: Date()
         )
         
@@ -1450,7 +1471,60 @@ class ChatViewModel: ObservableObject {
         currentOpportunity = opportunity
         showAmbientBar = true
         
-        print("✅ RSVP Ambient Bar shown for event: \(title)")
+        // Set collapsed state based on whether user already responded
+        opportunityCollapsedStates["rsvp-\(eventId)"] = (userResponse != nil)
+        
+        if userResponse != nil {
+            print("✅ RSVP Ambient Bar shown (collapsed) - User already RSVP'd: \(userResponse ?? "")")
+        } else {
+            print("✅ RSVP Ambient Bar shown (expanded) - Awaiting user response")
+        }
+    }
+    
+    /**
+     * Fetch display names for RSVP participants and update the opportunity
+     */
+    private func fetchRSVPDisplayNames(for rsvps: [String: String], opportunityId: String) async {
+        let db = Firestore.firestore()
+        var displayNames: [String: String] = [:]
+        
+        for userId in rsvps.keys {
+            do {
+                let userDoc = try await db.collection("users").document(userId).getDocument()
+                if let userData = userDoc.data(),
+                   let displayName = userData["displayName"] as? String {
+                    displayNames[userId] = displayName
+                } else {
+                    displayNames[userId] = "Unknown User"
+                }
+            } catch {
+                displayNames[userId] = "Unknown User"
+            }
+        }
+        
+        // Update opportunity with display names
+        guard var opportunity = currentOpportunity,
+              opportunity.id == opportunityId else {
+            return
+        }
+        
+        var updatedData = opportunity.data
+        updatedData.rsvpDisplayNames = displayNames
+        
+        let updatedOpportunity = Opportunity(
+            id: opportunity.id,
+            type: opportunity.type,
+            confidence: opportunity.confidence,
+            data: updatedData,
+            suggestedActions: opportunity.suggestedActions,
+            reasoning: opportunity.reasoning,
+            timestamp: opportunity.timestamp
+        )
+        
+        // Update on main thread
+        await MainActor.run {
+            self.currentOpportunity = updatedOpportunity
+        }
     }
     
     /**
@@ -1572,6 +1646,7 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Handle RSVP Yes response
+     * Keeps bar visible in collapsed state after responding
      */
     func rsvpYes(_ opportunity: Opportunity) async {
         print("✅ ChatViewModel: User RSVP'd YES to event")
@@ -1598,6 +1673,11 @@ class ChatViewModel: ObservableObject {
             // Update opportunity to show RSVP list + Add to Calendar button
             await refreshOpportunityWithRSVPs(opportunity, eventId: eventId, userResponse: "yes")
             
+            // Collapse the bar (keep it visible but minimal)
+            opportunityCollapsedStates[opportunity.id] = true
+            
+            print("✅ Ambient Bar collapsed - User can still access details")
+            
         } catch {
             print("❌ Failed to record RSVP: \(error.localizedDescription)")
             agentError = "Failed to record RSVP"
@@ -1607,6 +1687,7 @@ class ChatViewModel: ObservableObject {
     
     /**
      * Handle RSVP No response
+     * Keeps bar visible in collapsed state after responding
      */
     func rsvpNo(_ opportunity: Opportunity) async {
         print("❌ ChatViewModel: User RSVP'd NO to event")
@@ -1633,13 +1714,10 @@ class ChatViewModel: ObservableObject {
             // Update opportunity to show RSVP list
             await refreshOpportunityWithRSVPs(opportunity, eventId: eventId, userResponse: "no")
             
-            // After 10 seconds, fade out the Ambient Bar
-            Task {
-                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
-                await MainActor.run {
-                    dismissOpportunity(opportunity)
-                }
-            }
+            // Collapse the bar (keep it visible but minimal)
+            opportunityCollapsedStates[opportunity.id] = true
+            
+            print("✅ Ambient Bar collapsed - User declined, bar remains visible")
             
         } catch {
             print("❌ Failed to record RSVP: \(error.localizedDescription)")
@@ -1911,6 +1989,23 @@ class ChatViewModel: ObservableObject {
     }
     
     /**
+     * Toggle collapsed/expanded state for an opportunity
+     */
+    func toggleOpportunityCollapsed(_ opportunityId: String) {
+        let currentState = opportunityCollapsedStates[opportunityId] ?? false
+        opportunityCollapsedStates[opportunityId] = !currentState
+        
+        print("🤖 ChatViewModel: Toggled opportunity \(opportunityId) - Collapsed: \(!currentState)")
+    }
+    
+    /**
+     * Check if an opportunity is collapsed
+     */
+    func isOpportunityCollapsed(_ opportunityId: String) -> Bool {
+        return opportunityCollapsedStates[opportunityId] ?? false
+    }
+    
+    /**
      * Dismiss an opportunity
      */
     func dismissOpportunity(_ opportunity: Opportunity) {
@@ -1928,6 +2023,9 @@ class ChatViewModel: ObservableObject {
         // Remove from pending suggestions
         pendingSuggestions.removeAll { $0.id == opportunity.id }
         suggestionsCount = pendingSuggestions.count
+        
+        // Remove collapsed state
+        opportunityCollapsedStates.removeValue(forKey: opportunity.id)
     }
     
     /**

@@ -273,7 +273,11 @@ struct ChatView: View {
             if viewModel.showAmbientBar, let opportunity = viewModel.currentOpportunity {
                 AmbientSuggestionBar(
                     opportunity: opportunity,
+                    isCollapsed: viewModel.isOpportunityCollapsed(opportunity.id),
                     isProcessing: viewModel.agentIsProcessing,
+                    onToggle: {
+                        viewModel.toggleOpportunityCollapsed(opportunity.id)
+                    },
                     onApprove: {
                         Task {
                             await viewModel.approveOpportunity(opportunity)
@@ -296,6 +300,10 @@ struct ChatView: View {
                         Task {
                             await viewModel.addToCalendar(opportunity)
                         }
+                    },
+                    onChangeResponse: {
+                        // Expand the bar and reset the user's response
+                        viewModel.toggleOpportunityCollapsed(opportunity.id)
                     }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
