@@ -100,6 +100,9 @@ class ChatViewModel: ObservableObject {
             // Start Firestore real-time listener (PR #10)
             startRealtimeSync()
             
+            // PR#20.2 Phase 6: Start event count listener
+            startEventCountListener()
+            
             // Mark conversation as viewed (PR #11)
             await markConversationAsViewed()
             
@@ -1326,6 +1329,9 @@ class ChatViewModel: ObservableObject {
     @Published var pendingSuggestions: [Opportunity] = []
     @Published var suggestionsCount: Int = 0
     @Published var agentIsProcessing: Bool = false
+    
+    // PR#20.2 Phase 6: Event count for badge
+    @Published var activeEventCount: Int = 0
     @Published var agentError: String?
     
     // Collapsed/Expanded state for each opportunity (opportunityId -> isCollapsed)
@@ -2268,6 +2274,47 @@ class ChatViewModel: ObservableObject {
         
         pendingSuggestions = []
         suggestionsCount = 0
+    }
+    
+    // MARK: - PR#20.2 Phase 6: Event Count Badge
+    
+    /**
+     * Start listening to event count for badge display
+     * Counts only upcoming, non-cancelled events
+     */
+    private func startEventCountListener() {
+        print("📊 ChatViewModel: Starting event count listener")
+        
+        let db = Firestore.firestore()
+        
+        db.collection("events")
+            .whereField("conversationId", isEqualTo: conversationId)
+            .whereField("status", isNotEqualTo: "cancelled")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Event count listener error: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("⚠️ No documents in event count snapshot")
+                    return
+                }
+                
+                // Count only upcoming, non-cancelled events
+                let upcomingCount = documents.compactMap { doc -> EventDocument? in
+                    return EventDocument(from: doc)
+                }.filter { event in
+                    return event.isUpcoming // Uses computed property (checks date >= now && status != "cancelled")
+                }.count
+                
+                Task { @MainActor in
+                    self.activeEventCount = upcomingCount
+                    print("📊 Active event count updated: \(upcomingCount)")
+                }
+            }
     }
 }
 

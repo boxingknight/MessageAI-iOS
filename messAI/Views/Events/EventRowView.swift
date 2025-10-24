@@ -56,6 +56,9 @@ struct EventRowView: View {
             }
         }
         .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(event.title), \(event.formattedDate) at \(event.formattedTime)")
+        .accessibilityHint("Tap to view event details")
     }
 }
 

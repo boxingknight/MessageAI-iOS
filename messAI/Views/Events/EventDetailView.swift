@@ -232,6 +232,8 @@ struct EventDetailView: View {
                     .cornerRadius(10)
                 }
                 .disabled(viewModel.isAddedToCalendar || viewModel.isProcessing)
+                .accessibilityLabel(viewModel.isAddedToCalendar ? "Event added to calendar" : "Add event to calendar")
+                .accessibilityHint(viewModel.isAddedToCalendar ? "" : "Adds this event to your iOS Calendar app")
             }
             
             // Phase 3-5: Additional buttons
@@ -249,6 +251,8 @@ struct EventDetailView: View {
                         .cornerRadius(10)
                 }
                 .disabled(viewModel.isProcessing)
+                .accessibilityLabel("Edit event")
+                .accessibilityHint("Opens a form to edit event details")
                 
                 // Cancel button (creator only) - Phase 5
                 Button(action: {
@@ -263,6 +267,8 @@ struct EventDetailView: View {
                         .cornerRadius(10)
                 }
                 .disabled(viewModel.isProcessing)
+                .accessibilityLabel("Cancel event")
+                .accessibilityHint("Cancels this event for all participants")
             } else if !viewModel.isCreator && !viewModel.event.isCancelled {
                 // Change RSVP button (participants) - Phase 3
                 Button(action: {
@@ -277,6 +283,8 @@ struct EventDetailView: View {
                         .cornerRadius(10)
                 }
                 .disabled(viewModel.isProcessing)
+                .accessibilityLabel("Change RSVP response")
+                .accessibilityHint("Opens options to change your attendance response")
             }
             
             // Error message (if any)

@@ -22,7 +22,7 @@ struct EventsListView: View {
         NavigationView {
             ZStack {
                 if viewModel.isLoading {
-                    ProgressView("Loading events...")
+                    loadingState
                 } else if viewModel.upcomingEvents.isEmpty && viewModel.pastEvents.isEmpty {
                     emptyState
                 } else {
@@ -57,6 +57,21 @@ struct EventsListView: View {
         }
     }
     
+    // MARK: - Loading State
+    
+    private var loadingState: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+            
+            Text("Loading events...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Loading events")
+    }
+    
     // MARK: - Empty State
     
     private var emptyState: some View {
@@ -65,6 +80,8 @@ struct EventsListView: View {
             systemImage: "calendar.badge.questionmark",
             description: Text("Events created in this chat will appear here")
         )
+        .accessibilityLabel("No events")
+        .accessibilityHint("Events created in this chat will appear here")
     }
     
     // MARK: - Events List
@@ -85,6 +102,7 @@ struct EventsListView: View {
                 } header: {
                     Text("Upcoming (\(viewModel.upcomingEvents.count))")
                         .font(.headline)
+                        .accessibilityLabel("\(viewModel.upcomingEvents.count) upcoming events")
                 }
             }
             
@@ -102,6 +120,7 @@ struct EventsListView: View {
                 } header: {
                     Text("Past (\(viewModel.pastEvents.count))")
                         .font(.headline)
+                        .accessibilityLabel("\(viewModel.pastEvents.count) past events")
                 }
             }
         }
@@ -111,22 +130,48 @@ struct EventsListView: View {
             await viewModel.refresh()
         }
         .overlay {
-            // Error message (if any)
+            // Error message with retry button
             if let errorMessage = viewModel.errorMessage {
                 VStack {
                     Spacer()
                     
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(uiColor: .systemBackground))
-                                .shadow(radius: 4)
-                        )
-                        .padding()
+                    VStack(spacing: 12) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            
+                            Text(errorMessage)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.leading)
+                            
+                            Spacer()
+                        }
+                        
+                        Button(action: {
+                            Task {
+                                await viewModel.refresh()
+                            }
+                        }) {
+                            Label("Try Again", systemImage: "arrow.clockwise")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
+                        .accessibilityLabel("Retry loading events")
+                        .accessibilityHint("Attempts to load events again")
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(uiColor: .systemBackground))
+                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                    )
+                    .padding()
                 }
             }
         }

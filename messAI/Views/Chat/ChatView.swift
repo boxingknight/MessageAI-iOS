@@ -133,9 +133,25 @@ struct ChatView: View {
                 print("📅 ChatView: Opening Events sheet")
                 showEventsSheet = true
             }) {
-                Image(systemName: "calendar")
-                    .foregroundColor(.blue)
+                ZStack {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.blue)
+                    
+                    // Phase 6: Badge count
+                    if viewModel.activeEventCount > 0 {
+                        Text("\(viewModel.activeEventCount)")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(4)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 10, y: -10)
+                    }
+                }
             }
+            .accessibilityLabel(viewModel.activeEventCount > 0 ? "Events, \(viewModel.activeEventCount) active" : "Events")
+            .accessibilityHint("Opens the events list for this conversation")
             
             if conversation.isGroup {
                 // Group chat: Show group info button
