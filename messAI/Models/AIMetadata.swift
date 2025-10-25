@@ -76,11 +76,11 @@ struct AIMetadata: Codable, Equatable, Hashable {
     var hasDeadline: Bool?              // Quick check if message contains deadline
     
     // Common metadata
-    var processedAt: Date
+    var processedAt: Date?  // Made optional to handle Firebase Timestamps
     var processingTimeMs: Int?
     var modelUsed: String?
     
-    init(processedAt: Date = Date()) {
+    init(processedAt: Date? = Date()) {
         self.processedAt = processedAt
     }
 }

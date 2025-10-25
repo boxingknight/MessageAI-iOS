@@ -123,7 +123,7 @@ import FirebaseFirestore
 private func createMockSnapshot(id: String, data: [String: Any]) -> DocumentSnapshot {
     // Create a mock DocumentSnapshot for preview
     // In production, this would come from Firestore
-    let mockRef = Firestore.firestore().collection("events").document(id)
+    let _ = Firestore.firestore().collection("events").document(id)
     
     // This is a workaround for previews - in production, EventDocument is initialized from real Firestore snapshots
     // For now, we'll create a custom initializer in EventDocument for previews

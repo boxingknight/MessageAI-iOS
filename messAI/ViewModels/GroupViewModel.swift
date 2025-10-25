@@ -38,7 +38,7 @@ class GroupViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(chatService: ChatService = ChatService()) {
+    nonisolated init(chatService: ChatService = ChatService()) {
         self.chatService = chatService
     }
     

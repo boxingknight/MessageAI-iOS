@@ -340,11 +340,9 @@ class ChatViewModel: ObservableObject {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
                 
-                // PR #17: Automatically detect priority for new messages (async, non-blocking)
-                // Message appears immediately, priority detection happens in background (~1-2s)
-                Task {
-                    await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
-                }
+                // PR #17: Priority detection now handled server-side via Firestore trigger
+                // The onMessageCreated Cloud Function automatically processes priority for all new messages
+                // This ensures consistent highlighting across all users in group chats
                 
                 // PR #18: Automatically track RSVP for new messages (async, non-blocking)
                 // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
@@ -1088,11 +1086,12 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Priority Highlighting (PR #17)
     
-    /// Detect priority level for a message (called automatically on new messages)
-    /// Updates the message's AIMetadata with priority information
+    /// Detect priority level for a message (MANUAL CALLS ONLY - auto-detection is server-side)
+    /// Priority is automatically handled via Firestore trigger (onMessageCreated) for consistency
+    /// This function is only used for manual priority detection requests
     @discardableResult
     func detectMessagePriority(for messageId: String, messageText: String) async -> PriorityDetectionResult? {
-        // print("🎯 Detecting priority for message: \(messageId)")
+        print("🎯 Manual priority detection for message: \(messageId)")
         
         do {
             // Call AI service to detect priority
@@ -1101,10 +1100,10 @@ class ChatViewModel: ObservableObject {
                 conversationId: conversationId
             )
             
-            // print("✅ Priority detected: \(result.level.rawValue)")
-            // print("   - Confidence: \(String(format: "%.2f", result.confidence))")
-            // print("   - Method: \(result.method.rawValue)")
-            // print("   - Used GPT-4: \(result.usedGPT4)")
+            print("✅ Priority detected: \(result.level.rawValue)")
+            print("   - Confidence: \(String(format: "%.2f", result.confidence))")
+            print("   - Method: \(result.method.rawValue)")
+            print("   - Used GPT-4: \(result.usedGPT4)")
             
             // Update message's AIMetadata in Firestore
             await updateMessagePriority(messageId: messageId, result: result)
@@ -1126,13 +1125,13 @@ class ChatViewModel: ObservableObject {
                 
                 messages[index] = updatedMessage
                 
-                // print("✅ Updated local message with priority: \(result.level.rawValue)")
+                print("✅ Updated local message with priority: \(result.level.rawValue)")
             }
             
             return result
             
         } catch {
-            // Silenced: Priority detection failed
+            print("❌ Priority detection failed: \(error)")
             return nil
         }
     }

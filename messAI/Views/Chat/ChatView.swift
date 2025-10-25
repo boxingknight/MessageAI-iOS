@@ -8,18 +8,18 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isInputFocused: Bool
+    @State private var isInputFocused: Bool = false
+    @State private var shouldMaintainFocus: Bool = true  // For rapid messaging
     @State private var showGroupInfo = false
     @State private var showEventsSheet = false  // PR#20.2: Events sheet
+    @State private var userCache: [String: User] = [:]  // Changed to @State so it can be updated
     
     let conversation: Conversation
-    
-    // PR #13: User cache for group sender names (TODO: populate from ChatViewModel)
-    private let userCache: [String: User] = [:]
     
     // MARK: - Computed Properties
     
@@ -347,6 +347,17 @@ struct ChatView: View {
             // Messages ScrollView
             ScrollViewReader { proxy in
                 messagesList(proxy: proxy)
+                    .onTapGesture {
+                        // Allow users to dismiss focus by tapping messages area
+                        print("🎯 User tapped messages, allowing focus dismissal")
+                        shouldMaintainFocus = false
+                        isInputFocused = false
+                        
+                        // Re-enable persistent focus after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            shouldMaintainFocus = true
+                        }
+                    }
             }
             
             // Typing indicator
@@ -369,14 +380,34 @@ struct ChatView: View {
             // Input view
             MessageInputView(
                 text: $viewModel.messageText,
+                isFocused: $isInputFocused,
                 onSend: {
+                    print("🎯 Sending message, current focus: \(isInputFocused)")
+                    // Send message but maintain focus for rapid messaging
                     viewModel.sendMessage()
+                    
+                    // Use DispatchQueue for more reliable UI updates
+                    DispatchQueue.main.async {
+                        print("🎯 Restoring focus after send")
+                        isInputFocused = true
+                    }
                 }
             )
         }
         .onChange(of: viewModel.messageText) { oldValue, newValue in
             // Trigger typing indicator when text changes
             viewModel.handleTextChange()
+        }
+        .onChange(of: isInputFocused) { oldValue, newValue in
+            print("🎯 ChatView focus changed: \(oldValue) → \(newValue)")
+            
+            // If focus is lost but we should maintain it, restore it
+            if !newValue && shouldMaintainFocus {
+                print("🎯 Focus lost, restoring for rapid messaging")
+                DispatchQueue.main.async {
+                    isInputFocused = true
+                }
+            }
         }
         .navigationTitle(conversationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -407,6 +438,9 @@ struct ChatView: View {
             print("🚨 DEADLINE: 🎬 ChatView .task - About to call loadDeadlines()")
             await viewModel.loadDeadlines()
             print("🚨 DEADLINE: 🎬 ChatView .task - Returned from loadDeadlines()")
+            
+            // Load user data for group participants (fixes "Unknown" display names)
+            await loadParticipantUsers()
         }
         .onAppear {
             // PR#17.1: Track active conversation for toast notifications
@@ -416,6 +450,12 @@ struct ChatView: View {
             // PR#11 Fix: Track chat visibility for real-time read receipts
             viewModel.isChatVisible = true
             print("👁️ Chat is now VISIBLE - read receipts will be instant")
+            
+            // Auto-focus input for immediate typing
+            print("🎯 ChatView onAppear - setting initial focus")
+            DispatchQueue.main.async {
+                isInputFocused = true
+            }
         }
         .onDisappear {
             // PR#17.1: Clear active conversation when leaving chat
@@ -425,6 +465,10 @@ struct ChatView: View {
             // PR#11 Fix: Clear chat visibility
             viewModel.isChatVisible = false
             print("👁️ Chat is now HIDDEN - read receipts paused")
+            
+            // Disable persistent focus when leaving chat
+            shouldMaintainFocus = false
+            isInputFocused = false
         }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {
@@ -479,6 +523,48 @@ struct ChatView: View {
             }
         }
         .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// Load user data for all conversation participants (fixes "Unknown" display names)
+    private func loadParticipantUsers() async {
+        print("👥 Loading participant user data...")
+        
+        var loadedUsers: [String: User] = [:]
+        
+        // Load each participant from Firestore
+        for participantId in conversation.participants {
+            do {
+                let userDoc = try await Firestore.firestore()
+                    .collection("users")
+                    .document(participantId)
+                    .getDocument()
+                
+                if let data = userDoc.data() {
+                    // Add the document ID to the data dictionary since User.init expects it
+                    var userData = data
+                    userData["id"] = participantId
+                    
+                    if let user = User(from: userData) {
+                        loadedUsers[participantId] = user
+                        print("👥 Loaded user: \(user.displayName)")
+                    } else {
+                        print("⚠️ Failed to parse user data for: \(participantId)")
+                    }
+                } else {
+                    print("⚠️ User document not found for: \(participantId)")
+                }
+            } catch {
+                print("❌ Failed to load user \(participantId): \(error.localizedDescription)")
+            }
+        }
+        
+        // Update the user cache on main thread
+        await MainActor.run {
+            self.userCache = loadedUsers
+            print("👥 Updated user cache with \(loadedUsers.count) users")
+        }
     }
 }
 

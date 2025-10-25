@@ -6,4 +6,5 @@ admin.initializeApp();
 // Export Cloud Functions
 export { processAI } from './ai/processAI';
 export { handleDetectOpportunities as detectOpportunities } from './ai/proactiveAgent/index';
+export { onMessageCreated } from './ai/messageTriggered';
 
