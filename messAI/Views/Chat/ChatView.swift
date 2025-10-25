@@ -368,8 +368,11 @@ struct ChatView: View {
             // Input view
             MessageInputView(
                 text: $viewModel.messageText,
+                isFocused: $isInputFocused,
                 onSend: {
                     viewModel.sendMessage()
+                    // Keep focus after sending for rapid messaging
+                    isInputFocused = true
                 }
             )
         }
@@ -418,6 +421,9 @@ struct ChatView: View {
             // PR#11 Fix: Track chat visibility for real-time read receipts
             viewModel.isChatVisible = true
             print("👁️ Chat is now VISIBLE - read receipts will be instant")
+            
+            // Auto-focus input for immediate typing
+            isInputFocused = true
         }
         .onDisappear {
             // PR#17.1: Clear active conversation when leaving chat

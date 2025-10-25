@@ -10,9 +10,8 @@ import SwiftUI
 
 struct MessageInputView: View {
     @Binding var text: String
+    @Binding var isFocused: Bool  // Accept focus binding from parent
     let onSend: () -> Void
-    
-    @FocusState private var isFocused: Bool
     
     var body: some View {
         HStack(spacing: 12) {
@@ -60,6 +59,7 @@ struct MessageInputView: View {
         
         MessageInputView(
             text: .constant(""),
+            isFocused: .constant(false),
             onSend: {
                 print("Send tapped")
             }
@@ -73,6 +73,7 @@ struct MessageInputView: View {
         
         MessageInputView(
             text: .constant("Hello, how are you doing today?"),
+            isFocused: .constant(true),
             onSend: {
                 print("Send tapped")
             }
