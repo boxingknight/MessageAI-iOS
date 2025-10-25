@@ -41,36 +41,30 @@ struct MessageBubbleView: View {
                         .padding(.leading, 12)
                 }
                 
-                // Message text bubble with priority border/badge (PR #17)
-                ZStack(alignment: .topTrailing) {
-                    Text(message.text)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(priorityBackgroundColor)
-                        .foregroundColor(textColor)
-                        .clipShape(messageBubbleShape)
-                        .textSelection(.enabled)
-                        .overlay(
-                            messageBubbleShape
-                                .stroke(priorityBorderColor, lineWidth: priorityBorderWidth)
-                        )
-                    
-                    // Priority badge (PR #17)
-                    if let priority = message.aiMetadata?.priorityLevel,
-                       priority.shouldHighlight {
-                        Image(systemName: priority.icon)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(priority.iconColor)
-                            .padding(4)
-                            .background(Color(.systemBackground))
-                            .clipShape(Circle())
-                            .offset(x: -4, y: 4)
-                    }
-                }
+                // Message text bubble with priority border (PR #17)
+                Text(message.text)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(priorityBackgroundColor)
+                    .foregroundColor(textColor)
+                    .clipShape(messageBubbleShape)
+                    .textSelection(.enabled)
+                    .overlay(
+                        messageBubbleShape
+                            .stroke(priorityBorderColor, lineWidth: priorityBorderWidth)
+                    )
                 
-                // Timestamp + Status (only show on last message in group)
+                // Timestamp + Status + Priority (only show on last message in group)
                 if isLastInGroup {
                     HStack(spacing: 4) {
+                        // Priority badge - clean integration with timestamp (PR #17)
+                        if let priority = message.aiMetadata?.priorityLevel,
+                           priority.shouldHighlight {
+                            Image(systemName: priority.icon)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(priority.iconColor)
+                        }
+                        
                         Text(formatTime(message.sentAt))
                             .font(.caption2)
                             .foregroundColor(.secondary)
