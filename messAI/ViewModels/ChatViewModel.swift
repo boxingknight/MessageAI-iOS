@@ -340,11 +340,9 @@ class ChatViewModel: ObservableObject {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
                 
-                // PR #17: Automatically detect priority for new messages (async, non-blocking)
-                // Message appears immediately, priority detection happens in background (~1-2s)
-                Task {
-                    await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
-                }
+                // PR #17: Priority detection now handled server-side via Firestore trigger
+                // This prevents race conditions where multiple users detect priority for the same message
+                // The aiMetadata.priorityLevel will be automatically updated by the Cloud Function
                 
                 // PR #18: Automatically track RSVP for new messages (async, non-blocking)
                 // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
@@ -1088,7 +1086,8 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Priority Highlighting (PR #17)
     
-    /// Detect priority level for a message (called automatically on new messages)
+    /// Detect priority level for a message (MANUAL CALLS ONLY - auto-detection moved to server-side)
+    /// Priority is now automatically handled via Firestore trigger to prevent race conditions
     /// Updates the message's AIMetadata with priority information
     @discardableResult
     func detectMessagePriority(for messageId: String, messageText: String) async -> PriorityDetectionResult? {

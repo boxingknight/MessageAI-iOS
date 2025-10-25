@@ -8,6 +8,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
@@ -15,11 +16,9 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
     @State private var showGroupInfo = false
     @State private var showEventsSheet = false  // PR#20.2: Events sheet
+    @State private var userCache: [String: User] = [:]  // Changed to @State so it can be updated
     
     let conversation: Conversation
-    
-    // PR #13: User cache for group sender names (TODO: populate from ChatViewModel)
-    private let userCache: [String: User] = [:]
     
     // MARK: - Computed Properties
     
@@ -407,6 +406,9 @@ struct ChatView: View {
             print("🚨 DEADLINE: 🎬 ChatView .task - About to call loadDeadlines()")
             await viewModel.loadDeadlines()
             print("🚨 DEADLINE: 🎬 ChatView .task - Returned from loadDeadlines()")
+            
+            // Load user data for group participants (fixes "Unknown" display names)
+            await loadParticipantUsers()
         }
         .onAppear {
             // PR#17.1: Track active conversation for toast notifications
@@ -479,6 +481,41 @@ struct ChatView: View {
             }
         }
         .padding(.horizontal, message.senderId == viewModel.currentUserId ? 60 : 16)
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// Load user data for all conversation participants (fixes "Unknown" display names)
+    private func loadParticipantUsers() async {
+        print("👥 Loading participant user data...")
+        
+        var loadedUsers: [String: User] = [:]
+        
+        // Load each participant from Firestore
+        for participantId in conversation.participants {
+            do {
+                let userDoc = try await Firestore.firestore()
+                    .collection("users")
+                    .document(participantId)
+                    .getDocument()
+                
+                if let data = userDoc.data() {
+                    let user = try User.fromFirestore(data, id: participantId)
+                    loadedUsers[participantId] = user
+                    print("👥 Loaded user: \(user.displayName)")
+                } else {
+                    print("⚠️ User document not found for: \(participantId)")
+                }
+            } catch {
+                print("❌ Failed to load user \(participantId): \(error.localizedDescription)")
+            }
+        }
+        
+        // Update the user cache on main thread
+        await MainActor.run {
+            self.userCache = loadedUsers
+            print("👥 Updated user cache with \(loadedUsers.count) users")
+        }
     }
 }
 
