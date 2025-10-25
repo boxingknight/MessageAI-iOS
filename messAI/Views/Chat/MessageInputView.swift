@@ -50,11 +50,17 @@ struct MessageInputView: View {
         .background(Color(.systemBackground))
         .onChange(of: isFocused) { oldValue, newValue in
             // Sync parent binding to internal focus state
+            print("🎯 Parent focus changed: \(oldValue) → \(newValue)")
             isTextFieldFocused = newValue
         }
         .onChange(of: isTextFieldFocused) { oldValue, newValue in
             // Sync internal focus state to parent binding
+            print("🎯 TextField focus changed: \(oldValue) → \(newValue)")
             isFocused = newValue
+        }
+        .onChange(of: text) { oldValue, newValue in
+            // Debug: Track text changes that might affect focus
+            print("🎯 Text changed: '\(oldValue)' → '\(newValue)', focus: \(isTextFieldFocused)")
         }
     }
     

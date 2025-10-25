@@ -14,6 +14,7 @@ struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var isInputFocused: Bool = false
+    @State private var shouldMaintainFocus: Bool = true  // For rapid messaging
     @State private var showGroupInfo = false
     @State private var showEventsSheet = false  // PR#20.2: Events sheet
     @State private var userCache: [String: User] = [:]  // Changed to @State so it can be updated
@@ -346,6 +347,17 @@ struct ChatView: View {
             // Messages ScrollView
             ScrollViewReader { proxy in
                 messagesList(proxy: proxy)
+                    .onTapGesture {
+                        // Allow users to dismiss focus by tapping messages area
+                        print("🎯 User tapped messages, allowing focus dismissal")
+                        shouldMaintainFocus = false
+                        isInputFocused = false
+                        
+                        // Re-enable persistent focus after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            shouldMaintainFocus = true
+                        }
+                    }
             }
             
             // Typing indicator
@@ -370,15 +382,32 @@ struct ChatView: View {
                 text: $viewModel.messageText,
                 isFocused: $isInputFocused,
                 onSend: {
+                    print("🎯 Sending message, current focus: \(isInputFocused)")
+                    // Send message but maintain focus for rapid messaging
                     viewModel.sendMessage()
-                    // Keep focus after sending for rapid messaging
-                    isInputFocused = true
+                    
+                    // Use DispatchQueue for more reliable UI updates
+                    DispatchQueue.main.async {
+                        print("🎯 Restoring focus after send")
+                        isInputFocused = true
+                    }
                 }
             )
         }
         .onChange(of: viewModel.messageText) { oldValue, newValue in
             // Trigger typing indicator when text changes
             viewModel.handleTextChange()
+        }
+        .onChange(of: isInputFocused) { oldValue, newValue in
+            print("🎯 ChatView focus changed: \(oldValue) → \(newValue)")
+            
+            // If focus is lost but we should maintain it, restore it
+            if !newValue && shouldMaintainFocus {
+                print("🎯 Focus lost, restoring for rapid messaging")
+                DispatchQueue.main.async {
+                    isInputFocused = true
+                }
+            }
         }
         .navigationTitle(conversationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -423,7 +452,10 @@ struct ChatView: View {
             print("👁️ Chat is now VISIBLE - read receipts will be instant")
             
             // Auto-focus input for immediate typing
-            isInputFocused = true
+            print("🎯 ChatView onAppear - setting initial focus")
+            DispatchQueue.main.async {
+                isInputFocused = true
+            }
         }
         .onDisappear {
             // PR#17.1: Clear active conversation when leaving chat
@@ -433,6 +465,10 @@ struct ChatView: View {
             // PR#11 Fix: Clear chat visibility
             viewModel.isChatVisible = false
             print("👁️ Chat is now HIDDEN - read receipts paused")
+            
+            // Disable persistent focus when leaving chat
+            shouldMaintainFocus = false
+            isInputFocused = false
         }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {
