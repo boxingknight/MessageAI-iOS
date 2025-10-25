@@ -340,9 +340,11 @@ class ChatViewModel: ObservableObject {
                     print("⚠️ Failed to save message to Core Data: \(error)")
                 }
                 
-                // PR #17: Priority detection now handled server-side via Firestore trigger
-                // This prevents race conditions where multiple users detect priority for the same message
-                // The aiMetadata.priorityLevel will be automatically updated by the Cloud Function
+                // TEMPORARY: Re-enable client-side priority detection for testing
+                // Will move back to server-side once Cloud Functions are deployed
+                Task {
+                    await detectMessagePriority(for: firebaseMessage.id, messageText: firebaseMessage.text)
+                }
                 
                 // PR #18: Automatically track RSVP for new messages (async, non-blocking)
                 // Only detects RSVPs (yes/no/maybe responses), doesn't trigger on all messages
