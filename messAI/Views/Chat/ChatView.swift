@@ -13,7 +13,7 @@ import FirebaseFirestore
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isInputFocused: Bool
+    @State private var isInputFocused: Bool = false
     @State private var showGroupInfo = false
     @State private var showEventsSheet = false  // PR#20.2: Events sheet
     @State private var userCache: [String: User] = [:]  // Changed to @State so it can be updated

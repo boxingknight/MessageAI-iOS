@@ -22,7 +22,7 @@ struct GroupInfoView: View {
     
     // MARK: - ViewModels
     
-    @StateObject private var groupViewModel = GroupViewModel()
+    @StateObject private var groupViewModel = GroupViewModel(chatService: ChatService())
     
     // MARK: - State
     
