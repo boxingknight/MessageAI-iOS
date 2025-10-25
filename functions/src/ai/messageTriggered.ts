@@ -2,8 +2,6 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { detectPriority } from './priorityDetection';
 
-const db = admin.firestore();
-
 /**
  * Firestore trigger: Auto-detect priority when messages are created
  * 
