@@ -302,11 +302,23 @@ extension Message {
         self.senderName = dictionary["senderName"] as? String
         self.senderPhotoURL = dictionary["senderPhotoURL"] as? String
         
-        // PR #14: AI metadata
-        if let aiMetadataDict = dictionary["aiMetadata"] as? [String: Any],
-           let jsonData = try? JSONSerialization.data(withJSONObject: aiMetadataDict),
-           let metadata = try? JSONDecoder().decode(AIMetadata.self, from: jsonData) {
-            self.aiMetadata = metadata
+        // PR #14: AI metadata - Handle Firebase Timestamps safely
+        if let aiMetadataDict = dictionary["aiMetadata"] as? [String: Any] {
+            // Convert Firebase Timestamps to regular dates before JSON serialization
+            var cleanDict = aiMetadataDict
+            
+            // Convert processedAt timestamp to Date
+            if let processedAtTimestamp = aiMetadataDict["processedAt"] as? Timestamp {
+                cleanDict["processedAt"] = processedAtTimestamp.dateValue().timeIntervalSince1970
+            }
+            
+            // Try to decode the cleaned dictionary
+            if let jsonData = try? JSONSerialization.data(withJSONObject: cleanDict),
+               let metadata = try? JSONDecoder().decode(AIMetadata.self, from: jsonData) {
+                self.aiMetadata = metadata
+            } else {
+                self.aiMetadata = nil
+            }
         } else {
             self.aiMetadata = nil
         }
