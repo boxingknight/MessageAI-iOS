@@ -1088,54 +1088,103 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Priority Highlighting (PR #17)
     
-    /// Detect priority level for a message (MANUAL CALLS ONLY - auto-detection moved to server-side)
-    /// Priority is now automatically handled via Firestore trigger to prevent race conditions
+    /// Detect priority level for a message (TEMPORARY CLIENT-SIDE ONLY - for testing UI)
+    /// This is a fallback implementation using keywords until Cloud Functions are deployed
     /// Updates the message's AIMetadata with priority information
     @discardableResult
     func detectMessagePriority(for messageId: String, messageText: String) async -> PriorityDetectionResult? {
-        // print("🎯 Detecting priority for message: \(messageId)")
+        print("🎯 TEMP: Client-side priority detection for: \(messageText.prefix(50))")
         
-        do {
-            // Call AI service to detect priority
-            let result = try await AIService.shared.detectPriority(
-                messageText: messageText,
-                conversationId: conversationId
-            )
+        // TEMPORARY: Use local keyword detection instead of Cloud Functions
+        let result = detectPriorityLocally(messageText: messageText)
+        
+        print("🎯 TEMP: Detected priority: \(result.level.rawValue) (confidence: \(String(format: "%.2f", result.confidence)))")
+        
+        // Update message's AIMetadata in Firestore
+        await updateMessagePriority(messageId: messageId, result: result)
+        
+        // Update local message object
+        if let index = messages.firstIndex(where: { $0.id == messageId }) {
+            var updatedMessage = messages[index]
             
-            // print("✅ Priority detected: \(result.level.rawValue)")
-            // print("   - Confidence: \(String(format: "%.2f", result.confidence))")
-            // print("   - Method: \(result.method.rawValue)")
-            // print("   - Used GPT-4: \(result.usedGPT4)")
-            
-            // Update message's AIMetadata in Firestore
-            await updateMessagePriority(messageId: messageId, result: result)
-            
-            // Update local message object
-            if let index = messages.firstIndex(where: { $0.id == messageId }) {
-                var updatedMessage = messages[index]
-                
-                // Create or update AIMetadata
-                if updatedMessage.aiMetadata == nil {
-                    updatedMessage.aiMetadata = AIMetadata()
-                }
-                
-                updatedMessage.aiMetadata?.priorityLevel = result.level
-                updatedMessage.aiMetadata?.priorityConfidence = result.confidence
-                updatedMessage.aiMetadata?.priorityMethod = result.method.rawValue
-                updatedMessage.aiMetadata?.priorityKeywords = result.keywords
-                updatedMessage.aiMetadata?.priorityReasoning = result.reasoning
-                
-                messages[index] = updatedMessage
-                
-                // print("✅ Updated local message with priority: \(result.level.rawValue)")
+            // Create or update AIMetadata
+            if updatedMessage.aiMetadata == nil {
+                updatedMessage.aiMetadata = AIMetadata()
             }
             
-            return result
+            updatedMessage.aiMetadata?.priorityLevel = result.level
+            updatedMessage.aiMetadata?.priorityConfidence = result.confidence
+            updatedMessage.aiMetadata?.priorityMethod = result.method.rawValue
+            updatedMessage.aiMetadata?.priorityKeywords = result.keywords
+            updatedMessage.aiMetadata?.priorityReasoning = result.reasoning
             
-        } catch {
-            // Silenced: Priority detection failed
-            return nil
+            messages[index] = updatedMessage
+            
+            print("🎯 TEMP: Updated local message with priority: \(result.level.rawValue)")
         }
+        
+        return result
+    }
+    
+    /// TEMPORARY: Local keyword-based priority detection (until Cloud Functions are deployed)
+    private func detectPriorityLocally(messageText: String) -> PriorityDetectionResult {
+        let text = messageText.lowercased()
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+        
+        // Critical keywords
+        let criticalKeywords = ["emergency", "urgent", "asap", "help", "fire", "police", "hospital", "911", "ambulance", "danger", "critical", "immediate", "now"]
+        
+        // High priority keywords  
+        let highKeywords = ["important", "deadline", "pickup", "school", "meeting", "appointment", "tonight", "today", "soon", "hurry", "quick"]
+        
+        var detectedKeywords: [String] = []
+        var priority: PriorityLevel = .normal
+        var confidence: Double = 0.5
+        var reasoning = "No urgent keywords detected"
+        
+        // Check for critical keywords
+        for keyword in criticalKeywords {
+            if text.contains(keyword) {
+                detectedKeywords.append(keyword)
+                priority = .critical
+                confidence = 0.9
+                reasoning = "Critical keywords detected: \(detectedKeywords.joined(separator: ", "))"
+            }
+        }
+        
+        // If not critical, check for high priority
+        if priority == .normal {
+            for keyword in highKeywords {
+                if text.contains(keyword) {
+                    detectedKeywords.append(keyword)
+                    priority = .high
+                    confidence = 0.7
+                    reasoning = "High priority keywords detected: \(detectedKeywords.joined(separator: ", "))"
+                }
+            }
+        }
+        
+        // Check for exclamation marks (additional signal)
+        let exclamationCount = text.filter { $0 == "!" }.count
+        if exclamationCount >= 2 {
+            if priority == .normal {
+                priority = .high
+                confidence = 0.6
+                reasoning = "Multiple exclamation marks suggest urgency"
+            } else {
+                confidence = min(confidence + 0.1, 1.0)
+            }
+        }
+        
+        return PriorityDetectionResult(
+            level: priority,
+            confidence: confidence,
+            method: .keyword,
+            keywords: detectedKeywords,
+            reasoning: reasoning,
+            processingTimeMs: 10,
+            usedGPT4: false
+        )
     }
     
     /// Update message priority in Firestore
