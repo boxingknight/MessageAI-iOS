@@ -500,9 +500,16 @@ struct ChatView: View {
                     .getDocument()
                 
                 if let data = userDoc.data() {
-                    let user = try User.fromFirestore(data, id: participantId)
-                    loadedUsers[participantId] = user
-                    print("👥 Loaded user: \(user.displayName)")
+                    // Add the document ID to the data dictionary since User.init expects it
+                    var userData = data
+                    userData["id"] = participantId
+                    
+                    if let user = User(from: userData) {
+                        loadedUsers[participantId] = user
+                        print("👥 Loaded user: \(user.displayName)")
+                    } else {
+                        print("⚠️ Failed to parse user data for: \(participantId)")
+                    }
                 } else {
                     print("⚠️ User document not found for: \(participantId)")
                 }
