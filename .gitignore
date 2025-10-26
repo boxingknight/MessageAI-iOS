@@ -91,9 +91,31 @@ fastlane/test_output
 
 iOSInjectionProject/
 
-# Firebase
+# Firebase - CRITICAL SECURITY
+# Never commit these files - they contain API keys and sensitive config
 GoogleService-Info.plist
 google-services.json
+**/GoogleService-Info.plist
+**/google-services.json
+GoogleService-Info*.plist
+google-services*.json
+
+# Firebase additional security
+.firebaserc.local
+firebase-debug.log*
+firebase-debug.*.log*
+.firebase/
+firebase.json.backup
+
+# API Keys and Secrets (additional protection)
+*.apikey
+*.secret
+**/secrets/
+**/config/production/
+**/config/staging/
+apikeys.plist
+secrets.plist
+config.plist
 
 # Environment files
 .env
