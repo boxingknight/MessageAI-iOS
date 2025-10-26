@@ -35,7 +35,7 @@ export const handleDetectOpportunities = functions.https.onCall(async (data, con
 
     // Initialize OpenAI
     const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: functions.config().openai.key
     });
 
     // Detect opportunities
