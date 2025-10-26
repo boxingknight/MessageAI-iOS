@@ -8,6 +8,7 @@ import { detectUrgency, detectPriority } from './priorityDetection';
 import { extractRSVP } from './rsvpTracking';
 import { extractDeadlines } from './deadlineExtraction';
 import { eventPlanningAgent } from './eventPlanningAgent';
+import { translateMessage } from './translation';
 
 /**
  * Main AI processing function
@@ -122,6 +123,9 @@ async function routeAIFeature(data: any): Promise<any> {
     
     case 'agent':
       return await eventPlanningAgent(data);
+    
+    case 'translation':
+      return await translateMessage(data);
     
     default:
       // This should never happen due to validation

@@ -11,6 +11,7 @@ enum AIFeature: String, Codable {
     case rsvp
     case deadline
     case agent
+    case translation // PR#30: Real-Time Translation
 }
 
 /// Errors that can occur during AI processing
@@ -685,6 +686,91 @@ class AIService {
                 throw AIError.networkError
             }
         }
+    }
+    
+    // MARK: - PR#30: Real-Time Translation
+    
+    /// Translate message text to target language
+    /// Uses AI to detect source language and translate with high accuracy
+    /// Supports caching to reduce API costs and improve performance
+    func translateMessage(
+        _ messageText: String,
+        to targetLanguage: LanguageCode,
+        from sourceLanguage: LanguageCode? = nil,
+        conversationId: String,
+        messageId: String,
+        preserveFormatting: Bool = true
+    ) async throws -> TranslationResult {
+        print("🌐 AIService: Translating message to \(targetLanguage.displayName)")
+        
+        // Validate input
+        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIError.serverError("Message text cannot be empty")
+        }
+        
+        guard messageText.count <= 2000 else {
+            throw AIError.serverError("Message too long (max 2000 characters)")
+        }
+        
+        // Prepare request data
+        let data: [String: Any] = [
+            "feature": AIFeature.translation.rawValue,
+            "messageText": messageText,
+            "targetLanguage": targetLanguage.rawValue,
+            "sourceLanguage": sourceLanguage?.rawValue as Any,
+            "conversationId": conversationId,
+            "messageId": messageId,
+            "preserveFormatting": preserveFormatting
+        ]
+        
+        print("📤 AIService: Calling translation Cloud Function")
+        print("   Target: \(targetLanguage.displayName)")
+        print("   Source: \(sourceLanguage?.displayName ?? "auto-detect")")
+        print("   Text length: \(messageText.count)")
+        
+        // Call Cloud Function
+        let callable = functions.httpsCallable("processAI")
+        
+        do {
+            let result = try await callable.call(data)
+            
+            guard let resultData = result.data as? [String: Any] else {
+                print("❌ AIService: Invalid translation response format")
+                throw AIError.invalidResponse
+            }
+            
+            // Parse translation result
+            guard let translationResult = TranslationResult(from: resultData) else {
+                print("❌ AIService: Failed to parse TranslationResult")
+                print("   Response: \(resultData)")
+                throw AIError.invalidResponse
+            }
+            
+            print("✅ AIService: Translation completed successfully")
+            print("   - Source: \(translationResult.detectedSourceLanguage.displayName)")
+            print("   - Target: \(translationResult.targetLanguage.displayName)")
+            print("   - Method: \(translationResult.translationMethod.displayName)")
+            print("   - Confidence: \(String(format: "%.2f", translationResult.confidence))")
+            print("   - Processing Time: \(translationResult.processingTimeDescription)")
+            print("   - Cost: \(translationResult.costDescription)")
+            print("   - Translated Text: \(translationResult.translatedText.prefix(100))...")
+            
+            return translationResult
+            
+        } catch let error as NSError {
+            print("❌ AIService: Translation error: \(error)")
+            throw mapFirebaseError(error)
+        }
+    }
+    
+    /// Get list of supported languages for translation
+    func getSupportedLanguages() -> [LanguageCode] {
+        return LanguageCode.allCases
+    }
+    
+    /// Get popular languages for quick selection
+    func getPopularLanguages() -> [LanguageCode] {
+        return LanguageCode.popularLanguages
     }
 }
 

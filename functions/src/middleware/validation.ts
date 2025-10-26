@@ -44,7 +44,8 @@ export function validateFeature(feature: string): void {
     'priority',  // PR#17: Priority Highlighting
     'rsvp',
     'deadline',
-    'agent'
+    'agent',
+    'translation'  // PR#30: Real-Time Translation
   ];
   
   if (!validFeatures.includes(feature)) {
