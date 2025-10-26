@@ -179,23 +179,23 @@ struct TranslationResultView: View {
                     .padding(.vertical, 2)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    DetailRow(
+                    TranslationDetailRow(
                         label: "Method", 
                         value: result.translationMethod.displayName,
                         icon: "gear"
                     )
-                    DetailRow(
+                    TranslationDetailRow(
                         label: "Processing Time", 
                         value: result.processingTimeDescription,
                         icon: "clock"
                     )
-                    DetailRow(
+                    TranslationDetailRow(
                         label: "Tokens Used", 
                         value: "\(result.tokensUsed)",
                         icon: "number"
                     )
                     if result.cost > 0 {
-                        DetailRow(
+                        TranslationDetailRow(
                             label: "Cost", 
                             value: result.costDescription,
                             icon: "dollarsign.circle"
@@ -217,7 +217,7 @@ struct TranslationResultView: View {
 }
 
 /// Helper view for detail rows
-struct DetailRow: View {
+struct TranslationDetailRow: View {
     let label: String
     let value: String
     let icon: String
@@ -272,9 +272,11 @@ struct LanguagePickerView: View {
             }
             .navigationTitle("Translate to")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button("Done") { dismiss() }
-            )
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
     

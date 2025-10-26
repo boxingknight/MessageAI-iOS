@@ -90,7 +90,7 @@ enum TranslationMethod: String, Codable {
 
 /// Translation result from AI service
 struct TranslationResult: Codable, Identifiable {
-    let id = UUID()
+    let id: UUID
     let translatedText: String
     let detectedSourceLanguage: LanguageCode
     let targetLanguage: LanguageCode
@@ -100,6 +100,27 @@ struct TranslationResult: Codable, Identifiable {
     let tokensUsed: Int
     let cost: Double
     let timestamp: Date
+    
+    // Custom coding keys to exclude id from Codable
+    private enum CodingKeys: String, CodingKey {
+        case translatedText, detectedSourceLanguage, targetLanguage
+        case confidence, translationMethod, processingTimeMs
+        case tokensUsed, cost, timestamp
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.translatedText = try container.decode(String.self, forKey: .translatedText)
+        self.detectedSourceLanguage = try container.decode(LanguageCode.self, forKey: .detectedSourceLanguage)
+        self.targetLanguage = try container.decode(LanguageCode.self, forKey: .targetLanguage)
+        self.confidence = try container.decode(Double.self, forKey: .confidence)
+        self.translationMethod = try container.decode(TranslationMethod.self, forKey: .translationMethod)
+        self.processingTimeMs = try container.decode(Int.self, forKey: .processingTimeMs)
+        self.tokensUsed = try container.decode(Int.self, forKey: .tokensUsed)
+        self.cost = try container.decode(Double.self, forKey: .cost)
+        self.timestamp = Date()
+    }
     
     /// Initialize from Cloud Function response
     init?(from dictionary: [String: Any]) {
@@ -119,6 +140,7 @@ struct TranslationResult: Codable, Identifiable {
             return nil
         }
         
+        self.id = UUID()
         self.translatedText = translatedText
         self.detectedSourceLanguage = detectedSourceLanguage
         self.targetLanguage = targetLanguage
@@ -301,7 +323,7 @@ class TranslationCache {
             let sortedByDate = cache.sorted { $0.value.timestamp < $1.value.timestamp }
             let toKeep = sortedByDate.suffix(maxCacheSize - 10) // Keep 10 less than max
             
-            cache = Dictionary(uniqueKeysWithValues: toKeep)
+            cache = Dictionary(uniqueKeysWithValues: toKeep.map { ($0.key, $0.value) })
         }
     }
     
