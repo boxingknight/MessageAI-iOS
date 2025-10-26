@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA2DFC372EAEA53B004DF123 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = DA2DFC362EAEA53B004DF123 /* GoogleService-Info.plist */; };
 		E3E34ABC2EA6D65500F0FDBE /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34ABB2EA6D65500F0FDBE /* FirebaseAuth */; };
 		E3E34ABE2EA6D65D00F0FDBE /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34ABD2EA6D65D00F0FDBE /* FirebaseFirestore */; };
 		E3E34AC02EA6D66300F0FDBE /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = E3E34ABF2EA6D66300F0FDBE /* FirebaseStorage */; };
@@ -15,6 +16,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		DA2DFC362EAEA53B004DF123 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		E3E34AA92EA6944C00F0FDBE /* messAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = messAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -48,6 +50,7 @@
 				E3E34AAB2EA6944C00F0FDBE /* messAI */,
 				E3E34ABA2EA6D65500F0FDBE /* Frameworks */,
 				E3E34AAA2EA6944C00F0FDBE /* Products */,
+				DA2DFC362EAEA53B004DF123 /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -138,6 +141,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA2DFC372EAEA53B004DF123 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

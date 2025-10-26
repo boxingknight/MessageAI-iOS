@@ -21,6 +21,16 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 8) {
+            // Debug indicator
+            HStack {
+                Text("🌐 Translation Panel")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                Spacer()
+            }
+            .onAppear {
+                print("🌐 DEBUG: TranslationView appeared for message: \(messageText.prefix(30))")
+            }
             // Translation Controls
             HStack {
                 // Translate Button

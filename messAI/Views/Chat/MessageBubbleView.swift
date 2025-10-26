@@ -44,21 +44,27 @@ struct MessageBubbleView: View {
                         .padding(.leading, 12)
                 }
                 
-                // Message text bubble with priority border (PR #17)
+                // Message text bubble with priority border (PR #17)  
                 Text(message.text)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(priorityBackgroundColor)
                     .foregroundColor(textColor)
                     .clipShape(messageBubbleShape)
-                    .textSelection(.enabled)
                     .overlay(
                         messageBubbleShape
                             .stroke(priorityBorderColor, lineWidth: priorityBorderWidth)
                     )
-                    .onLongPressGesture {
+                    .onLongPressGesture(minimumDuration: 0.5) {
+                        print("🌐 DEBUG: Long press detected on message: \(message.text.prefix(30))")
+                        
+                        // Haptic feedback to confirm gesture
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedback.impactOccurred()
+                        
                         withAnimation(.easeInOut(duration: 0.2)) {
                             showTranslation.toggle()
+                            print("🌐 DEBUG: showTranslation is now: \(showTranslation)")
                         }
                     }
                 
