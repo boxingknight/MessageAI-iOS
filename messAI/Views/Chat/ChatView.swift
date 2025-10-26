@@ -254,6 +254,24 @@ struct ChatView: View {
                                     } label: {
                                         Label("Extract Calendar Event", systemImage: "calendar.badge.plus")
                                     }
+                                    
+                                    // PR #30: Translation context menu
+                                    Button {
+                                        viewModel.toggleTranslation(for: message.id)
+                                    } label: {
+                                        Label("Translate Message", systemImage: "globe")
+                                    }
+                                }
+                                
+                                // PR #30: Display translation view if active
+                                if viewModel.isTranslationActive(for: message.id) {
+                                    TranslationView(
+                                        messageText: message.text,
+                                        messageId: message.id,
+                                        conversationId: conversation.id,
+                                        viewModel: viewModel
+                                    )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
                                 
                                 // PR #15: Display calendar cards if events exist

@@ -22,8 +22,6 @@ struct MessageBubbleView: View {
     // PR #13: Users for group sender names
     let users: [String: User]?
     
-    // PR #30: Translation state
-    @State private var showTranslation = false
     
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -55,28 +53,6 @@ struct MessageBubbleView: View {
                         messageBubbleShape
                             .stroke(priorityBorderColor, lineWidth: priorityBorderWidth)
                     )
-                    .onLongPressGesture(minimumDuration: 0.5) {
-                        print("🌐 DEBUG: Long press detected on message: \(message.text.prefix(30))")
-                        
-                        // Haptic feedback to confirm gesture
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                        
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showTranslation.toggle()
-                            print("🌐 DEBUG: showTranslation is now: \(showTranslation)")
-                        }
-                    }
-                
-                // PR #30: Translation View
-                if showTranslation {
-                    TranslationView(
-                        messageText: message.text,
-                        messageId: message.id,
-                        conversationId: message.conversationId
-                    )
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                }
                 
                 // Timestamp + Status + Priority (only show on last message in group)
                 if isLastInGroup {
