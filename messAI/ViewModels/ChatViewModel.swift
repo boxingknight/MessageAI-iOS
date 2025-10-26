@@ -492,6 +492,10 @@ class ChatViewModel: ObservableObject {
     @Published var isExtractingCalendar = false
     @Published var calendarExtractionError: String?
     
+    // PR #30: Translation state management
+    @Published var activeTranslations: Set<String> = [] // Message IDs showing translation
+    @Published var translationResults: [String: TranslationResult] = [:] // MessageID -> Result
+    
     /// Extract calendar events from a message using AI
     func extractCalendarEvents(from message: Message) async {
         guard !isExtractingCalendar else { return }
@@ -741,6 +745,39 @@ class ChatViewModel: ObservableObject {
             calendarExtractionError = error.localizedDescription
             return false
         }
+    }
+    
+    // MARK: - Translation (PR #30)
+    
+    /// Toggle translation panel for a specific message
+    func toggleTranslation(for messageId: String) {
+        print("🌐 DEBUG: Toggling translation for message: \(messageId)")
+        
+        if activeTranslations.contains(messageId) {
+            // Hide translation
+            activeTranslations.remove(messageId)
+            print("🌐 DEBUG: Hiding translation for: \(messageId)")
+        } else {
+            // Show translation  
+            activeTranslations.insert(messageId)
+            print("🌐 DEBUG: Showing translation for: \(messageId)")
+        }
+    }
+    
+    /// Check if translation is active for a message
+    func isTranslationActive(for messageId: String) -> Bool {
+        return activeTranslations.contains(messageId)
+    }
+    
+    /// Get translation result for a message
+    func getTranslationResult(for messageId: String) -> TranslationResult? {
+        return translationResults[messageId]
+    }
+    
+    /// Store translation result
+    func storeTranslationResult(_ result: TranslationResult, for messageId: String) {
+        translationResults[messageId] = result
+        print("🌐 DEBUG: Stored translation result for: \(messageId)")
     }
     
     // MARK: - Decision Summarization (PR #16)

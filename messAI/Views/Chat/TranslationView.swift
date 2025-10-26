@@ -5,6 +5,7 @@ struct TranslationView: View {
     let messageText: String
     let messageId: String
     let conversationId: String
+    let viewModel: ChatViewModel
     
     @State private var translationState: TranslationState = .idle
     @State private var selectedLanguage: LanguageCode = .spanish
@@ -56,6 +57,15 @@ struct TranslationView: View {
                     }
                     .foregroundColor(.secondary)
                 }
+                
+                // Close Button
+                Button(action: {
+                    viewModel.toggleTranslation(for: messageId)
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             // Translation Result
@@ -94,6 +104,12 @@ struct TranslationView: View {
         .cornerRadius(8)
         .onAppear {
             selectedLanguage = preferredLanguageCode
+            
+            // Check if there's already a translation result for this message
+            if let existingResult = viewModel.getTranslationResult(for: messageId) {
+                translationState = .success(existingResult)
+                print("🌐 DEBUG: Loaded existing translation result")
+            }
         }
         .sheet(isPresented: $showLanguagePicker) {
             LanguagePickerView(
@@ -116,6 +132,9 @@ struct TranslationView: View {
             )
             
             translationState = .success(result)
+            
+            // Store result in shared viewModel for caching
+            viewModel.storeTranslationResult(result, for: messageId)
             
             // Update preferred language for future translations
             preferredLanguage = selectedLanguage.rawValue
@@ -331,22 +350,9 @@ struct LanguageRow: View {
 struct TranslationView_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 20) {
-            // Idle state
-            TranslationView(
-                messageText: "Hello! How are you doing today?",
-                messageId: "msg1",
-                conversationId: "conv1"
-            )
-            
-            // With translation result
-            TranslationView(
-                messageText: "Hello! How are you doing today?",
-                messageId: "msg2",
-                conversationId: "conv1"
-            )
-            .onAppear {
-                // Simulate translation result for preview
-            }
+            // Note: Preview disabled due to ChatViewModel dependency
+            Text("Translation View Preview")
+                .foregroundColor(.secondary)
         }
         .padding()
         .previewLayout(.sizeThatFits)
